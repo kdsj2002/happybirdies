@@ -147,23 +147,52 @@ firebase deploy --only hosting
 - **관리 비밀번호**: `0116` (설정 → 관리 비밀번호에서 변경)
 - **운영자 동시 접속**: 최대 2명
 - **자동 마감**: 첫 경기 시작 후 12시간
-- **firebase-config.json**은 공개 저장소(GitHub 등)에 올리지 마세요.
-  Firebase 웹 키는 원래 클라이언트에 노출되는 값이지만, 실제 보안은
-  Firestore 보안 규칙이 담당하므로 규칙을 반드시 설정하세요.
+- **관리 비밀번호는 settings 문서에 평문으로 저장됩니다.** 검사도 브라우저에서만
+  하므로, 앱을 거치지 않는 접근은 막지 못합니다. 진짜 방어선은 Firestore 규칙입니다.
+- **firebase-config.json**은 숨겨야 할 파일이 아닙니다. Firebase 웹 키는 원래
+  브라우저에 노출되는 프로젝트 식별자라 저장소가 비공개여도 배포된 사이트에서
+  그대로 보입니다. 실제 보안은 아래 Firestore 규칙이 담당합니다.
 
-## Firestore 보안 규칙 (권장)
+## Firestore 보안 규칙
 
-테스트 모드는 30일 후 만료됩니다. 콘솔 → Firestore → 규칙에 아래를 넣으세요.
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /clubs/{club}/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
+규칙은 저장소의 **`firestore.rules`** 파일에 들어 있습니다. 내용과 이유는
+그 파일의 주석에 적어 두었습니다.
 
 익명 로그인이 켜져 있어야 합니다 (콘솔 → Authentication → 로그인 방법 → 익명).
+
+### 배포 방법 — 파일을 고치는 것만으로는 적용되지 않습니다
+
+GitHub Actions 워크플로는 **호스팅만** 배포합니다. 규칙은 따로 올려야 합니다.
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+또는 콘솔 → Firestore → 규칙에 파일 내용을 그대로 붙여넣으세요.
+
+### 이 규칙이 막는 것 / 막지 못하는 것
+
+**막는 것**
+
+- `clubs/{club}/kv/` 밖의 경로에 쓰기
+- 앱이 쓰지 않는 이름의 문서 만들기
+- `{v, updatedAt}` 형식을 벗어나거나 900KB를 넘는 문서
+- 문서 삭제 (앱은 어떤 문서도 지우지 않습니다)
+- **회원 명단을 빈 값으로 덮어쓰기** — 앱 쪽 잠금이 뚫렸을 때의 마지막 방어선
+
+**막지 못하는 것 (알고 쓰세요)**
+
+- **회원 명단 읽기.** 익명 로그인을 켜 둔 이상 누구든 익명 계정을 만들 수
+  있으므로 `request.auth != null`은 사실상 "인터넷 전체"와 같습니다.
+  회원 이름·출생년도·급수가 공개돼도 괜찮은지가 판단 기준입니다.
+- **운영자와 회원 구분.** 같은 이유입니다. 관리 비밀번호(`adminPin`)는
+  settings 문서에 평문으로 들어가고 검사도 브라우저에서만 하므로,
+  규칙을 대신하지 못합니다.
+
+이 둘까지 막으려면 익명 로그인 대신 실제 로그인(Google 등)을 쓰고
+`clubs/{club}/roles/{uid}`에 역할을 저장해 규칙에서 확인해야 하며,
+그때 `adminPin`은 settings에서 빼야 합니다. config 파일을 복사해
+스크립트로 두드리는 경로는 **App Check**(콘솔에서 적용)로 막습니다.
+
+`firebase-config.json`의 `apiKey`는 비밀이 아닙니다. 브라우저로 내려가는
+프로젝트 식별자라 어차피 공개됩니다. 실제 보안은 위 규칙이 담당합니다.

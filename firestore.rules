@@ -1,18 +1,64 @@
-rules_version='2'
+rules_version = '2';
 
+/* =====================================================================
+   배드민턴 대진판 — Firestore 보안 규칙
+
+   전제: 이 앱은 익명 로그인만 쓴다. 그래서 규칙은 "누가" 요청했는지
+   구분할 수 없다(아무나 익명 계정을 만들 수 있다). 대신 "무엇을" 쓰는지는
+   강하게 조인다 — 경로·문서 이름 화이트리스트, 저장 형식과 크기 검증,
+   삭제 전면 금지, 그리고 회원 명단이 통째로 비워지는 쓰기 차단.
+
+   이 규칙으로 막히지 않는 것(알고 쓸 것):
+     - 회원 명단 읽기. 익명 로그인을 켜 둔 이상 규칙으로는 막을 수 없다.
+       명단 프라이버시가 필요하면 실제 로그인(Google 등) + 역할 문서로
+       가야 하고, 그때 settings의 adminPin도 빼야 한다.
+     - 운영자/회원 구분. 같은 이유다.
+   config 파일을 복사해 스크립트로 두드리는 경로는 App Check(콘솔에서
+   적용)로 막는다. 규칙 문법이 아니라 콘솔 설정이다.
+
+   ⚠ 이 파일을 고쳐도 그것만으로는 적용되지 않는다. 호스팅 워크플로는
+      호스팅만 올린다. 규칙은 따로 배포해야 한다:
+        firebase deploy --only firestore:rules
+   ===================================================================== */
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 9, 10);
+
+    // 앱이 쓰는 경로는 여기 하나뿐이다. 나머지 경로는 전부 막힌다.
+    match /clubs/{club}/kv/{docId} {
+
+      // 앱이 실제로 만드는 문서 이름만 허용한다.
+      function knownDoc() {
+        return docId in ['settings', 'members', 'sessions', 'adminLeases']
+            || docId.matches('session:[0-9]{4}-[0-9]{2}-[0-9]{2}');
+      }
+
+      // 저장 형식은 { v: JSON 문자열, updatedAt: 타임스탬프 }.
+      // 운영자 임차권(adminLeases)은 트랜잭션에서 updatedAt 없이 쓰므로
+      // updatedAt을 필수로 걸면 운영자 입장이 막힌다. hasOnly로만 조인다.
+      function validShape() {
+        return request.resource.data.keys().hasOnly(['v', 'updatedAt'])
+            && request.resource.data.v is string
+            && request.resource.data.v.size() < 900000;   // 문서 1MiB 한도 안쪽
+      }
+
+      // 회원 명단이 통째로 비워지는 쓰기는 서버에서도 막는다.
+      // 빈 배열은 "[]" 두 글자다. 멀쩡한 명단이 들어 있는데 그런 값이
+      // 올라오면 사고다 — 오프라인에서 돌아올 때 나던 바로 그 사고이고,
+      // 앱 쪽 잠금(actions.js의 save)이 뚫렸을 때의 마지막 방어선이다.
+      // 한 명만 남기는 것은 막지 않는다(빈 값일 때만 걸린다). 정말로 명단을
+      // 0명으로 만들어야 한다면 앱에서는 안 되고, Firebase 콘솔에서 직접
+      // 고치거나 이 규칙을 잠시 풀었다가 되돌려야 한다. 일부러 그렇게 뒀다.
+      function notWipingMembers() {
+        return !(docId == 'members'
+                 && request.resource.data.v.size() < 10
+                 && resource.data.v.size() > 100);
+      }
+
+      allow read:   if request.auth != null && knownDoc();
+      allow create: if request.auth != null && knownDoc() && validShape();
+      allow update: if request.auth != null && knownDoc() && validShape()
+                    && notWipingMembers();
+      allow delete: if false;      // 앱은 어떤 문서도 지우지 않는다
     }
   }
 }
