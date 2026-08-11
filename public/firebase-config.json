@@ -1,4 +1,4 @@
-const firebaseConfig = {
+{
   "apiKey": "AIzaSyCvDUvmviyukyGQqfU0A-j1A2C63CHF0IM",
   "authDomain": "happybirdies.firebaseapp.com",
   "projectId": "happybirdies",
