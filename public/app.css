@@ -1,0 +1,428 @@
+/* ─────────────────────────────────────────────
+   디자인 토큰 — 배드민턴 코트에서 가져온 팔레트
+   바닥 매트의 짙은 초록, 코트 라인의 흰색,
+   셔틀콕 코르크의 주황을 경고색으로.
+   ───────────────────────────────────────────── */
+:root{
+  --bg:#0A1210;
+  --surface:#13201C;
+  --surface2:#1A2A25;
+  --raise:#23372F;
+  --line:#2C443C;
+  --line-soft:#1F332C;
+  --chalk:#E8F2ED;
+  --text:#E8F2ED;
+  --muted:#8AA298;
+  --muted2:#5F7871;
+
+  --court:#22A179;          /* 코트 그린 — 진행/확정 */
+  --court-soft:rgba(34,161,121,.16);
+  --cork:#E4572E;           /* 셔틀콕 코르크 — 경고/시간초과 */
+  --cork-soft:rgba(228,87,46,.16);
+  --gold:#D9A441;           /* 잠금/핀 */
+
+  --md:#5B8DEF;             /* 남복 */
+  --wd:#E06BA4;             /* 여복 */
+  --xd:#A78BFA;             /* 혼복 */
+  --mx:#7E948C;             /* 혼성 */
+  --unk:#586E67;
+
+  --gS:#F0714A; --gA:#E8A33D; --gB:#4FB477; --gC:#4A9BD1; --gD:#8B7FD4; --gE:#8AA298;
+
+  --r:10px; --r-lg:14px;
+  --tap:72px;
+  --font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Noto Sans KR','Malgun Gothic',sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font);
+  font-size:16px;line-height:1.4;
+  user-select:none;-webkit-user-select:none;
+  overscroll-behavior:none;
+}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+
+/* ── 레이아웃 ───────────────────────────── */
+#app{display:flex;flex-direction:column;height:100dvh}
+
+.topbar{
+  height:58px;flex:0 0 58px;display:flex;align-items:center;gap:14px;
+  padding:0 14px;background:var(--surface);border-bottom:1px solid var(--line);
+}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:17px;white-space:nowrap}
+.brand span{color:var(--muted2);font-weight:600;margin-left:7px;font-size:14px}
+.stat{color:var(--muted);font-size:14px;white-space:nowrap}
+.stat b{color:var(--text);font-weight:700}
+.spacer{flex:1}
+
+.tabs{display:flex;gap:4px}
+.tab{
+  height:40px;padding:0 15px;border:0;border-radius:var(--r);background:transparent;
+  color:var(--muted);font-weight:700;font-size:15px;cursor:pointer;
+}
+.tab.on{background:var(--raise);color:var(--text)}
+
+.btn{
+  height:42px;min-width:52px;padding:0 15px;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--surface2);color:var(--text);
+  font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap;
+}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--court);border-color:var(--court);color:#04140E}
+.btn.warn{background:var(--cork);border-color:var(--cork);color:#1A0803}
+.btn.ghost{background:transparent}
+.btn.sm{height:34px;padding:0 11px;font-size:14px;min-width:0;border-radius:8px}
+.btn:disabled{opacity:.32;cursor:default}
+
+.toggle{
+  height:42px;padding:0 14px;display:flex;align-items:center;gap:9px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface2);
+  font-weight:700;font-size:15px;cursor:pointer;
+}
+.toggle .dot{width:11px;height:11px;border-radius:50%;background:var(--muted2)}
+.toggle.on{border-color:var(--court);color:var(--court)}
+.toggle.on .dot{background:var(--court);box-shadow:0 0 10px var(--court)}
+
+.screen{flex:1;min-height:0;display:none}
+.screen.on{display:flex;flex-direction:column}
+
+/* ── 대진판 ─────────────────────────────── */
+/* grid-template-rows에 minmax(0,1fr)을 주지 않으면 행 높이가 내용에 맞춰
+   늘어나서, 자식의 overflow-y:auto가 동작하지 않고 내용이 그냥 잘려 나간다.
+   코트가 3면일 때 폰에서 아래쪽 코트 이름이 안 보이던 원인이 이것이다. */
+.board{flex:1;min-height:0;display:grid;
+       grid-template-columns:minmax(0,55fr) minmax(0,45fr);
+       grid-template-rows:minmax(0,1fr)}
+.courts{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;
+        display:flex;flex-direction:column;gap:12px;border-right:1px solid var(--line)}
+.qwrap{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;
+       display:flex;flex-direction:column;gap:9px}
+
+.sec-h{display:flex;align-items:center;gap:9px;color:var(--muted);
+       font-size:13px;font-weight:800;letter-spacing:.09em;margin-bottom:2px}
+.sec-h .rule{flex:1;height:1px;background:var(--line-soft)}
+
+/* 코트 카드 — 중앙 점선은 네트 */
+.court{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:11px 12px 12px;position:relative;overflow:hidden;
+}
+.court.playing{border-color:var(--court)}
+.court.over{border-color:var(--cork)}
+.court.disabled{opacity:.4}
+.court-h{display:flex;align-items:center;gap:9px;margin-bottom:9px;min-height:36px}
+.court-no{font-weight:800;font-size:17px;letter-spacing:-.01em}
+.timer{font-weight:800;font-size:24px;color:var(--muted)}
+.court.playing .timer{color:var(--court)}
+.court.over .timer{color:var(--cork)}
+
+.net{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:stretch}
+.side{display:flex;flex-direction:column;gap:7px;padding:0 9px}
+.side:first-child{padding-left:0}
+.side:last-child{padding-right:0}
+.netline{
+  background:repeating-linear-gradient(to bottom,var(--line) 0 5px,transparent 5px 10px);
+  width:1px;
+}
+.side-tag{font-size:11px;font-weight:800;color:var(--muted2);letter-spacing:.1em;height:13px}
+
+/* 대기 슬롯 */
+.slot{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:9px 10px 10px;
+}
+.slot.next{border-color:var(--court);box-shadow:inset 3px 0 0 var(--court)}
+.slot.locked{border-color:var(--gold)}
+.slot.empty{border-style:dashed;opacity:.55}
+.slot-h{display:flex;align-items:center;gap:7px;margin-bottom:7px;min-height:30px}
+.slot-no{font-weight:800;font-size:15px;min-width:24px}
+.slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.notice{margin-top:7px;font-size:13px;color:var(--cork);font-weight:700}
+
+/* 인원 칩 */
+/* 칩은 이름이 주인공이다. 성별·급수·출생년도는 표시하지 않으므로
+   두 줄짜리 구조를 버리고 이름을 크게 한 줄로 놓는다. 좁은 화면에서
+   가려지던 문제가 줄고, 대기 인원 바에도 더 많이 들어간다. */
+.chip{
+  position:relative;display:flex;align-items:center;
+  min-height:56px;padding:8px 44px 8px 12px;border-radius:9px;
+  background:var(--surface2);border:1px solid var(--line);
+  cursor:grab;touch-action:none;overflow:hidden;
+}
+.chip.sel{border-color:var(--court);box-shadow:0 0 0 2px var(--court-soft)}
+.chip.ghost{opacity:.3}
+.chip-nm{font-weight:700;font-size:20px;letter-spacing:-.02em;white-space:nowrap;
+         overflow:hidden;text-overflow:ellipsis;width:100%}
+.chip-nm .gst{font-size:11px;font-weight:800;color:var(--gold);margin-left:5px;vertical-align:2px}
+/* 성별 아이콘은 회원 명단 화면에서만 쓴다 */
+.sx{font-size:14px;font-weight:800}
+.sx.m{color:var(--md)} .sx.f{color:var(--wd)} .sx.u{color:var(--cork)}
+.chip-badge{position:absolute;right:8px;top:6px;font-size:12px;font-weight:800;color:var(--muted)}
+.chip-badge.zero{color:var(--cork)}
+.chip-wait{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--muted2)}
+.chip-wait.long{color:var(--gold)}
+.chip.hl{animation:hl 2s ease-out}
+@keyframes hl{0%{box-shadow:0 0 0 3px var(--court)}100%{box-shadow:0 0 0 0 transparent}}
+
+.seat{
+  min-height:56px;border:1px dashed var(--line);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted2);font-size:22px;font-weight:300;background:var(--line-soft);
+}
+.drop{outline:2px solid var(--court);outline-offset:-2px;background:var(--court-soft)}
+
+/* 유형 배지 */
+.mt{
+  height:24px;padding:0 9px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;
+  font-size:12px;font-weight:800;letter-spacing:.02em;cursor:pointer;border:1px solid transparent;
+}
+.mt.MD{background:rgba(91,141,239,.17);color:var(--md);border-color:rgba(91,141,239,.4)}
+.mt.WD{background:rgba(224,107,164,.17);color:var(--wd);border-color:rgba(224,107,164,.4)}
+.mt.XD{background:rgba(167,139,250,.17);color:var(--xd);border-color:rgba(167,139,250,.4)}
+.mt.MX{background:rgba(126,148,140,.17);color:var(--mx);border-color:rgba(126,148,140,.4)}
+.mt.UNKNOWN{background:transparent;color:var(--unk);border-color:var(--unk)}
+.mt.pin{border-style:dashed}
+.ic{font-size:13px;cursor:pointer;color:var(--muted2);padding:3px}
+.ic.on{color:var(--gold)}
+
+/* 풀 */
+.pool{
+  flex:0 0 auto;height:132px;border-top:1px solid var(--line);background:var(--surface);
+  display:flex;flex-direction:column;
+}
+.pool-h{display:flex;align-items:center;gap:10px;padding:7px 14px 0;font-size:13px;color:var(--muted)}
+.pool-list{flex:1;display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;padding:8px 14px 12px;align-items:center}
+.pool-list .chip{flex:0 0 auto;min-width:104px;max-width:170px;min-height:60px}
+.pool-empty{color:var(--muted2);font-size:14px;padding:8px 14px}
+
+/* 세그먼트 */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{height:32px;padding:0 11px;border:0;background:transparent;color:var(--muted);
+            font-weight:700;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--raise);color:var(--text)}
+
+/* ── 출석 ───────────────────────────────── */
+.pad{padding:14px 16px;overflow-y:auto;flex:1;min-height:0}
+.bar{display:flex;align-items:center;gap:10px;padding:11px 16px;
+     border-bottom:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+.grid-att{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:9px}
+.acard{
+  min-height:76px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);
+  padding:11px 12px;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;
+}
+.acard.in{background:var(--court-soft);border-color:var(--court)}
+.acard .nm{font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acard .sub{font-size:13px;color:var(--muted);margin-top:3px}
+.acard .ck{position:absolute;right:10px;top:9px;color:var(--court);font-weight:800;font-size:16px;display:none}
+.acard.in .ck{display:block}
+input[type=text],input[type=number],select,textarea{
+  height:42px;padding:0 12px;border:1px solid var(--line);border-radius:9px;
+  background:var(--surface2);color:var(--text);outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--court)}
+textarea{height:auto;padding:11px 12px;line-height:1.5;font-size:14px;resize:vertical;width:100%}
+label.fl{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:700}
+
+/* ── 표 ─────────────────────────────────── */
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-soft)}
+th{color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.06em}
+tr:hover td{background:var(--surface)}
+
+/* ── 모달 ───────────────────────────────── */
+.mask{position:fixed;inset:0;background:rgba(4,9,7,.78);display:none;
+      align-items:center;justify-content:center;z-index:50;padding:20px}
+.mask.on{display:flex}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+       padding:20px;max-width:600px;width:100%;max-height:88vh;overflow-y:auto}
+.modal h3{margin:0 0 4px;font-size:19px}
+.modal .sub{color:var(--muted);font-size:14px;margin-bottom:16px}
+.opt{
+  display:flex;align-items:center;gap:11px;padding:13px 14px;margin-bottom:8px;
+  border:1px solid var(--line);border-radius:11px;cursor:pointer;background:var(--surface2);
+}
+.opt.on{border-color:var(--court);background:var(--court-soft)}
+.opt.off{opacity:.42;cursor:not-allowed}
+.opt .t{font-weight:700;font-size:16px}
+.opt .d{font-size:13px;color:var(--muted);margin-top:2px}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.row.end{justify-content:flex-end;margin-top:16px}
+
+/* 드래그 고스트 */
+#ghost{position:fixed;z-index:99;pointer-events:none;width:170px;
+       transform:rotate(-5deg);box-shadow:0 14px 34px rgba(0,0,0,.6);display:none}
+
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:80;
+       background:var(--raise);border:1px solid var(--line);border-radius:10px;
+       padding:11px 18px;font-weight:700;font-size:15px;display:none;pointer-events:none}
+
+.hint{color:var(--muted2);font-size:13px;line-height:1.6}
+.kv{display:grid;grid-template-columns:200px 1fr;gap:12px 16px;align-items:center;max-width:760px}
+.kv .k{font-weight:700;font-size:14px}
+.kv .h{grid-column:1/-1;font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted);
+       border-bottom:1px solid var(--line-soft);padding-bottom:7px;margin-top:10px}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--raise);border-radius:5px}
+
+/* ─────────────────────────────────────────────
+   모바일(폰) 대응
+   원래 이 화면은 체육관 벽에 거치한 태블릿 가로 화면(코트|대기열 좌우 분할)을
+   전제로 짰다. 폰 세로 화면에서는 그 좌우 분할이 각각 반토막 나서 못 쓴다.
+
+   상단바 안에서 flex-wrap + order로 탭을 둘째 줄로 내리는 방식은 폭이 조금만
+   달라져도 줄바꿈이 어긋나 탭이 잘리거나 사라졌다. 그래서 아예 구조를 바꿔
+   탭을 화면 하단에 고정(position:fixed)한다. 줄바꿈 계산에 의존하지 않으므로
+   아이폰 SE(375×667)처럼 좁고 짧은 화면에서도 항상 보이고, 엄지로 닿기도 쉽다.
+   ───────────────────────────────────────────── */
+.mobile-only{display:none}
+
+@media (max-width:780px){
+  /* 하단 탭바 높이 + 홈 인디케이터 안전영역 */
+  :root{ --navh:56px; --navpad:calc(56px + env(safe-area-inset-bottom)); }
+
+  html,body{overflow:hidden}
+  #app{height:100dvh; padding-bottom:var(--navpad)}
+
+  /* 상단바: 한 줄만. 넘치면 줄이지 말고 가로 스크롤 없이 요소를 덜어낸다. */
+  .topbar{
+    flex:0 0 auto; height:auto; min-height:50px; flex-wrap:nowrap; gap:8px;
+    padding:7px 10px; padding-top:calc(7px + env(safe-area-inset-top));
+  }
+  .brand{font-size:15px; overflow:hidden; text-overflow:ellipsis}
+  .brand span{display:none}
+  .stat{display:none}
+  .toggle{padding:0 10px; height:38px}
+  .toggle span:last-child{display:none}         /* "자동" 글자 생략, 점만 남김 */
+  .btn{padding:0 10px; font-size:14px; height:38px; min-width:0}
+
+  /* 탭: 하단 고정 내비게이션 */
+  .tabs{
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    display:flex; gap:3px; padding:5px 5px calc(5px + env(safe-area-inset-bottom));
+    background:var(--surface); border-top:1px solid var(--line);
+  }
+  .tab{
+    flex:1 1 0; min-width:0; height:var(--navh); padding:0 2px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; border-radius:9px; white-space:nowrap;
+  }
+  .tab.on{background:var(--raise)}
+
+  /* 대진판: 좌우 분할 대신 세그먼트로 전환하는 단일 컬럼 */
+  .mv-bar{padding:8px 10px 0}
+  .mv-bar .seg{width:100%}
+  .mv-bar .seg button{flex:1 1 0; height:40px; font-size:14px}
+  .board{grid-template-columns:1fr}
+  .courts{border-right:none}
+  .courts, .qwrap{padding:8px 10px}
+  #app.mv-queues .courts{display:none}
+  #app:not(.mv-queues) .qwrap{display:none}
+
+  .chip-nm{font-size:18px}
+  /* 대기 인원 바: 칩이 이름만 담게 되어 훨씬 좁아졌으므로 두 줄로 감싸
+     한 화면에 많이 보이게 한다. 가로로만 밀던 예전보다 훑기 쉽다. */
+  .pool{height:148px}
+  .pool-list{flex-wrap:wrap; align-content:flex-start; overflow-x:hidden; overflow-y:auto;
+             gap:6px; padding:8px 10px 10px}
+  .pool-list .chip{flex:0 0 auto; min-width:92px; max-width:none; min-height:52px;
+                   padding:6px 34px 6px 10px}
+  .pool-list .chip .chip-nm{font-size:16px}
+  .pool-h{flex-wrap:wrap; row-gap:5px}
+
+  /* 설정 화면: 라벨/값을 좌우가 아니라 위아래로 */
+  .kv{grid-template-columns:1fr; max-width:100%; gap:4px 0}
+  .kv .k{margin-top:14px; font-size:13px; color:var(--muted)}
+  .kv .h{margin-top:8px}
+
+  .grid-att{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))}
+  .acard{min-height:78px; padding:9px 10px}
+  .acard .nm{font-size:17px}
+
+  .bar{padding:9px 10px}
+
+  /* 회원 표: 가로 스크롤 허용 (칸을 줄이는 대신 옆으로 밀기) */
+  .pad{overflow-x:auto}
+  table{font-size:13px}
+  th,td{padding:7px 6px; white-space:nowrap}
+
+  .modal{padding:16px; max-width:94vw; max-height:80vh}
+  .row.end{flex-wrap:wrap}
+  #toast{bottom:calc(var(--navpad) + 14px)}
+
+  .mobile-only{display:block}
+}
+
+/* 아이폰 SE(667px) 등 세로로 짧은 화면: 대기 인원 바를 줄여 코트 영역을 확보 */
+@media (max-width:780px) and (max-height:700px){
+  :root{ --navh:48px; --navpad:calc(48px + env(safe-area-inset-bottom)); }
+  .pool{height:124px}
+  .pool-list .chip{min-height:46px; min-width:86px}
+  .pool-list .chip .chip-nm{font-size:15px}
+  .court{padding:9px 10px 10px}
+  .chip{min-height:50px}
+  .seat{min-height:50px}
+  .chip-nm{font-size:17px}
+  .court-h{min-height:32px; margin-bottom:7px}
+  .timer{font-size:21px}
+}
+
+@media (max-width:380px){
+  .chip-nm{font-size:16px}
+  .slot-grid{gap:5px}
+  .tab{font-size:12px}
+  .brand{max-width:88px}
+}
+/* ─────────────────────────────────────────────
+   입장 화면(게이트) · 내 경기 알림 · 역할 표시
+   ───────────────────────────────────────────── */
+#gate{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+      padding:20px;background:radial-gradient(120% 90% at 50% 0%,#14251F 0%,var(--bg) 70%)}
+#gate.on{display:flex}
+.gate-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);
+           border-radius:18px;padding:24px 22px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.gate-card.wide{max-width:520px}
+.gate-title{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.gate-sub{color:var(--muted);font-size:14px;margin:6px 0 18px;line-height:1.5}
+.gate-btn{display:block;width:100%;text-align:left;margin-bottom:10px;padding:15px 16px;
+          border:1px solid var(--line);border-radius:12px;background:var(--surface2);
+          color:var(--text);cursor:pointer}
+.gate-btn:active{transform:translateY(1px)}
+.gate-btn b{display:block;font-size:17px;font-weight:700}
+.gate-btn span{display:block;color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+.gate-err{color:var(--cork);font-size:13px;font-weight:700;min-height:20px;margin-top:8px;text-align:center}
+.gate-list{margin-top:12px;max-height:46vh;overflow-y:auto;display:grid;
+           grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.gate-name{height:52px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);
+           color:var(--text);font-size:17px;font-weight:700;cursor:pointer}
+.gate-name:active{background:var(--raise)}
+.gate-empty{grid-column:1/-1;color:var(--muted2);font-size:14px;padding:14px;text-align:center}
+
+#roleLbl{font-size:12px;font-weight:800;color:var(--muted);padding:4px 9px;
+         border:1px solid var(--line);border-radius:20px;white-space:nowrap}
+body[data-role=admin]  #roleLbl{color:var(--court);border-color:var(--court)}
+body[data-role=viewer] #roleLbl{color:var(--muted2)}
+/* 수정 권한이 없는 역할에서는 조작 버튼을 아예 감춰 헛손질을 막는다 */
+body[data-role=viewer] #autoTgl,
+body[data-role=viewer] #btnSort,
+body[data-role=viewer] #btnUndo{display:none}
+
+#callout{position:fixed;inset:0;z-index:180;display:none;align-items:center;justify-content:center;
+         padding:20px;background:rgba(4,9,7,.86)}
+#callout.on{display:flex}
+.callout-in{width:100%;max-width:380px;text-align:center;background:var(--surface);
+            border:2px solid var(--court);border-radius:20px;padding:28px 22px;
+            box-shadow:0 0 60px rgba(34,161,121,.35);animation:pop .28s ease-out}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.callout-court{font-size:40px;font-weight:800;color:var(--court);letter-spacing:-.02em}
+.callout-msg{font-size:19px;font-weight:700;margin-top:4px}
+.callout-team{color:var(--muted);font-size:15px;margin:14px 0 20px;line-height:1.6}
+.callout-team span{color:var(--muted2);margin:0 6px}
+
+@media (max-width:780px){
+  .gate-card{padding:20px 18px}
+  .gate-title{font-size:21px}
+  .gate-list{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));max-height:40vh}
+  #roleLbl{display:none}
+}

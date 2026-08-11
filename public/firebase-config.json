@@ -1,0 +1,9 @@
+const firebaseConfig = {
+  "apiKey": "AIzaSyCvDUvmviyukyGQqfU0A-j1A2C63CHF0IM",
+  "authDomain": "happybirdies.firebaseapp.com",
+  "projectId": "happybirdies",
+  "storageBucket": "happybirdies.firebasestorage.app",
+  "messagingSenderId": "326947600647",
+  "appId": "1:326947600647:web:50a07697887a2361afada2",
+  "measurementId": "G-LQLBM933SQ"
+};
