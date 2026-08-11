@@ -22,6 +22,16 @@ let attSort='name', attSex='', attQ='';
 function attendeeOf(memberId){ return Object.values(S.att).find(a=>a.memberId===memberId); }
 function renderAtt(){
   const box=$('#attGrid'); box.innerHTML='';
+  /* 출석 화면은 회원 명단을 이름 그대로 펼쳐 놓는 곳이다. 게스트(뷰어)에게는
+     명단 자체가 보이면 안 되므로 회원 화면과 똑같이 막는다. 탭도 감추지만
+     (applyRole) 화면 함수에서도 한 번 더 막는다 — CSS나 탭이 어떤 이유로
+     반영되지 않아도 명단이 새지 않게. */
+  if(!Auth.can('members')){
+    box.innerHTML='<div class="hint">회원 명단은 회원과 운영자만 볼 수 있습니다.<br>'
+      + '본인 이름으로 입장하면 출석을 직접 관리할 수 있습니다.</div>';
+    $('#attStat').textContent='';
+    return;
+  }
   let list=S.members.filter(m=>m.active!==false);
   if(attSex) list=list.filter(m=>m.gender===attSex);
   list=list.filter(m=>matchQ(m.name,attQ.trim()));

@@ -25,7 +25,12 @@
     lastWritten.members = JSON.stringify(S.members);   // 읽은 그대로를 다시 쓸 필요는 없다
   }
   if(failed.length){
-    setSafeMode(true, failed.join('·')+'을(를) 불러오지 못했습니다. 저장이 잠겼습니다 — 새로고침해 주세요');
+    // 익명 로그인이 꺼져 있으면 보안 규칙이 전부 거부한다. 이 경우는
+    // 새로고침해도 소용없으므로 무엇을 해야 하는지 정확히 알려 준다.
+    setSafeMode(true, Store.fbState==='authFailed'
+      ? '익명 로그인이 되지 않아 클라우드를 읽지 못했습니다 — Firebase 콘솔 → Authentication'
+        + ' → 로그인 방법 → 익명을 켜 주세요. 저장은 잠갔습니다(데이터는 그대로입니다)'
+      : failed.join('·')+'을(를) 불러오지 못했습니다. 저장이 잠겼습니다 — 새로고침해 주세요');
   }
   const sess=rSes.value;
   if(sess&&sess.courts&&sess.courts.length===S.settings.courtCount&&sess.queues?.length===S.settings.queueSlotCount){

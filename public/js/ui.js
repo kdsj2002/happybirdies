@@ -151,8 +151,16 @@ function renderTop(){
     } else my.style.display='none';
   }
   const dot=$('#cloudDot');
-  if(dot) dot.style.background = Store.mode==='firebase' ? 'var(--court)' : Store.fbState==='error' ? 'var(--cork)' : 'var(--muted2)';
-  if(dot) dot.title = Store.mode==='firebase' ? 'Firebase 연결됨' : Store.fbState==='error' ? 'Firebase 연결 실패' : 'Firebase 미연결 (이 기기에만 저장)';
+  if(dot){
+    const bad = Store.fbState==='error' || Store.fbState==='authFailed';
+    dot.style.background = bad ? 'var(--cork)'
+      : Store.mode==='firebase' ? 'var(--court)' : 'var(--muted2)';
+    dot.title = Store.fbState==='authFailed'
+        ? '익명 로그인이 되지 않았습니다 — 콘솔에서 Authentication → 익명을 켜세요'
+      : Store.fbState==='error' ? 'Firebase 연결 실패'
+      : Store.mode==='firebase' ? 'Firebase 연결됨'
+      : 'Firebase 미연결 (이 기기에만 저장)';
+  }
 }
 
 function render(){ renderTop(); renderCourts(); renderQueues(); renderPool(); }

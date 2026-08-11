@@ -84,13 +84,26 @@ async function boot(){
     }catch(e){ db = F.getFirestore(app); }   // 이미 초기화된 경우 등 폴백
 
     const auth = getAuth(app);
+    let authErr = null;
     await new Promise((res)=>{
       onAuthStateChanged(auth, u=>{ if(u) res(); });
-      signInAnonymously(auth).catch(err=>{ console.warn('익명 로그인 실패', err); res(); });
+      signInAnonymously(auth).catch(err=>{ authErr = err; res(); });
     });
 
-    window.__fb = { ready:true, app, db, auth, source, ...F };
-    window.dispatchEvent(new CustomEvent('fb-ready',{detail:{ready:true, source}}));
+    /* 익명 로그인이 꺼져 있으면 여기서 currentUser가 비어 있다.
+       예전에는 이 상태로도 그냥 "연결됨"이라고 넘겼다. 보안 규칙이
+       request.auth != null 을 요구하는 순간부터는 모든 읽기·쓰기가 거부되는데,
+       화면에는 그냥 "불러오지 못했습니다"만 떠서 원인을 알 수 없었다.
+       그래서 이 사실을 그대로 들고 올라간다(store.js → main.js가 안내에 쓴다). */
+    const authFailed = !auth.currentUser;
+    if(authFailed){
+      console.error('익명 로그인이 되지 않았습니다. Firebase 콘솔 → Authentication → '
+        + '로그인 방법 → 익명을 사용 설정하세요.', authErr || '(오류 없이 사용자 없음)');
+    }
+    const authError = authErr ? String(authErr.code || authErr.message || authErr) : null;
+
+    window.__fb = { ready:true, authFailed, authError, app, db, auth, source, ...F };
+    window.dispatchEvent(new CustomEvent('fb-ready',{detail:{ready:true, authFailed, source}}));
   }catch(err){
     console.warn('Firebase 초기화 실패, 로컬 저장소로 폴백', err);
     window.__fb = { ready:false, error:String(err), source };

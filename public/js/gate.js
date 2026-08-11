@@ -7,6 +7,40 @@ const Gate = (() => {
   function open(html){ box().innerHTML = html; box().classList.add('on'); }
   function close(){ box().classList.remove('on'); }
 
+  /* ── 회원 입장 보호 ───────────────────────────────────────────────
+     예전에는 이 화면이 회원 명단을 이름 그대로 펼쳐 놓았다. 게스트가
+     들어와 명단을 통째로 읽을 수 있었고, 아무 이름이나 눌러 남의 이름으로
+     입장할 수도 있었다. 이제는 이름의 마지막 글자를 가려서 보여 주고
+     (김철수 → 김철○), 그 한 글자를 정확히 입력해야 입장시킨다.
+     3번 틀리면 이 기기에서 3분 동안 잠근다.
+
+     한계는 분명히 해 둔다. 명단은 여전히 브라우저 메모리와 Firestore에
+     그대로 있고, 익명 읽기가 열려 있는 한 마음먹은 사람은 읽을 수 있다.
+     이건 "지나가다 남의 이름을 보거나 눌러 보는 것"을 막는 장치지 인증이
+     아니다. 진짜로 막으려면 실제 로그인과 역할 문서가 필요하다.
+     ───────────────────────────────────────────────────────────────── */
+  const MAX_TRY = 3;
+  const LOCK_MS = 3 * 60 * 1000;
+  const LOCK_KEY = 'bmt:memberGate';
+
+  const lockRead  = () => { try{ return JSON.parse(localStorage.getItem(LOCK_KEY)||'{}')||{}; }catch{ return {}; } };
+  const lockWrite = s  => { try{ localStorage.setItem(LOCK_KEY, JSON.stringify(s)); }catch{} };
+  // 새로고침으로 초기화되면 안 되므로 시도 횟수와 해제 시각은 localStorage에 둔다.
+  const lockLeftMs = () => { const s=lockRead(); return (s.until && s.until>Date.now()) ? s.until-Date.now() : 0; };
+  const triesLeft  = () => Math.max(0, MAX_TRY - (lockRead().fails||0));
+  function noteFail(){
+    const s = lockRead();
+    s.fails = (s.fails||0) + 1;
+    if(s.fails >= MAX_TRY){ s.fails = 0; s.until = Date.now() + LOCK_MS; }
+    lockWrite(s);
+  }
+  const clearFails = () => lockWrite({});
+
+  // 마지막 한 글자만 가린다. 한 글자짜리 이름은 가리면 아무것도 남지 않아 그대로 둔다.
+  const chars    = n => [...String(n||'')];
+  const maskName = n => { const a=chars(n); return a.length<2 ? a.join('') : a.slice(0,-1).join('')+'○'; };
+  const lastChar = n => { const a=chars(n); return a.length ? a[a.length-1] : ''; };
+
   function screenHome(){
     open(`
       <div class="gate-card">
@@ -63,6 +97,7 @@ const Gate = (() => {
   }
 
   function screenMember(){
+    if(lockLeftMs() > 0) return screenLocked();
     const list=S.members.filter(m=>m.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     if(!list.length){
       open(`<div class="gate-card"><div class="gate-title">회원 입장</div>
@@ -72,26 +107,108 @@ const Gate = (() => {
           <button class="btn primary" id="gGuest" style="flex:2">게스트로</button></div></div>`);
       $('#gBack').onclick=screenHome; $('#gGuest').onclick=screenGuest; return;
     }
+    /* 가린 이름이 같은 사람들(김철수·김철민 → 둘 다 "김철○")은 한 줄로 묶는다.
+       똑같이 생긴 줄이 여러 개면 어느 쪽이 나인지 고를 수가 없어서다.
+       누구인지는 입력한 글자가 가린다. */
+    const groups = new Map();
+    list.forEach(m=>{
+      const k = maskName(m.name);
+      if(!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(m);
+    });
+    const keys = [...groups.keys()];
+
     open(`
       <div class="gate-card wide">
         <div class="gate-title">회원 입장</div>
-        <div class="gate-sub">본인 이름을 선택하세요.</div>
-        <input type="text" id="gQ" placeholder="이름 · 초성 검색" style="width:100%">
+        <div class="gate-sub">본인 이름을 고른 뒤, 가려진 마지막 글자를 입력하세요.</div>
+        <input type="text" id="gQ" placeholder="보이는 부분으로 검색 (예: 김철 · ㄱㅊ)" style="width:100%">
         <div class="gate-list" id="gList"></div>
         <div class="row" style="margin-top:12px"><button class="btn" id="gBack" style="width:100%">뒤로</button></div>
       </div>`);
     const draw=(q='')=>{
       const el=$('#gList');
-      const f=list.filter(m=>matchQ(m.name,q.trim()));
-      el.innerHTML = f.length? f.map(m=>`<button class="gate-name" data-id="${m.id}">${esc(m.name)}</button>`).join('')
+      /* 검색도 가려진 글자를 뺀 부분에만 건다. 이름을 통째로 넣어 보면서
+         맞는지 확인하는 우회로를 막기 위해서다. */
+      const f=keys.filter(k=>matchQ(k.replace(/○$/,''), q.trim()));
+      el.innerHTML = f.length? f.map(k=>`<button class="gate-name" data-k="${esc(k)}">${esc(k)}</button>`).join('')
                              : '<div class="gate-empty">일치하는 이름이 없습니다</div>';
-      el.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{
-        Sound.play('confirm'); Auth.loginMember(b.dataset.id); screenCheckIn(b.dataset.id);
+      el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
+        Sound.play('tap'); screenVerify(b.dataset.k, groups.get(b.dataset.k)||[]);
       });
     };
     draw();
     $('#gQ').oninput=e=>draw(e.target.value);
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
+  }
+
+  /* 가려진 마지막 글자를 확인한다. 맞아야만 그 사람으로 입장한다. */
+  function screenVerify(masked, group){
+    if(lockLeftMs() > 0) return screenLocked();
+    // 한 글자 이름은 가릴 것이 없으니 확인할 것도 없다.
+    if(group.length===1 && chars(group[0].name).length < 2) return passGate(group[0]);
+
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">본인 확인</div>
+        <div class="gate-sub">가려진 마지막 글자 한 자를 입력하세요.</div>
+        <div class="gate-mask">${esc(masked)}</div>
+        <input type="text" id="vC" maxlength="1" autocomplete="off" autocorrect="off"
+               style="width:100%;height:56px;font-size:30px;text-align:center">
+        <div id="gErr" class="gate-err"></div>
+        <div class="gate-tries">남은 시도 <b id="vLeft">${triesLeft()}</b>번 ·
+          ${MAX_TRY}번 틀리면 3분 동안 잠깁니다</div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gBack" style="flex:1">뒤로</button>
+          <button class="btn primary" id="vOk" style="flex:2">입장</button>
+        </div>
+      </div>`);
+    const inp=$('#vC'); setTimeout(()=>inp&&inp.focus(),60);
+    const go=()=>{
+      const v=(inp.value||'').trim();
+      if(!v) return;
+      const hit = group.find(m=>lastChar(m.name)===v);
+      if(hit) return passGate(hit);
+      noteFail();
+      Sound.play('error');
+      if(lockLeftMs() > 0) return screenLocked();
+      $('#gErr').textContent='맞지 않습니다';
+      $('#vLeft').textContent=triesLeft();
+      inp.value=''; inp.focus();
+    };
+    $('#vOk').onclick=go;
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+    $('#gBack').onclick=()=>{ Sound.play('tap'); screenMember(); };
+  }
+  function passGate(m){
+    clearFails();
+    Sound.play('confirm');
+    Auth.loginMember(m.id);
+    screenCheckIn(m.id);
+  }
+
+  /* 3번 틀린 뒤의 잠금 화면. 남은 시간을 세어 보여 주고 0이 되면 스스로 풀린다. */
+  function screenLocked(){
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">잠시 후 다시 시도해 주세요</div>
+        <div class="gate-sub">본인 확인을 ${MAX_TRY}번 틀렸습니다.</div>
+        <div class="gate-mask" id="lockLeft">—</div>
+        <div class="hint" style="text-align:center;line-height:1.7">
+          이 기기에서 회원 입장이 잠겼습니다.<br>급하시면 운영자에게 말씀하세요.</div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="gBack" style="width:100%">뒤로</button></div>
+      </div>`);
+    const tick=()=>{
+      const e=$('#lockLeft');
+      if(!e){ clearInterval(t); return; }              // 다른 화면으로 넘어갔다
+      const ms=lockLeftMs();
+      if(ms<=0){ clearInterval(t); screenMember(); return; }
+      const total=Math.ceil(ms/1000);
+      e.textContent=`${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`;
+    };
+    const t=setInterval(tick,500); tick();
+    $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(t); screenHome(); };
   }
 
   /* 입장 직후 출석 여부를 묻는다. 와서 앱을 여는 사람은 대개 지금 치러 온 사람이라
@@ -173,9 +290,8 @@ const Gate = (() => {
 
   /* 역할이 정해진 뒤 실제 화면으로 들어간다 */
   function enter(){
-    applyRole();
+    applyRole();          // 명단이 보이는 탭을 감추는 것도 여기서 한다
     render();
-    if(Auth.isViewer && $('#scr-mem').classList.contains('on')) show('board');
   }
 
   return { start(){ screenHome(); }, close, enter,
@@ -188,7 +304,13 @@ function applyRole(){
   const lbl=$('#roleLbl');
   if(lbl) lbl.textContent = Auth.roleLabel() + (Auth.isMember && Auth.memberId
       ? ' · ' + ((S.members.find(m=>m.id===Auth.memberId)||{}).name || '') : '');
-  // 뷰어는 회원 명단 탭 자체를 감춘다
-  const memTab=[...$$('.tab')].find(t=>t.dataset.scr==='mem');
-  if(memTab) memTab.style.display = Auth.can('members') ? '' : 'none';
+  /* 뷰어(게스트로 구경)에게는 회원 명단이 보이는 탭을 전부 감춘다.
+     회원 탭만 감췄더니 출석 탭에 명단이 그대로 펼쳐져 있었다. */
+  const seesMembers = Auth.can('members');
+  $$('.tab').forEach(t=>{
+    if(t.dataset.scr==='mem' || t.dataset.scr==='att')
+      t.style.display = seesMembers ? '' : 'none';
+  });
+  if(!seesMembers && ($('#scr-mem').classList.contains('on') || $('#scr-att').classList.contains('on')))
+    show('board');
 }

@@ -398,6 +398,11 @@ tr:hover td{background:var(--surface)}
            color:var(--text);font-size:17px;font-weight:700;cursor:pointer}
 .gate-name:active{background:var(--raise)}
 .gate-empty{grid-column:1/-1;color:var(--muted2);font-size:14px;padding:14px;text-align:center}
+/* 가려진 이름(김철○)과 잠금 남은 시간을 크게 보여 준다 */
+.gate-mask{font-size:34px;font-weight:800;letter-spacing:.14em;text-align:center;
+           margin:6px 0 14px;color:var(--text)}
+.gate-tries{color:var(--muted2);font-size:13px;text-align:center;line-height:1.6}
+.gate-tries b{color:var(--cork)}
 
 #roleLbl{font-size:12px;font-weight:800;color:var(--muted);padding:4px 9px;
          border:1px solid var(--line);border-radius:20px;white-space:nowrap}

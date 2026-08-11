@@ -53,11 +53,18 @@ const Store = (() => {
 
   const api = {
     mode: localMode,   // fb-ready 이후 'firebase'로 갱신될 수 있다
-    fbState: 'checking', // checking | connected | offline | unset | error
+    fbState: 'checking', // checking | connected | authFailed | offline | unset | error
+    authError: null,
 
     async init(){
       const fb = await ready;
-      if(fb && fb.ready){ this.mode='firebase'; this._fb=fb; this.fbState='connected'; }
+      if(fb && fb.ready){
+        this.mode='firebase'; this._fb=fb;
+        // 익명 로그인이 안 된 상태다. 규칙이 인증을 요구하면 여기서부터
+        // 모든 읽기가 거부되므로, 원인을 구분해 둔다.
+        this.fbState = fb.authFailed ? 'authFailed' : 'connected';
+        this.authError = fb.authError || null;
+      }
       else this.fbState = fb && fb.error ? 'error' : 'unset';
       return this.mode;
     },
