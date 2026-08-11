@@ -6,15 +6,24 @@
 
   // 읽기가 하나라도 실패하면 안전 모드로 들어가 저장을 잠근다.
   // 반쪽 상태를 저장해 클라우드 데이터를 덮어쓰는 것이 가장 위험하다.
-  const rSet = await Store.getSafe(K('settings'));
-  const rMem = await Store.getSafe(K('members'));
+  // 설정과 회원 명단은 strict로 읽는다 — 오프라인 캐시가 "문서 없음"이라고
+  // 답하는 것을 "데이터 없음"으로 받아들이지 않기 위해서다. 오늘 세션은
+  // 아직 없는 것이 정상이므로(하루의 첫 접속) strict를 걸지 않는다.
+  const rSet = await Store.getSafe(K('settings'), {strict:true});
+  const rMem = await Store.getSafe(K('members'),  {strict:true});
   const rSes = await Store.getSafe(K('session:'+S.date));
   const failed = [!rSet.ok&&'설정', !rMem.ok&&'회원 명단', !rSes.ok&&'오늘 세션'].filter(Boolean);
 
   const st=rSet.value;
   if(st) S.settings=Object.assign(clone(DEFAULTS),st,{w:Object.assign({},DEFAULTS.w,st.w||{})});
+  settingsTrusted = rSet.ok;    // 못 읽은 설정은 클라우드에 쓰지 않는다
   S.members=rMem.value||[];
-  loadedMembersCount = rMem.ok ? S.members.length : null;
+  // 제대로 읽었을 때만 기준선을 잡는다. 기준선이 없으면 회원 문서에는
+  // 아무것도 쓰지 않는다(actions.js의 save 참고).
+  if(rMem.ok){
+    setMembersBaseline(S.members);
+    lastWritten.members = JSON.stringify(S.members);   // 읽은 그대로를 다시 쓸 필요는 없다
+  }
   if(failed.length){
     setSafeMode(true, failed.join('·')+'을(를) 불러오지 못했습니다. 저장이 잠겼습니다 — 새로고침해 주세요');
   }

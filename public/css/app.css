@@ -217,7 +217,7 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .acard .sub{font-size:13px;color:var(--muted);margin-top:3px}
 .acard .ck{position:absolute;right:10px;top:9px;color:var(--court);font-weight:800;font-size:16px;display:none}
 .acard.in .ck{display:block}
-input[type=text],input[type=number],select,textarea{
+input[type=text],input[type=number],input[type=password],select,textarea{
   height:42px;padding:0 12px;border:1px solid var(--line);border-radius:9px;
   background:var(--surface2);color:var(--text);outline:none;
 }

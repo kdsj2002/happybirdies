@@ -66,15 +66,38 @@ const Store = (() => {
     /* 읽기 결과를 성공/실패까지 함께 돌려준다.
        예전에는 실패해도 null을 돌려줬는데, 호출부가 그걸 "데이터 없음"으로
        받아 빈 상태로 시작하고, 이어지는 저장이 그 빈 상태를 클라우드에
-       덮어써서 회원 명단이 통째로 날아갔다. 이제는 실패를 구분해 알린다. */
-    async getSafe(key){
+       덮어써서 회원 명단이 통째로 날아갔다. 이제는 실패를 구분해 알린다.
+
+       opts.strict : 회원 명단·설정처럼 "원래 있어야 하는" 문서에 쓴다.
+         Firestore는 오프라인이면 예외를 던지지 않고 로컬 캐시로 답한다.
+         이 기기에 캐시가 없으면 서버에 멀쩡히 있는 문서도 "없음"으로
+         돌아오는데(다른 기기에서 등록했거나 캐시가 비워진 경우), 그걸
+         "회원 0명"으로 받아들이면 다시 온라인이 되는 순간 그 빈 명단이
+         클라우드를 덮어쓴다 — 오프라인 다녀오면 명단이 사라지던 원인이
+         정확히 이것이다. strict에서는 그런 '없음'을 성공으로 치지 않는다. */
+    async getSafe(key, opts={}){
       if(this.mode==='firebase'){
         try{
           const fb=this._fb;
           const snap = await fb.getDoc(fb.doc(fb.db,'clubs',CLUB,'kv',docId(key)));
-          const v = snap.exists()? JSON.parse(snap.data().v) : null;
+          const cached = !!(snap.metadata && snap.metadata.fromCache);
+          if(!snap.exists()){
+            const lv = await localGet(key);
+            if(opts.strict){
+              // 캐시가 답한 '없음'은 서버의 대답이 아니다.
+              if(cached) return { ok:false, value:lv, source:'cache', cached:true,
+                                  error:'오프라인 캐시에 문서가 없습니다' };
+              // 서버가 '없다'는데 이 기기에는 값이 남아 있다 — 지우고 시작하지 않는다.
+              if(lv && !(Array.isArray(lv) && !lv.length))
+                return { ok:false, value:lv, source:'local',
+                         error:'서버에는 없고 이 기기에만 값이 있습니다' };
+            }
+            localSet(key, null);
+            return { ok:true, value:null, source:'firebase', cached };
+          }
+          const v = JSON.parse(snap.data().v);
           localSet(key, v);           // 로컬에도 미러링
-          return { ok:true, value:v, source:'firebase' };
+          return { ok:true, value:v, source:'firebase', cached };
         }catch(e){
           console.warn('firebase get 실패', e);
           const lv = await localGet(key);

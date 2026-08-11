@@ -168,16 +168,23 @@ $('#btnUndo').onclick=()=>{ if(!requirePerm('edit')) return; Sound.play('tap'); 
 function openModal(html){ $('#modal').innerHTML=html; $('#mask').classList.add('on'); }
 function closeModal(){ $('#mask').classList.remove('on'); }
 
-/* 되돌릴 수 없는 조작 앞에 관리 비밀번호를 묻는다. 맞으면 onOk()를 부른다. */
-function askPin(title, desc, onOk){
+/* 되돌릴 수 없는 조작 앞에 관리 비밀번호를 묻는다. 맞으면 onOk()를 부른다.
+   opts.bodyHtml : 비밀번호 칸 위에 넣을 설명(이 조작이 어떤 결과를 낳는지).
+                   여기 들어가는 HTML은 만드는 쪽에서 esc() 해서 넘긴다.
+   opts.okLabel  : 확인 버튼 문구
+   opts.onReady  : 모달이 그려진 뒤 불린다(설명 안의 버튼을 묶을 때 쓴다) */
+function askPin(title, desc, onOk, opts={}){
   openModal(`<h3>${esc(title)}</h3><div class="sub">${esc(desc)}</div>
+    ${opts.bodyHtml||''}
+    <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 관리 비밀번호를 입력하세요</div>
     <div style="display:flex;justify-content:center;margin:6px 0 4px">
       <input type="password" id="pinIn" inputmode="numeric" autocomplete="off" maxlength="8"
              style="width:190px;height:56px;font-size:26px;letter-spacing:.4em;text-align:center">
     </div>
     <div id="pinErr" style="text-align:center;color:var(--cork);font-size:13px;font-weight:700;min-height:20px"></div>
     <div class="row end"><button class="btn" id="pinCancel">취소</button>
-      <button class="btn warn" id="pinOk">확인</button></div>`);
+      <button class="btn warn" id="pinOk">${esc(opts.okLabel||'확인')}</button></div>`);
+  if(opts.onReady) opts.onReady();
   const inp=$('#pinIn');
   setTimeout(()=>inp&&inp.focus(),50);
   const submit=()=>{

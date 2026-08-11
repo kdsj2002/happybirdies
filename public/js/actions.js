@@ -28,21 +28,30 @@ function save(){
     window.__markLocalSave && window.__markLocalSave();
 
     const st=JSON.stringify(S.settings);
-    if(st!==lastWritten.settings){ await Store.set(K('settings'),S.settings); lastWritten.settings=st; }
+    if(settingsTrusted && st!==lastWritten.settings){ await Store.set(K('settings'),S.settings); lastWritten.settings=st; }
 
-    // 회원 명단이 통째로 비는 저장은 사고일 가능성이 압도적으로 높다.
-    // (읽기 실패로 빈 상태에서 시작한 뒤 아무 조작이나 하면 여기로 온다)
-    // 정상적으로 지운 경우라면 회원 화면에서 하나씩 지웠을 테니 0이 될 일이 없다.
+    /* 회원이 사라지는 저장은 여기서 전부 막는다.
+       회원 화면에서 한 명씩 지웠다면 그때마다 기준선이 갱신되므로 걸리지 않고,
+       벌크 덮어쓰기는 비밀번호 확인을 받으면서 기준선을 갱신하므로 걸리지 않는다.
+       걸리는 것은 "명단을 제대로 못 읽어 빈 채로 시작한 화면"이 그대로
+       클라우드에 올라가려는 경우뿐이다. */
     const mem=JSON.stringify(S.members);
     if(mem!==lastWritten.members){
-      if(S.members.length===0 && loadedMembersCount>0){
-        console.warn('회원 명단이 비어 있어 저장을 건너뜁니다', loadedMembersCount);
-        setSafeMode(true, '회원 명단을 불러오지 못했습니다. 덮어쓰기를 막았습니다 — 새로고침해 주세요');
+      const gone = droppedMembers(S.members);
+      if(gone===null){
+        console.warn('회원 명단 기준선이 없어 저장을 막았습니다');
+        setSafeMode(true, '회원 명단을 확인하지 못한 상태입니다. 덮어쓰기를 막았습니다 — 새로고침해 주세요');
+      }else if(gone.length){
+        console.warn('승인되지 않은 회원 삭제 — 저장을 막았습니다', gone.map(m=>m.name));
+        setSafeMode(true, `회원 ${gone.length}명이 화면에서 사라진 채로 저장되려 했습니다`
+          + ` (${loadedMembersCount}명 → ${S.members.length}명). 덮어쓰기를 막았습니다`
+          + ' — 새로고침하거나 설정 → 데이터 복구를 쓰세요');
       }else{
         await Store.set(K('members'),S.members); lastWritten.members=mem;
-        loadedMembersCount = S.members.length;
+        setMembersBaseline(S.members);          // 방금 쓴 내용이 곧 DB의 내용
       }
     }
+    if(SAFE_MODE) return;          // 위에서 잠겼다면 세션도 쓰지 않는다
 
     const sess={date:S.date,startedAt:S.startedAt,att:S.att,courts:S.courts,queues:S.queues,matches:S.matches,hist:S.hist};
     const ss=JSON.stringify(sess);
@@ -51,6 +60,124 @@ function save(){
     if(sessionsIdx===null) sessionsIdx=(await Store.get(K('sessions')))||[];
     if(!sessionsIdx.includes(S.date)){ sessionsIdx.push(S.date); await Store.set(K('sessions'),sessionsIdx); }
   },300);
+}
+
+/* =====================================================================
+   회원 명단 벌크 덮어쓰기 — 관리 비밀번호 확인 필수
+
+   복원(백업 파일), CSV 일괄등록, 클라우드에서 다시 불러오기처럼 회원 문서
+   전체를 한 번에 바꾸는 조작은 반드시 이 함수를 거친다. 순서는 이렇다.
+
+     1. 지금 클라우드에 실제로 뭐가 들어 있는지 먼저 읽는다.
+        못 읽으면(오프라인 캐시 미스, 통신 실패) 아예 진행하지 않는다.
+        무엇을 덮어쓰는지 모르는 채로 덮어쓰지 않는다는 뜻이다.
+     2. 지금 명단과 바뀔 명단을 비교해 누가 사라지고 누가 생기는지,
+        그 결과가 무엇인지(모든 기기 반영·되돌리기 불가 등)를 전부 보여 준다.
+     3. 관리 비밀번호를 받는다. 맞아야만 적용한다.
+
+   확인을 통과하면 그 명단이 새 기준선이 되므로 save()의 삭제 방지 잠금에
+   걸리지 않고 정상적으로 클라우드에 올라간다.
+   ===================================================================== */
+async function bulkOverwriteMembers(nextList, opt={}){
+  if(!requirePerm('membersEdit')) return;
+  // 오래된 백업 파일에는 id가 없는 회원이 섞여 있을 수 있다. 비교의 기준이
+  // id이므로 여기서 채워 둔다(없으면 전부 같은 사람으로 취급돼 버린다).
+  const next = (Array.isArray(nextList) ? nextList : [])
+    .map(m => m && m.id ? m : Object.assign({}, m, {id:uid('m')}));
+
+  // 1) 클라우드의 현재 명단 확인 — 못 읽으면 덮어쓰지 않는다
+  const r = opt.dbRead || await Store.getSafe(K('members'), {strict:true});
+  if(!r.ok){
+    Sound.play('error');
+    openModal(`<h3>덮어쓸 수 없습니다</h3>
+      <div class="sub">${esc(opt.source||'회원 명단 덮어쓰기')}</div>
+      <div class="hint" style="line-height:1.8">
+        클라우드에 지금 어떤 명단이 들어 있는지 확인하지 못했습니다
+        (${esc(r.error||'읽기 실패')}).<br>
+        무엇을 덮어쓰게 되는지 모르는 상태에서는 회원 명단을 바꾸지 않습니다.
+        연결을 확인하고 다시 시도해 주세요.</div>
+      <div class="row end"><button class="btn primary" onclick="closeModal()">확인</button></div>`);
+    return;
+  }
+  const cur = r.value || [];
+  const d   = diffMembers(cur, next);
+
+  // 2) 결과 명기
+  const names = arr => arr.slice(0,8).map(m=>esc(m.name)).join(', ')
+                     + (arr.length>8 ? ` 외 ${arr.length-8}명` : '');
+  const attHit = Object.values(S.att)
+    .filter(a=>a.memberId && d.removed.some(m=>m.id===a.memberId));
+  const offline = Store.mode==='firebase' && r.cached;
+  const local   = Store.mode!=='firebase';
+
+  const rows = [
+    ['현재 클라우드', `<b class="num">${d.from}</b>명`],
+    ['덮어쓴 뒤',     `<b class="num">${d.to}</b>명`],
+    ['삭제',  d.removed.length
+        ? `<b class="num" style="color:var(--cork)">${d.removed.length}</b>명 — ${names(d.removed)}`
+        : '<span style="color:var(--muted2)">없음</span>'],
+    ['추가',  d.added.length
+        ? `<b class="num" style="color:var(--court)">${d.added.length}</b>명 — ${names(d.added)}`
+        : '<span style="color:var(--muted2)">없음</span>'],
+    ['정보 변경', d.changed.length
+        ? `<b class="num">${d.changed.length}</b>명 — ${names(d.changed)}`
+        : '<span style="color:var(--muted2)">없음</span>']
+  ];
+
+  const results = [
+    `클라우드의 회원 문서(<span class="num">clubs/${esc(CLUB)}/kv/members</span>)가
+     <b>통째로 교체</b>됩니다. 지금 값은 남지 않습니다.`,
+    d.removed.length
+      ? `회원 <b style="color:var(--cork)">${d.removed.length}명</b>이 DB에서 사라집니다.
+         출석 목록·회원 화면·입장 화면에서 더 이상 고를 수 없게 됩니다.`
+      : '삭제되는 회원은 없습니다.',
+    `같은 클럽에 접속한 <b>모든 기기</b>(태블릿·휴대폰)에 그대로 반영됩니다.
+     이 기기에서만 되돌릴 수 있는 조작이 아닙니다.`,
+    `대진판의 <b>되돌리기(↩)로는 되돌아가지 않습니다.</b>
+     되돌리려면 회원 화면의 <b>백업</b> 파일이 있어야 합니다.`,
+    `지난 세션의 경기 기록은 지워지지 않지만, 삭제된 회원은 기록에 이름으로만 남고
+     회원 정보와의 연결이 끊깁니다.`
+  ];
+  if(attHit.length) results.push(
+    `<b style="color:var(--cork)">오늘 출석 중인 ${attHit.length}명(${names(attHit)})이 삭제 대상입니다.</b>
+     이미 출석한 사람은 오늘 세션에서 그대로 뛰지만, 다음 세션부터는 명단에 없습니다.`);
+  if(offline) results.push(
+    `<b style="color:var(--cork)">지금 오프라인입니다.</b> 이 덮어쓰기는 일단 이 기기에만 적용되고,
+     연결이 돌아오는 순간 위 내용 그대로 클라우드에 올라갑니다. 그 사이 다른 기기에서
+     바뀐 내용이 있으면 그것까지 덮어씁니다.`);
+  if(local) results.push(
+    `Firebase에 연결돼 있지 않아 이 기기에만 적용됩니다.`);
+
+  const bodyHtml = `
+    <div class="kv" style="grid-template-columns:92px 1fr;gap:9px 12px;margin-bottom:14px">
+      ${rows.map(([k,v])=>`<div class="k">${k}</div><div>${v}</div>`).join('')}
+    </div>
+    <div class="hint" style="margin-bottom:14px">
+      <b style="color:var(--text)">이 동작의 결과</b>
+      <ul style="margin:6px 0 0;padding-left:18px">
+        ${results.map(t=>`<li style="margin-bottom:4px">${t}</li>`).join('')}
+      </ul>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn sm" id="pinBackup">먼저 백업 내려받기</button>
+      <span class="hint">되돌릴 수단은 이 백업 파일뿐입니다.</span>
+    </div>`;
+
+  // 3) 관리 비밀번호 확인
+  askPin('회원 명단 덮어쓰기', opt.source || '회원 명단 전체를 바꿉니다', async ()=>{
+    S.members = next;
+    setMembersBaseline(next);        // 승인받은 내용이 새 기준선이 된다
+    setSafeMode(false);
+    lastWritten.members = null;      // 다음 저장에서 반드시 다시 쓰도록
+    if(opt.applyExtra) await opt.applyExtra();
+    save(); render();
+    if(typeof renderMem==='function') renderMem();
+    Sound.play('confirm');
+    toast(`회원 명단을 덮어썼습니다 (${d.from}명 → ${d.to}명)`);
+    if(opt.after) opt.after();
+  }, { bodyHtml, okLabel:'덮어쓰기', onReady(){
+    const b=$('#pinBackup'); if(b) b.onclick=()=>exportBackup();
+  }});
 }
 
 /* =====================================================================

@@ -136,8 +136,17 @@ function memDialog(m){
     else Object.assign(m,{name:n,gender:g,birthYear:y,grade:$('#mG').value,active:$('#mA').checked});
     closeModal(); save(); renderMem(); toast('저장했습니다');
   };
-  if(!isNew) $('#mDel').onclick=()=>{ if(!confirm(`${m.name} 님을 삭제할까요? 기록 보존을 위해 보통은 '활성' 해제를 권합니다.`)) return;
-    S.members=S.members.filter(x=>x.id!==m.id); closeModal(); save(); renderMem(); };
+  /* 한 명 삭제는 이름을 눈으로 확인하고 지우는 조작이라 비밀번호까지는 받지 않는다.
+     대신 기준선을 같이 내려 준다 — 그래야 save()의 회원 삭제 방지 잠금을 통과한다.
+     (여러 명이 한꺼번에 사라지는 저장은 그 잠금에 걸려 아예 올라가지 않는다.) */
+  if(!isNew) $('#mDel').onclick=()=>{
+    if(!confirm(`${m.name} 님을 클럽 명단에서 삭제할까요?\n\n`
+      + '· 클라우드에서 지워지고 모든 기기에 반영됩니다\n'
+      + '· 되돌리기(↩)로는 되돌아가지 않습니다\n'
+      + "· 기록 보존을 위해 보통은 '활성' 해제를 권합니다")) return;
+    S.members=S.members.filter(x=>x.id!==m.id);
+    setMembersBaseline(S.members);
+    closeModal(); save(); renderMem(); };
 }
 $('#btnCsv').onclick=()=>{
   if(!requirePerm('membersEdit')) return;
@@ -146,7 +155,7 @@ $('#btnCsv').onclick=()=>{
     <div class="row end"><button class="btn" onclick="closeModal()">취소</button><button class="btn primary" id="csvOk">가져오기</button></div>`);
   $('#csvOk').onclick=()=>{
     const lines=$('#csv').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-    let ok=0, err=[];
+    const add=[], err=[];
     const codes=S.settings.grades.map(g=>g.code);
     lines.forEach((ln,i)=>{
       if(i===0&&/이름/.test(ln)) return;
@@ -157,23 +166,31 @@ $('#btnCsv').onclick=()=>{
       if(!gender) return err.push(`${i+1}행 ${name}: 성별 없음`);
       let grade=(gr||'').toUpperCase();
       if(!codes.includes(grade)){ const byLabel=S.settings.grades.find(g=>g.label===gr); grade=byLabel?byLabel.code:'C'; }
-      if(S.members.some(m=>m.name===name&&String(m.birthYear||'')===String(by||''))) return err.push(`${i+1}행 ${name}: 중복`);
-      S.members.push({id:uid('m'),name,gender,birthYear:parseInt(by)||null,grade,active:true,lastSeen:0}); ok++;
+      const dup = m => m.name===name && String(m.birthYear||'')===String(by||'');
+      if(S.members.some(dup)||add.some(dup)) return err.push(`${i+1}행 ${name}: 중복`);
+      add.push({id:uid('m'),name,gender,birthYear:parseInt(by)||null,grade,active:true,lastSeen:0});
     });
-    closeModal(); save(); renderMem();
-    toast(`성공 ${ok}건${err.length?` / 오류 ${err.length}건`:''}`);
-    if(err.length) setTimeout(()=>openModal(`<h3>가져오기 결과</h3><div class="sub">성공 ${ok}건 · 오류 ${err.length}건</div>
-      <div class="hint">${err.map(esc).join('<br>')}</div><div class="row end"><button class="btn primary" onclick="closeModal()">확인</button></div>`),300);
+    closeModal();
+    const showErr = ()=>{ if(!err.length) return;
+      setTimeout(()=>openModal(`<h3>가져오기 결과</h3><div class="sub">등록 ${add.length}건 · 오류 ${err.length}건</div>
+        <div class="hint">${err.map(esc).join('<br>')}</div>
+        <div class="row end"><button class="btn primary" onclick="closeModal()">확인</button></div>`),300); };
+    if(!add.length){ toast(`등록할 회원이 없습니다${err.length?` / 오류 ${err.length}건`:''}`); return showErr(); }
+    // 여러 명을 한 번에 회원 문서에 쓰는 조작이므로 비밀번호 확인을 거친다.
+    bulkOverwriteMembers(S.members.concat(add),
+      { source:`CSV 일괄등록 — ${add.length}명 추가`, after:showErr });
   };
 };
-$('#btnExport').onclick=async()=>{
+/* 백업 내려받기. 덮어쓰기 확인 창에서도 부르므로 이름을 붙여 둔다. */
+async function exportBackup(){
   const idx=(await Store.get(K('sessions')))||[];
   const sessions={};
   for(const d of idx) sessions[d]=await Store.get(K('session:'+d));
   const blob=new Blob([JSON.stringify({v:1,club:CLUB,settings:S.settings,members:S.members,sessions},null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`배드민턴_백업_${todayStr()}.json`; a.click(); toast('백업 파일을 내려받았습니다');
-};
+}
+$('#btnExport').onclick=exportBackup;
 $('#btnImport').onclick=()=>{
   // 복원 파일에는 설정도 들어 있어 이걸 허용하면 설정 제한이 무의미해진다.
   if(!requirePerm('settings')) return;
@@ -182,16 +199,24 @@ $('#btnImport').onclick=()=>{
 $('#fileIn').onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=async()=>{ try{
+  r.onload=()=>{ try{
     const d=JSON.parse(r.result);
-    if(!confirm('현재 데이터를 덮어씁니다. 진행할까요?')) return;
-    S.settings=Object.assign(clone(DEFAULTS),d.settings||{});
-    S.members=d.members||[];
-    if(d.sessions) for(const [k,v] of Object.entries(d.sessions)) if(v) await Store.set(K('session:'+k),v);
-    await Store.set(K('sessions'),Object.keys(d.sessions||{}));
-    const cur=d.sessions?.[S.date];
-    if(cur) Object.assign(S,{att:cur.att||{},courts:cur.courts,queues:cur.queues,matches:cur.matches||[],hist:cur.hist||[]});
-    save(); render(); renderMem(); toast('복원했습니다');
+    if(!d || !Array.isArray(d.members)) return toast('회원 명단이 들어 있는 백업 파일이 아닙니다');
+    /* 복원은 회원 문서를 파일 내용으로 통째로 갈아끼우는 조작이다.
+       비밀번호 확인을 통과한 뒤에야 설정·세션까지 함께 적용한다. */
+    bulkOverwriteMembers(d.members, {
+      source:`백업 파일 복원 — ${f.name}`,
+      async applyExtra(){
+        S.settings=Object.assign(clone(DEFAULTS),d.settings||{});
+        settingsTrusted = true;                 // 파일에서 통째로 받은 값이다
+        if(d.sessions) for(const [k,v] of Object.entries(d.sessions)) if(v) await Store.set(K('session:'+k),v);
+        await Store.set(K('sessions'),Object.keys(d.sessions||{}));
+        sessionsIdx = null;                     // 세션 목록을 다음 저장 때 다시 읽게 한다
+        const cur=d.sessions?.[S.date];
+        if(cur) Object.assign(S,{att:cur.att||{},courts:cur.courts,queues:cur.queues,matches:cur.matches||[],hist:cur.hist||[]});
+      },
+      after(){ renderSet(); toast('복원했습니다 — 설정과 세션 기록도 파일 내용으로 바뀌었습니다'); }
+    });
   }catch(err){ toast('파일을 읽을 수 없습니다'); } };
   r.readAsText(f); e.target.value='';
 };
@@ -291,24 +316,6 @@ function renderSet(){
     // 소리는 기기별 취향이라 권한과 무관하게 각자 켜고 끌 수 있게 둔다.
     $('#s_soundOnly').onchange=e=>{ Sound.set(e.target.checked); Sound.play('tap'); };
     $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
-  $('#s_reload').onclick=async()=>{
-    Sound.play('tap');
-    const btn=$('#s_reload'); btn.disabled=true; btn.textContent='불러오는 중...';
-    const rMem=await Store.getSafe(K('members'));
-    const rSet=await Store.getSafe(K('settings'));
-    btn.disabled=false; btn.textContent='지금 다시 불러오기';
-    if(!rMem.ok){ Sound.play('error'); return toast('클라우드를 읽지 못했습니다. 연결을 확인하세요'); }
-    const list=rMem.value||[];
-    if(!list.length) return toast('클라우드에도 회원 명단이 없습니다');
-    if(!confirm(`클라우드에서 회원 ${list.length}명을 찾았습니다. 현재 화면(${S.members.length}명)을 이걸로 바꿀까요?`)) return;
-    S.members=list;
-    if(rSet.value) S.settings=Object.assign(clone(DEFAULTS),rSet.value,{w:Object.assign({},DEFAULTS.w,rSet.value.w||{})});
-    loadedMembersCount=list.length;
-    setSafeMode(false);
-    lastWritten.members=null;      // 다음 저장 때 확실히 다시 쓰도록
-    save(); render(); renderSet();
-    Sound.play('confirm'); toast(`회원 ${list.length}명을 복구했습니다`);
-  };
     return;
   }
   const s=S.settings;
@@ -358,6 +365,13 @@ function renderSet(){
         <button class="btn sm" id="s_reload">지금 다시 불러오기</button>
         <div class="hint" style="margin-top:6px">화면의 회원·기록이 비어 보이면 저장하지 말고 이 버튼을 먼저 누르세요.
           클라우드(Firestore)에 있는 원본을 그대로 다시 읽어 옵니다.</div></div>
+      <div class="k">회원 명단 보호</div><div>
+        <div class="hint">회원 명단을 통째로 바꾸는 조작(백업 복원 · CSV 일괄등록 · 클라우드에서 다시 불러오기)은
+          <b>관리 비밀번호</b>를 받고 진행합니다. 확인 창에서 누가 사라지고 누가 생기는지,
+          그 결과가 무엇인지 먼저 보여 줍니다.<br>
+          비밀번호를 거치지 않은 채 회원이 사라지는 저장(명단을 못 불러와 화면이 빈 경우 등)은
+          자동으로 차단되고 화면 위에 붉은 띠가 뜹니다. 그때는 아무것도 만지지 말고 새로고침하세요.<br>
+          현재 기준 명단: <b>${loadedMembersCount==null?'확인 안 됨':loadedMembersCount+'명'}</b></div></div>
 
       <div class="h">저장소</div>
       <div class="k">현재 모드</div><div><b id="storeMode" style="color:${Store.mode==='firebase'?'var(--court)':'var(--muted)'}">${storeModeLabel()}</b>
@@ -459,6 +473,7 @@ function renderSet(){
       minPool:Math.max(0,+$('#s_minpool').value||0),
       repeatLookback:+$('#s_look').value||3});
     s.sound = $('#s_sound').checked; Sound.set(s.sound);
+    settingsTrusted = true;      // 운영자가 화면에서 직접 확정한 값이다
     Object.assign(s.w,{odd:+$('#s_odd').value,game:+$('#s_wgame').value,wait:+$('#s_wwait').value,
       repeat:+$('#s_wrep').value,balance:+$('#s_wbal').value,age:+$('#s_wage').value});
     tx(()=>{ if(reset){ Object.values(S.att).forEach(a=>a.state='POOL'); initBoard(); } });
@@ -470,20 +485,25 @@ function renderSet(){
   $('#s_reload').onclick=async()=>{
     Sound.play('tap');
     const btn=$('#s_reload'); btn.disabled=true; btn.textContent='불러오는 중...';
-    const rMem=await Store.getSafe(K('members'));
-    const rSet=await Store.getSafe(K('settings'));
+    const rMem=await Store.getSafe(K('members'), {strict:true});
+    const rSet=await Store.getSafe(K('settings'), {strict:true});
     btn.disabled=false; btn.textContent='지금 다시 불러오기';
-    if(!rMem.ok){ Sound.play('error'); return toast('클라우드를 읽지 못했습니다. 연결을 확인하세요'); }
+    if(!rMem.ok){ Sound.play('error');
+      return toast(`클라우드를 읽지 못했습니다 (${rMem.error||'읽기 실패'}). 연결을 확인하세요`); }
     const list=rMem.value||[];
     if(!list.length) return toast('클라우드에도 회원 명단이 없습니다');
-    if(!confirm(`클라우드에서 회원 ${list.length}명을 찾았습니다. 현재 화면(${S.members.length}명)을 이걸로 바꿀까요?`)) return;
-    S.members=list;
-    if(rSet.value) S.settings=Object.assign(clone(DEFAULTS),rSet.value,{w:Object.assign({},DEFAULTS.w,rSet.value.w||{})});
-    loadedMembersCount=list.length;
-    setSafeMode(false);
-    lastWritten.members=null;      // 다음 저장 때 확실히 다시 쓰도록
-    save(); render(); renderSet();
-    Sound.play('confirm'); toast(`회원 ${list.length}명을 복구했습니다`);
+    // 방금 읽은 결과를 그대로 넘겨 준다(같은 문서를 두 번 읽지 않게).
+    bulkOverwriteMembers(list, {
+      source:`클라우드에서 다시 불러오기 — ${list.length}명`,
+      dbRead:rMem,
+      applyExtra(){
+        if(rSet.ok && rSet.value){
+          S.settings=Object.assign(clone(DEFAULTS),rSet.value,{w:Object.assign({},DEFAULTS.w,rSet.value.w||{})});
+          settingsTrusted = true;               // 클라우드 원본을 방금 읽어 왔다
+        }
+      },
+      after(){ renderSet(); }
+    });
   };
   $('#s_reset').onclick=()=>{ if(!confirm('설정을 기본값으로 되돌릴까요? 회원과 출석 정보는 유지됩니다.')) return;
     S.settings=clone(DEFAULTS); tx(()=>initBoard()); renderSet(); };

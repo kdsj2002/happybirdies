@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.11a';
+const APP_VERSION = '2026.08.11b';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -47,8 +47,50 @@ function setSafeMode(on, reason){
   if(b){ b.style.display = SAFE_MODE ? 'flex' : 'none';
          const t=b.querySelector('span'); if(t) t.textContent = safeReason; }
 }
-/* 불러온 시점의 회원 수. 저장할 때 이보다 줄어 0이 되면 사고로 보고 막는다. */
+/* ── 회원 명단 덮어쓰기 보호 ──────────────────────────────────────
+   회원 명단(clubs/default/kv/members)은 이 클럽의 원본 자산이다. 한 번
+   빈 값이나 남의 값으로 덮어쓰면 접속한 모든 기기에서 동시에 사라지고,
+   백업 파일이 없으면 되돌릴 방법이 없다.
+
+   그래서 "지금 DB에 들어 있다고 확인된 명단"을 기준선으로 들고 다니면서,
+   저장하려는 명단에 기준선의 회원이 빠져 있으면(=누군가/무언가가 회원을
+   지운 것이면) 그 저장 자체를 막는다. 기준선을 새로 잡는 곳은 세 군데뿐이다.
+     1) 부팅 때 DB에서 명단을 제대로 읽었을 때        (main.js)
+     2) 회원 화면에서 한 명씩 추가·수정·삭제했을 때    (screens.js)
+     3) bulkOverwriteMembers()가 관리 비밀번호를 받았을 때 (actions.js)
+   ───────────────────────────────────────────────────────────── */
+let membersBaseline = null;      // Map(id -> 회원). null이면 DB 상태를 모른다 → 저장 금지
+/* 설정도 같은 원칙이다. 제대로 읽지 못한 설정(=DEFAULTS로 시작한 상태)은
+   클라우드에 쓰지 않는다. 회원 명단 복구로 안전 모드가 풀렸을 때 반쪽 설정이
+   덩달아 올라가는 것을 막는다. 운영자가 설정 화면에서 직접 저장하면 켜진다. */
+let settingsTrusted = false;
+/* 불러온 시점의 회원 수. 화면 안내에만 쓴다(판정은 membersBaseline이 한다). */
 let loadedMembersCount = null;
+
+function setMembersBaseline(list){
+  membersBaseline = list ? new Map(list.map(m=>[m.id,m])) : null;
+  loadedMembersCount = list ? list.length : null;
+}
+/* 이 명단으로 저장하면 사라지는 회원들. 기준선을 모르면 null을 돌려준다. */
+function droppedMembers(list){
+  if(!membersBaseline) return null;
+  const have = new Set((list||[]).map(m=>m.id));
+  return [...membersBaseline.values()].filter(m=>!have.has(m.id));
+}
+/* 두 명단을 비교한다. lastSeen처럼 매번 바뀌는 값은 "정보 변경"으로 세지 않는다. */
+const memberFields = m => [m.name, m.gender, m.birthYear||null, m.grade, m.active!==false];
+function diffMembers(from, to){
+  const a = new Map((from||[]).map(m=>[m.id,m]));
+  const b = new Map((to  ||[]).map(m=>[m.id,m]));
+  return {
+    from: (from||[]).length,
+    to:   (to  ||[]).length,
+    removed: [...a.values()].filter(m=>!b.has(m.id)),
+    added:   [...b.values()].filter(m=>!a.has(m.id)),
+    changed: [...b.values()].filter(m=>a.has(m.id) &&
+        String(memberFields(a.get(m.id)))!==String(memberFields(m)))
+  };
+}
 
 function todayStr(d=new Date()){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
