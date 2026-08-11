@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+      # 이 프로젝트는 빌드 단계가 없는 정적 사이트다(public/ 을 그대로 올린다).
+      # 자동 생성 템플릿에 있던 `npm ci && npm run build`는 package.json이
+      # 없어서 항상 실패했고, 그 탓에 배포 단계까지 가지도 못했다.
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
