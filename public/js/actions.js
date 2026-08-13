@@ -6,6 +6,11 @@ function tx(fn, opts={}){
   if(undoStack.length>20) undoStack.shift();
   fn();
   if(opts.auto!==false) autoAssign();
+  /* 순번 당기기는 자동 배치와 별개다. 사람을 새로 배정하는 게 아니라 줄의
+     빈칸을 메우는 일이라, 자동 토글이 꺼져 있든 되돌리기({auto:false})든
+     항상 돌아야 한다. 예전에는 autoAssign 안에만 있어서 Q1을 비워도 Q2가
+     그 자리에 남아 있었다. */
+  compactQueues();
   autoStartFullCourts();     // 4명이 차면 무조건 시작 — 어느 경로로 찼든
   syncPlayingMatches();      // 진행 중 경기의 팀이 바뀌었으면 기록도 맞춘다
   save(); render();
