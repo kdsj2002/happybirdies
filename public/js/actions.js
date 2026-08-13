@@ -269,7 +269,26 @@ function returnCourtToQueue(c){
   return true;
 }
 
-/* 코트에 올라간 팀을 전부 대기 인원으로 흩는다. */
+/* 코트 팀의 다음 단계는 대기 인원이다. 여기가 중요한 갈림길이다.
+     경기 중이었다  → 경기가 끝난 것으로 본다(게임 수 +1, 기록 저장).
+     아직 안 찼다   → 그냥 되돌린다.
+   종료 버튼을 없앴으므로 "대기 인원으로 보내는 것"이 곧 종료다.
+   반대로 대기열이나 다른 코트로 옮기는 것은 끝난 게 아니므로 경기를
+   무효로 하고 옮긴다(abortMatch). */
+function advanceCourtTeam(c){
+  if(!c || !c.members.length) return false;
+  if(c.status==='PLAYING'){
+    const ids=c.members.slice();
+    ids.forEach(flash);
+    tx(()=>endCourt(c,'POOL'),{auto:false});
+    Sound.play('end');
+    toast(`${c.no}코트 경기를 마쳤습니다`);
+    return true;
+  }
+  return returnCourtToPool(c);
+}
+
+/* 코트에 올라간 팀을 전부 대기 인원으로 흩는다(경기로 치지 않는다). */
 function returnCourtToPool(c){
   if(!c.members.length) return false;
   c.members.forEach(flash);
@@ -292,30 +311,63 @@ function returnOneToPool(id){
   return true;
 }
 
-/* 대기 슬롯 팀을 끌어다 놓았을 때의 목적지 처리 */
-function moveTeamTo(qIndex, target){
-  const q=S.queues.find(x=>x.index===qIndex);
-  if(!q || q.members.length!==4) return;
-  const [kind,key]=String(target).split(':');
-  if(kind==='court'){
-    return void pushQueueToCourt(q, S.courts.find(c=>c.no===+key));
-  }
-  if(kind==='pool'){
-    q.members.forEach(flash);
-    tx(()=>{ q.members.forEach(i=>A(i).state='POOL'); clearQueue(q); },{auto:false});
+/* 팀 박스(코트 카드 · 대기 슬롯)를 끌어다 놓았을 때의 목적지 처리.
+   출발지도 목적지도 코트·대기열·대기 인원 어디든 될 수 있다. */
+function moveTeamTo(from, target){
+  const [fk,fn]=String(from||'').split(':');
+  const [tk,tn]=String(target||'').split(':');
+  if(fk===tk && fn===tn) return;
+  const src = fk==='court' ? S.courts.find(c=>c.no===+fn) : S.queues.find(q=>q.index===+fn);
+  if(!src || !src.members.length) return;
+
+  if(tk==='pool'){
+    if(fk==='court') return void advanceCourtTeam(src);       // 코트 → 대기 인원 = 경기 종료
+    src.members.forEach(flash);
+    tx(()=>{ src.members.forEach(i=>A(i).state='POOL'); clearQueue(src); },{auto:false});
     Sound.play('move');
     return;
   }
-  if(kind==='queue'){
-    const to=S.queues.find(x=>x.index===+key);
-    if(!to || to===q) return;
-    if(to.members.length){ Sound.play('error'); toast('그 슬롯은 이미 차 있습니다'); return; }
-    q.members.forEach(flash);
+
+  if(tk==='court'){
+    const to=S.courts.find(c=>c.no===+tn);
+    if(!to || to.disabled){ Sound.play('error'); toast('그 코트는 쓸 수 없습니다'); return; }
+    if(to.members.length + src.members.length > 4){
+      Sound.play('error'); toast(`${to.no}코트에 자리가 모자랍니다`); return;
+    }
+    if(fk==='queue'){
+      if(src.members.length===4 && !to.members.length) return void pushQueueToCourt(src, to);
+      // 4명이 아니거나 코트에 이미 몇 명 있으면 한 명씩 채워 넣는다
+      const ids=src.members.slice();
+      ids.forEach(flash);
+      tx(()=>{ ids.forEach(i=>{ removeFrom(i); addTo(i,`court:${to.no}`); }); });
+      Sound.play('move');
+      return;
+    }
+    if(to.members.length){ Sound.play('error'); toast(`${to.no}코트가 이미 차 있습니다`); return; }
+    // 코트 → 다른 코트: 끝난 게 아니므로 경기는 무효로 하고 옮긴다
+    src.members.forEach(flash);
     tx(()=>{
-      to.members=q.members; to.teams=q.teams; to.matchType=q.matchType;
-      to.typeSource=q.typeSource; to.origin=q.origin;
-      to.pinnedType=to.pinnedType||null; to.notice=null;
-      clearQueue(q);
+      abortMatch(src);
+      to.members=src.members; to.teams=src.teams; to.matchType=src.matchType;
+      to.typeSource=src.typeSource; to.status='FILLING';
+      to.members.forEach(i=>A(i).state='FILLING');
+      clearCourt(src);
+    });
+    Sound.play('move');
+    return;
+  }
+
+  if(tk==='queue'){
+    const to=S.queues.find(q=>q.index===+tn);
+    if(!to || to===src) return;
+    if(to.members.length){ Sound.play('error'); toast('그 대기 슬롯은 이미 차 있습니다'); return; }
+    src.members.forEach(flash);
+    tx(()=>{
+      if(fk==='court') abortMatch(src);                        // 옮기는 것은 종료가 아니다
+      to.members=src.members; to.teams=src.teams; to.matchType=src.matchType;
+      to.typeSource=src.typeSource; to.origin='MANUAL'; to.notice=null;
+      to.members.forEach(i=>A(i).state='QUEUED');
+      if(fk==='court') clearCourt(src); else clearQueue(src);
     },{auto:false});
     Sound.play('move');
   }
@@ -368,9 +420,7 @@ function advanceTeam(target){
   if(!requirePerm('edit')) return;
   if(kind==='court'){
     if(!requirePerm('courtAssign')) return;
-    const c=S.courts.find(c=>c.no===+key);
-    if(!c || !c.members.length) return;
-    return void returnCourtToPool(c);          // 코트 팀 → 대기 인원
+    return void advanceCourtTeam(S.courts.find(c=>c.no===+key));   // 코트 → 대기 인원(=종료)
   }
   if(kind==='queue'){
     if(!requirePerm('courtAssign')) return;
@@ -412,7 +462,6 @@ function addTo(id, target){
   if(kind==='pool'){ A(id).state='POOL'; return true; }
   const o = kind==='court'? S.courts.find(c=>c.no===+key) : S.queues.find(q=>q.index===+key);
   if(!o) return false;
-  if(kind==='court'&&o.status==='PLAYING'){ toast('경기 중인 코트는 바꿀 수 없습니다'); return false; }
   if(o.members.length>=4) return false;
   o.members.push(id); A(id).state=kind==='court'?'FILLING':'QUEUED';
   if(kind==='court'&&side){                       // 지정 자리에 삽입

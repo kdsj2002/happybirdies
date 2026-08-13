@@ -241,6 +241,9 @@ function startCourt(c, silent){
   if(c.members.length!==4) return;
   if(!c.teams.A.length){ const sp=bestSplit(c.members, c.matchType||defaultTarget(c.members));
                          if(sp){c.teams=sp.teams; c.matchType=mtypeOf(c.members,sp.teams);} }
+  // 팀이 이미 짜여 있는 채로 들어오면 위 분기를 타지 않아 유형이 비어 있을 수
+  // 있다. 그러면 배지가 계속 "미정"으로 남고 기록에도 유형이 안 남는다.
+  if(!c.matchType) c.matchType = mtypeOf(c.members, c.teams);
   c.status='PLAYING'; c.startedAt=now(); c.matchId=uid('m');
   // 자동 마감 타이머는 여기서 시작한다. 앱을 연 시각이 아니라 실제로 첫 게임이
   // 시작된 시각이 기준이어야 한다.

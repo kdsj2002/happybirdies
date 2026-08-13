@@ -5,7 +5,7 @@
    ===================================================================== */
 (function(){
   let sx=0,sy=0,src=null,drag=false,srcEl=null,lastDrop=null,holdT=null;
-  let team=null;                 // 팀째 끌 때의 대기 슬롯 번호 (개인 드래그면 null)
+  let team=null;                 // 팀째 끌 때의 출발지 키('court:1'·'queue:3'). 개인 드래그면 null
   const ghost=$('#ghost');
 
   document.addEventListener('pointerdown',e=>{
@@ -22,16 +22,13 @@
       holdT=setTimeout(()=>begin(e),160);
       return;
     }
-    /* 대기 슬롯을 통째로 끌기. 슬롯 안의 버튼·아이콘을 누른 것이면 그건
-       그 버튼의 일이므로 드래그를 시작하지 않는다. */
+    /* 팀 박스(코트 카드·대기 슬롯)를 통째로 끌기. 박스 안의 버튼·아이콘을
+       누른 것이면 그건 그 버튼의 일이므로 드래그를 시작하지 않는다. */
     const s=e.target.closest('[data-team]');
     if(!s) return;
     if(e.target.closest('button,.ic,.mt')) return;
     if(!Auth.can('edit') || !Auth.can('courtAssign')) return;
-    const qi=+s.dataset.team.split(':')[1];
-    const q=S.queues.find(x=>x.index===qi);
-    if(!q || q.members.length!==4) return;
-    sx=e.clientX; sy=e.clientY; src=null; srcEl=s; team=qi; drag=false;
+    sx=e.clientX; sy=e.clientY; src=null; srcEl=s; team=s.dataset.team; drag=false;
     holdT=setTimeout(()=>begin(e),160);
   });
   function begin(e){
@@ -40,11 +37,13 @@
     ghost.innerHTML='';
     if(team!==null){
       srcEl.classList.add('team-drag');
-      const q=S.queues.find(x=>x.index===team);
-      const names=(q.teams.A.length?[...q.teams.A,...q.teams.B]:q.members)
-        .map(i=>(A(i)||{}).name).filter(Boolean);
+      const [k,n]=team.split(':');
+      const o = k==='court' ? S.courts.find(c=>c.no===+n) : S.queues.find(q=>q.index===+n);
+      const ids=(o.teams.A.length?[...o.teams.A,...o.teams.B]:o.members);
+      const names=ids.map(i=>(A(i)||{}).name).filter(Boolean);
       const g=el('div','ghost-team',
-        `<b>Q${team} 팀 4명</b><span>${names.map(esc).join(' · ')}</span>`);
+        `<b>${k==='court'?n+'코트':'Q'+n} · ${names.length}명</b>`
+        +`<span>${names.map(esc).join(' · ')}</span>`);
       ghost.appendChild(g);
     }else{
       srcEl.classList.add('ghost');
@@ -130,20 +129,12 @@ document.addEventListener('click',e=>{
   const t=e.target;
   const scr=t.closest('[data-scr]'); if(scr) return show(scr.dataset.scr);
 
-  const end=t.closest('[data-end]');
-  if(end){ if(!requirePerm('edit')) return;
-    Sound.play('end'); return endDialog(S.courts.find(c=>c.no===+end.dataset.end)); }
 
   const push=t.closest('[data-push]');
   if(push){ if(!requirePerm('edit')||!requirePerm('courtAssign')) return;
     return void pushQueueToCourt(S.queues.find(q=>q.index===+push.dataset.push));
   }
 
-  const ret=t.closest('[data-return]');
-  if(ret){ if(!requirePerm('edit')||!requirePerm('courtAssign')) return;
-    Sound.play('tap');
-    return returnDialog(S.courts.find(c=>c.no===+ret.dataset.return));
-  }
 
   const clr=t.closest('[data-clear]');
   if(clr){ if(!requirePerm('edit')) return; Sound.play('tap');
@@ -240,61 +231,6 @@ function askPin(title, desc, onOk, opts={}){
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
 }
 $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal(); });
-
-/* 코트에 올라간 사람을 되돌린다 — 팀 단위 또는 한 명씩.
-   경기 중인 코트에는 이 버튼이 아예 나오지 않는다(기록이 어긋난다). */
-function returnDialog(c){
-  if(!c || !c.members.length) return;
-  const nm=id=>esc((A(id)||{}).name||'?');
-  const emptyQ=S.queues.some(q=>!q.members.length);
-  /* 4명이 차면 곧바로 경기가 시작되므로, 되돌리기는 진행 중인 코트에서도
-     되어야 한다. 대신 그 경기는 성립하지 않으므로 기록에서 지운다는 것을
-     확인창에 분명히 적는다. */
-  const live = c.status==='PLAYING';
-  openModal(`<h3>${c.no}코트 되돌리기</h3>
-    <div class="sub">${c.members.map(nm).join(' · ')}</div>
-    ${live?`<div class="hint" style="color:var(--cork);margin-bottom:12px">
-      진행 중인 경기입니다. 되돌리면 이 경기는 <b>기록에 남지 않습니다</b>
-      (끝난 경기 기록은 그대로입니다). 정상적으로 끝내려면 <b>종료</b>를 누르세요.</div>`:''}
-    <div class="opt" data-r="queue" ${emptyQ?'':'style="opacity:.45;cursor:not-allowed"'}>
-      <div><div class="t">팀 그대로 대기열로</div>
-      <div class="d">${emptyQ ? '네 명이 팀을 유지한 채 빈 대기 슬롯으로 돌아갑니다'
-                              : '비어 있는 대기 슬롯이 없습니다'}</div></div></div>
-    <div class="opt" data-r="pool"><div><div class="t">전원 대기 인원으로</div>
-      <div class="d">팀을 풀고 네 명 모두 대기 인원으로 내려갑니다</div></div></div>
-    <div class="sec-h" style="margin:16px 0 8px">한 명만 빼기<span class="rule"></span></div>
-    <div class="row" style="gap:8px">
-      ${c.members.map(id=>`<button class="btn" data-r1="${id}">${nm(id)}</button>`).join('')}
-    </div>
-    <div class="row end"><button class="btn" onclick="closeModal()">취소</button></div>`);
-  $('#modal').querySelector('[data-r="queue"]').onclick=()=>{
-    if(!emptyQ) return;
-    closeModal(); returnCourtToQueue(c);
-  };
-  $('#modal').querySelector('[data-r="pool"]').onclick=()=>{ closeModal(); returnCourtToPool(c); };
-  $$('#modal [data-r1]').forEach(b=>b.onclick=()=>{ closeModal(); returnOneToPool(b.dataset.r1); });
-}
-
-let endTimer=null;
-function endDialog(c){
-  clearTimeout(endTimer);
-  const nm=id=>esc(A(id).name);
-  const mins=Math.floor((now()-c.startedAt)/60000), secs=Math.floor((now()-c.startedAt)/1000)%60;
-  openModal(`<h3>${c.no}코트 경기 종료</h3>
-    <div class="sub">${MT_LBL[c.matchType||'UNKNOWN']} · ${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}</div>
-    <div style="font-size:17px;font-weight:700;margin-bottom:18px;line-height:1.6">
-      ${c.teams.A.map(nm).join(' · ')} &nbsp;vs&nbsp; ${c.teams.B.map(nm).join(' · ')}</div>
-    <div class="opt on" data-d="POOL"><div><div class="t">전원 대기 인원으로 <span id="cd" style="color:var(--muted)"></span></div>
-      <div class="d">기본. 4명이 풀로 돌아가 다음 조합에 들어갑니다</div></div></div>
-    <div class="opt" data-d="REVENGE"><div><div class="t">리벤지 — 같은 멤버 그대로</div>
-      <div class="d">4명이 팀을 유지한 채 대기 슬롯 뒤쪽에 등록됩니다</div></div></div>
-    <div class="row end"><button class="btn" onclick="closeModal()">취소</button></div>`);
-  let n=5;
-  const tick=()=>{ const e=$('#cd'); if(!e) return; e.textContent=`(${n}초 후 자동)`;
-    if(--n<0){ closeModal(); tx(()=>endCourt(c,'POOL')); } else endTimer=setTimeout(tick,1000); };
-  tick();
-  $$('#modal .opt').forEach(o=>o.onclick=()=>{ clearTimeout(endTimer); closeModal(); tx(()=>endCourt(c,o.dataset.d)); });
-}
 
 function typeDialog(o,kind){
   if(o.members.length!==4){

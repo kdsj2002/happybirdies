@@ -154,7 +154,11 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .slot.empty{border-style:dashed;opacity:.55}
 .slot-h{display:flex;align-items:center;gap:7px;margin-bottom:7px;min-height:30px}
 .slot-no{font-weight:800;font-size:15px;min-width:24px}
-.slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+/* 대기열은 네 명을 한 줄에 늘어놓는다. 위아래 2×2보다 팀이 한눈에 읽힌다. */
+.slot-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.slot .chip{padding:6px 8px 6px 9px}
+.slot .chip-badge{right:3px;top:2px;font-size:10px}
+.slot .chip-wait{display:none}          /* 한 줄에 넣으려면 자리가 없다 */
 .notice{margin-top:7px;font-size:13px;color:var(--cork);font-weight:700}
 
 /* 인원 칩 */
@@ -163,26 +167,31 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
    가려지던 문제가 줄고, 대기 인원 바에도 더 많이 들어간다. */
 .chip{
   position:relative;display:flex;align-items:center;
-  min-height:48px;padding:6px 40px 6px 11px;border-radius:9px;
+  min-height:48px;padding:6px 30px 6px 10px;border-radius:9px;
   background:var(--surface2);border:1px solid var(--line);
   cursor:grab;touch-action:none;overflow:hidden;
 }
-.court .chip{min-height:62px;padding:8px 40px 8px 13px}
+.court .chip{min-height:66px;padding:8px 34px 8px 12px}
 .chip.sel{border-color:var(--court);box-shadow:0 0 0 2px var(--court-soft)}
 .chip.ghost{opacity:.3}
-/* 이름이 주인공이다. 세 글자가 멀리서도 읽히도록 굵기와 크기를 올리고,
-   위치별로 크기를 달리한다 — 코트가 가장 크다. */
-.chip-nm{font-weight:800;font-size:20px;letter-spacing:-.01em;white-space:nowrap;
+/* 이름이 화면의 전부다. 멀리서도 읽히도록 최대한 키우고 굵기는 900까지 올린다.
+   남녀는 오직 이 색으로만 구분한다 — ♂♀ 아이콘이나 배지를 따로 두지 않는다.
+   흰 바탕 대비: 남 #1D4ED8 약 7:1, 여 #BE185D 약 6.5:1로 둘 다 AA를 넘는다. */
+.chip-nm{font-weight:900;font-size:21px;letter-spacing:-.02em;white-space:nowrap;
          overflow:hidden;text-overflow:ellipsis;width:100%}
-.court .chip-nm{font-size:26px}
-.slot  .chip-nm{font-size:20px}
+.chip-nm.m{color:var(--md)}
+.chip-nm.f{color:var(--wd)}
+.chip-nm.u{color:var(--cork)}          /* 성별 미입력 — 눈에 띄게 둔다 */
+.court .chip-nm{font-size:31px}
+.slot  .chip-nm{font-size:22px}
+#pool  .chip-nm{font-size:20px}
 .chip-nm .gst{font-size:11px;font-weight:800;color:var(--gold);margin-left:5px;vertical-align:2px}
 /* 성별 아이콘은 회원 명단 화면에서만 쓴다 */
 .sx{font-size:14px;font-weight:800}
 .sx.m{color:var(--md)} .sx.f{color:var(--wd)} .sx.u{color:var(--cork)}
-.chip-badge{position:absolute;right:8px;top:6px;font-size:12px;font-weight:800;color:var(--muted)}
+.chip-badge{position:absolute;right:5px;top:4px;font-size:11px;font-weight:800;color:var(--muted)}
 .chip-badge.zero{color:var(--cork)}
-.chip-wait{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--muted2)}
+.chip-wait{position:absolute;right:5px;bottom:4px;font-size:10px;color:var(--muted2)}
 .chip-wait.long{color:var(--gold)}
 /* ── 움직임 ─────────────────────────────────
    배치·이동이 한 프레임에 툭 바뀌어서 뭐가 어디로 갔는지 놓치기 쉬웠다.
@@ -228,13 +237,13 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 @keyframes dropPulse{0%,100%{outline-offset:-2px}50%{outline-offset:2px}}
 
 /* 대기 슬롯을 통째로 끌어 코트에 놓을 수 있게 하는 손잡이 */
-.slot[data-team]{cursor:grab}
-.slot[data-team]:active{cursor:grabbing}
-.slot.team-drag{opacity:.35}
+[data-team]{cursor:grab}
+[data-team]:active{cursor:grabbing}
+.team-drag{opacity:.35}
 .grip{display:inline-flex;align-items:center;gap:4px;color:var(--muted2);
       font-size:12px;font-weight:800;letter-spacing:.02em;padding:2px 6px;
       border:1px dashed var(--line);border-radius:6px;white-space:nowrap}
-.slot[data-team] .grip{color:var(--court);border-color:var(--court);border-style:solid}
+
 /* 투입 버튼 — 작아서 누르기 어렵다는 얘기가 많아 확실히 키웠다 */
 .push-btn{height:38px;padding:0 16px;font-size:15px;border-radius:9px}
 
@@ -397,13 +406,15 @@ tr:hover td{background:var(--surface)}
 
   /* 좁은 화면에서도 이름은 크게 유지한다 — 그게 요구사항이다.
      대신 뱃지·여백을 줄여 자리를 만든다. */
-  .chip{min-height:44px; padding:5px 30px 5px 10px}
-  .chip-nm{font-size:17px}
-  .court .chip{min-height:54px; padding:6px 32px 6px 11px}
-  .court .chip-nm{font-size:22px}
-  .slot .chip-nm{font-size:17px}
-  .chip-badge{font-size:11px; right:6px; top:4px}
-  .chip-wait{font-size:10px; right:6px; bottom:4px}
+  .chip{min-height:44px; padding:5px 24px 5px 9px}
+  .chip-nm{font-size:18px}
+  .court .chip{min-height:56px; padding:6px 26px 6px 10px}
+  .court .chip-nm{font-size:25px}
+  .slot .chip{padding:5px 5px 5px 6px}
+  .slot .chip-nm{font-size:15px}
+  #pool .chip-nm{font-size:18px}
+  .chip-badge{font-size:10px; right:4px; top:3px}
+  .chip-wait{font-size:10px; right:4px; bottom:3px}
   .seat{min-height:44px; font-size:18px}
   .court{padding:8px 9px 9px}
   .court-h{min-height:28px; margin-bottom:6px; gap:6px}
@@ -418,8 +429,8 @@ tr:hover td{background:var(--surface)}
   /* 대기 인원 바: 칩이 이름만 담게 되어 훨씬 좁아졌으므로 두 줄로 감싸
      한 화면에 많이 보이게 한다. 가로로만 밀던 예전보다 훑기 쉽다. */
   .pool-list{gap:5px; padding:6px 10px 10px}
-  .pool-list .chip{min-width:88px; max-width:none; min-height:42px; padding:4px 26px 4px 9px}
-  .pool-list .chip .chip-nm{font-size:16px}
+  .pool-list .chip{min-width:92px; max-width:none; min-height:44px; padding:4px 22px 4px 9px}
+  .pool-list .chip .chip-nm{font-size:18px}
   .pool-h{flex-wrap:wrap; row-gap:5px; padding:5px 10px 0; font-size:12px}
 
   /* 설정 화면: 라벨/값을 좌우가 아니라 위아래로 */
@@ -448,22 +459,24 @@ tr:hover td{background:var(--surface)}
 /* 아이폰 SE(667px) 등 세로로 짧은 화면: 대기 인원 바를 줄여 코트 영역을 확보 */
 @media (max-width:780px) and (max-height:700px){
   :root{ --navh:48px; --navpad:calc(48px + env(safe-area-inset-bottom)); }
-  .pool-list .chip{min-height:38px; min-width:80px}
-  .pool-list .chip .chip-nm{font-size:15px}
+  .pool-list .chip{min-height:40px; min-width:84px}
+  .pool-list .chip .chip-nm{font-size:16px}
   .court{padding:7px 8px 8px}
-  .chip{min-height:40px; padding:3px 26px 3px 8px}
-  .court .chip{min-height:48px}
-  .court .chip-nm{font-size:19px}
+  .chip{min-height:40px; padding:3px 22px 3px 8px}
+  .court .chip{min-height:50px}
+  .court .chip-nm{font-size:21px}
   .seat{min-height:40px}
   .chip-nm{font-size:16px}
+  .slot .chip-nm{font-size:14px}
   .court-h{min-height:26px; margin-bottom:5px}
   .timer{font-size:17px}
 }
 
 @media (max-width:380px){
-  .chip-nm{font-size:15px}
-  .court .chip-nm{font-size:20px}
-  .pool-list .chip .chip-nm{font-size:14px}
+  .chip-nm{font-size:16px}
+  .court .chip-nm{font-size:22px}
+  .slot .chip-nm{font-size:13px}
+  .pool-list .chip .chip-nm{font-size:16px}
   .slot-grid{gap:4px}
   .tab{font-size:12px}
   .brand{max-width:88px}

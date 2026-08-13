@@ -22,7 +22,9 @@ function chipEl(id, ctx){
   // 배치 계산에는 그대로 쓰이고, 화면에는 이름과 운영 정보만 남긴다.
   const e=el('div','chip');
   e.dataset.chip=id; e.dataset.ctx=ctx;
-  e.innerHTML=`<div class="chip-nm">${esc(a.name)}${a.guest?'<span class="gst">G</span>':''}</div>
+  // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
+  const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
+  e.innerHTML=`<div class="chip-nm${g}">${esc(a.name)}${a.guest?'<span class="gst">G</span>':''}</div>
     <div class="chip-badge ${a.games===0?'zero':''}">${a.games}G</div>
     ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${w}분</div>`:''}`;
   if(sel===id) e.classList.add('sel');
@@ -48,15 +50,15 @@ function renderCourts(){
     const card=el('div','court'+(c.status==='PLAYING'?' playing':'')+(over?' over':'')+(c.disabled?' disabled':''));
     card.dataset.drop=`court:${c.no}`;
     const t=c.startedAt? `${String(Math.floor(mins)).padStart(2,'0')}:${String(Math.floor((now()-c.startedAt)/1000)%60).padStart(2,'0')}` : '';
+    // 버튼(시작·종료·빼기·잠금)은 전부 없앴다. 머리 부분을 두 번 두드리면
+    // 다음 단계로 가고, 끌면 원하는 곳으로 옮긴다.
+    if(c.members.length && Auth.can('courtAssign')) card.dataset.team=`court:${c.no}`;
     card.innerHTML=`<div class="court-h">
         <span class="court-no">${c.no}코트</span>
         ${mtBadge(c,'court',c.no)}
         <span class="spacer"></span>
         ${t?`<span class="timer num">${t}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
-        ${c.members.length
-          ? `<button class="btn sm" data-return="${c.no}" title="대기열이나 대기 인원으로 되돌리기">↩ 빼기</button>` : ''}
-        ${c.status==='PLAYING' ? `<button class="btn sm warn" data-end="${c.no}">종료</button>` : ''}
-        <span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>
+        ${c.members.length===4?`<span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>`:''}
       </div>`;
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
@@ -85,12 +87,12 @@ function renderQueues(){
     // 4명이 찬 슬롯은 통째로 끌어서 코트에 놓을 수 있다. 작은 투입 버튼을
     // 정확히 누르는 것보다 팀을 통째로 끌어다 놓는 쪽이 훨씬 직관적이다.
     const full = q.members.length===4;
-    if(full && Auth.can('courtAssign')) e.dataset.team=`queue:${q.index}`;
+    // 4명이 아니어도 사람이 있으면 통째로 끌 수 있다.
+    if(q.members.length && Auth.can('courtAssign')) e.dataset.team=`queue:${q.index}`;
     e.innerHTML=`<div class="slot-h">
         <span class="slot-no">Q${q.index}</span>
         ${mtBadge(q,'queue',q.index)}
         ${q.origin==='REVENGE'?'<span class="stat" style="color:var(--gold)">리벤지</span>':''}
-        ${full?'<span class="grip" data-griphint>⠿ 팀째 끌기</span>':''}
         <span class="spacer"></span>
         ${full?`<button class="btn sm primary push-btn" data-push="${q.index}">투입 →</button>`:''}
         ${q.members.length?`<span class="ic" data-swap="queue:${q.index}" title="팀 바꾸기">⇄</span>
