@@ -181,6 +181,114 @@ async function bulkOverwriteMembers(nextList, opt={}){
 }
 
 /* =====================================================================
+   대기열 팀 ↔ 코트 (팀 단위)
+
+   투입은 버튼과 드래그가 같은 길을 쓴다. 되돌리기는 예전에 아예 없어서,
+   한 번 코트에 올라가면 칩을 하나씩 빼내는 수밖에 없었다.
+   경기 중(PLAYING)인 코트는 건드리지 않는다 — 기록이 어긋난다.
+   되돌린 직후 자동 배치가 그 자리를 곧바로 다시 채우면 되돌린 의미가
+   없으므로, 되돌리기 트랜잭션은 전부 {auto:false}로 돈다.
+   ===================================================================== */
+function firstEmptyCourt(){ return S.courts.find(c=>c.status==='EMPTY'&&!c.disabled&&!c.members.length); }
+function clearCourt(c){
+  Object.assign(c,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
+                   status:'EMPTY',locked:false,startedAt:null,matchId:null});
+}
+function clearQueue(q){
+  Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
+                   origin:'AUTO',locked:false,notice:null});
+}
+
+/* 대기 슬롯 하나를 코트로 통째로 올린다. c를 안 주면 빈 코트를 찾는다. */
+function pushQueueToCourt(q, c){
+  if(!q || q.members.length!==4) return false;
+  c = c || firstEmptyCourt();
+  if(!c){ Sound.play('error'); toast('빈 코트가 없습니다'); return false; }
+  if(c.disabled){ Sound.play('error'); toast(`${c.no}코트는 사용하지 않습니다`); return false; }
+  if(c.status==='PLAYING'){ Sound.play('error'); toast('경기 중인 코트에는 넣을 수 없습니다'); return false; }
+  if(c.members.length){ Sound.play('error'); toast(`${c.no}코트가 이미 차 있습니다`); return false; }
+  q.members.forEach(flash);            // 네 명 모두 착지 애니메이션 (render 전에 걸어야 한다)
+  tx(()=>{
+    c.members=q.members; c.teams=q.teams; c.matchType=q.matchType; c.typeSource=q.typeSource;
+    c.status='FILLING'; c.members.forEach(i=>A(i).state='FILLING');
+    clearQueue(q);
+  });
+  Sound.play('move');
+  return true;
+}
+
+/* 코트에 올라간 팀을 통째로 대기열로 되돌린다(팀 유지). */
+function returnCourtToQueue(c){
+  if(!c.members.length) return false;
+  const q=S.queues.find(x=>!x.members.length);
+  if(!q){ Sound.play('error'); toast('비어 있는 대기 슬롯이 없습니다'); return false; }
+  c.members.forEach(flash);
+  tx(()=>{
+    q.members=c.members; q.teams=c.teams; q.matchType=c.matchType; q.typeSource=c.typeSource;
+    q.origin='MANUAL'; q.locked=true; q.notice=null;   // 손으로 되돌린 팀은 자동 재구성에서 지킨다
+    q.members.forEach(i=>A(i).state='QUEUED');
+    clearCourt(c);
+  },{auto:false});
+  Sound.play('move');
+  return true;
+}
+
+/* 코트에 올라간 팀을 전부 대기 인원으로 흩는다. */
+function returnCourtToPool(c){
+  if(!c.members.length) return false;
+  c.members.forEach(flash);
+  tx(()=>{ c.members.forEach(i=>A(i).state='POOL'); clearCourt(c); },{auto:false});
+  Sound.play('move');
+  return true;
+}
+
+/* 한 명만 대기 인원으로 뺀다. 코트가 비면 상태도 같이 되돌린다. */
+function returnOneToPool(id){
+  const L=locate(id);
+  if(L.kind==='court' && L.obj.status==='PLAYING'){
+    Sound.play('error'); toast('경기 중에는 뺄 수 없습니다'); return false;
+  }
+  flash(id);
+  tx(()=>{
+    removeFrom(id);
+    // removeFrom은 인원만 덜어낸다. 코트가 비었으면 상태까지 EMPTY로 돌려놔야
+    // 자동 투입이 그 코트를 다시 쓸 수 있다.
+    if(L.kind==='court' && !L.obj.members.length) clearCourt(L.obj);
+  },{auto:false});
+  Sound.play('move');
+  return true;
+}
+
+/* 대기 슬롯 팀을 끌어다 놓았을 때의 목적지 처리 */
+function moveTeamTo(qIndex, target){
+  const q=S.queues.find(x=>x.index===qIndex);
+  if(!q || q.members.length!==4) return;
+  const [kind,key]=String(target).split(':');
+  if(kind==='court'){
+    return void pushQueueToCourt(q, S.courts.find(c=>c.no===+key));
+  }
+  if(kind==='pool'){
+    q.members.forEach(flash);
+    tx(()=>{ q.members.forEach(i=>A(i).state='POOL'); clearQueue(q); },{auto:false});
+    Sound.play('move');
+    return;
+  }
+  if(kind==='queue'){
+    const to=S.queues.find(x=>x.index===+key);
+    if(!to || to===q) return;
+    if(to.members.length){ Sound.play('error'); toast('그 슬롯은 이미 차 있습니다'); return; }
+    q.members.forEach(flash);
+    tx(()=>{
+      to.members=q.members; to.teams=q.teams; to.matchType=q.matchType;
+      to.typeSource=q.typeSource; to.origin=q.origin; to.locked=q.locked;
+      to.pinnedType=to.pinnedType||null; to.notice=null;
+      clearQueue(q);
+    },{auto:false});
+    Sound.play('move');
+  }
+}
+
+/* =====================================================================
    이동 / 배치
    ===================================================================== */
 function locate(id){

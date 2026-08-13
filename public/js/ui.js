@@ -54,6 +54,8 @@ function renderCourts(){
         ${mtBadge(c,'court',c.no)}
         <span class="spacer"></span>
         ${t?`<span class="timer num">${t}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
+        ${c.members.length && c.status!=='PLAYING'
+          ? `<button class="btn sm" data-return="${c.no}" title="대기열이나 대기 인원으로 되돌리기">↩ 빼기</button>` : ''}
         ${c.status==='PLAYING'
           ? `<button class="btn sm warn" data-end="${c.no}">종료</button>`
           : `<button class="btn sm primary" data-start="${c.no}" ${c.members.length!==4?'disabled':''}>시작</button>`}
@@ -84,12 +86,17 @@ function renderQueues(){
   S.queues.forEach((q,i)=>{
     const e=el('div','slot'+(i===firstFull?' next':'')+(q.locked?' locked':'')+(!q.members.length?' empty':''));
     e.dataset.drop=`queue:${q.index}`;
+    // 4명이 찬 슬롯은 통째로 끌어서 코트에 놓을 수 있다. 작은 투입 버튼을
+    // 정확히 누르는 것보다 팀을 통째로 끌어다 놓는 쪽이 훨씬 직관적이다.
+    const full = q.members.length===4;
+    if(full && Auth.can('courtAssign')) e.dataset.team=`queue:${q.index}`;
     e.innerHTML=`<div class="slot-h">
         <span class="slot-no">Q${q.index}</span>
         ${mtBadge(q,'queue',q.index)}
         ${q.origin==='REVENGE'?'<span class="stat" style="color:var(--gold)">리벤지</span>':''}
+        ${full?'<span class="grip" data-griphint>⠿ 팀째 끌기</span>':''}
         <span class="spacer"></span>
-        ${q.members.length===4?`<button class="btn sm" data-push="${q.index}">투입</button>`:''}
+        ${full?`<button class="btn sm primary push-btn" data-push="${q.index}">투입 →</button>`:''}
         ${q.members.length?`<span class="ic" data-swap="queue:${q.index}" title="팀 바꾸기">⇄</span>
           <span class="ic" data-clear="${q.index}" title="비우기">✕</span>`:''}
         <span class="ic ${q.locked?'on':''}" data-lock="queue:${q.index}">${q.locked?'🔒':'🔓'}</span>

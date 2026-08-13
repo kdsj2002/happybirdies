@@ -5,25 +5,52 @@
    ===================================================================== */
 (function(){
   let sx=0,sy=0,src=null,drag=false,srcEl=null,lastDrop=null,holdT=null;
+  let team=null;                 // 팀째 끌 때의 대기 슬롯 번호 (개인 드래그면 null)
   const ghost=$('#ghost');
 
   document.addEventListener('pointerdown',e=>{
-    const c=e.target.closest('[data-chip]'); if(!c) return;
-    const id=c.dataset.chip;
-    const L=locate(id);
-    if(L.kind==='court'&&L.obj.status==='PLAYING') return;   // 경기 중은 잠금
-    // 운영자가 아니면 자기 칩만, 그것도 코트 밖에서만 잡을 수 있다
-    if(!Auth.can('edit')){
-      if(!Auth.can('selfQueue') || !Auth.isMe(id)) return;
-      if(L.kind==='court') return;
+    const c=e.target.closest('[data-chip]');
+    if(c){
+      const id=c.dataset.chip;
+      const L=locate(id);
+      if(L.kind==='court'&&L.obj.status==='PLAYING') return;   // 경기 중은 잠금
+      // 운영자가 아니면 자기 칩만, 그것도 코트 밖에서만 잡을 수 있다
+      if(!Auth.can('edit')){
+        if(!Auth.can('selfQueue') || !Auth.isMe(id)) return;
+        if(L.kind==='court') return;
+      }
+      sx=e.clientX; sy=e.clientY; src=id; srcEl=c; team=null; drag=false;
+      holdT=setTimeout(()=>begin(e),160);
+      return;
     }
-    sx=e.clientX; sy=e.clientY; src=id; srcEl=c; drag=false;
+    /* 대기 슬롯을 통째로 끌기. 슬롯 안의 버튼·아이콘을 누른 것이면 그건
+       그 버튼의 일이므로 드래그를 시작하지 않는다. */
+    const s=e.target.closest('[data-team]');
+    if(!s) return;
+    if(e.target.closest('button,.ic,.mt')) return;
+    if(!Auth.can('edit') || !Auth.can('courtAssign')) return;
+    const qi=+s.dataset.team.split(':')[1];
+    const q=S.queues.find(x=>x.index===qi);
+    if(!q || q.members.length!==4) return;
+    sx=e.clientX; sy=e.clientY; src=null; srcEl=s; team=qi; drag=false;
     holdT=setTimeout(()=>begin(e),160);
   });
   function begin(e){
-    if(!src||drag) return;
-    drag=true; srcEl.classList.add('ghost');
-    ghost.innerHTML=''; const g=chipEl(src,'ghost'); g.style.width='100%'; ghost.appendChild(g);
+    if(drag || (!src && team===null)) return;
+    drag=true;
+    ghost.innerHTML='';
+    if(team!==null){
+      srcEl.classList.add('team-drag');
+      const q=S.queues.find(x=>x.index===team);
+      const names=(q.teams.A.length?[...q.teams.A,...q.teams.B]:q.members)
+        .map(i=>(A(i)||{}).name).filter(Boolean);
+      const g=el('div','ghost-team',
+        `<b>Q${team} 팀 4명</b><span>${names.map(esc).join(' · ')}</span>`);
+      ghost.appendChild(g);
+    }else{
+      srcEl.classList.add('ghost');
+      const g=chipEl(src,'ghost'); g.style.width='100%'; ghost.appendChild(g);
+    }
     ghost.style.display='block'; move(e);
   }
   function move(e){
@@ -35,29 +62,30 @@
     if(d){ d.classList.add('drop'); lastDrop=d; }
   }
   document.addEventListener('pointermove',e=>{
-    if(!src) return;
+    if(!src && team===null) return;
     if(!drag && Math.hypot(e.clientX-sx,e.clientY-sy)>8){ clearTimeout(holdT); begin(e); }
     if(drag){ e.preventDefault(); move(e); }
   },{passive:false});
   document.addEventListener('pointerup',e=>{
     clearTimeout(holdT);
-    if(!src) return;
+    if(!src && team===null) return;
     if(drag){
       const under=document.elementFromPoint(e.clientX,e.clientY);
       const d=under?.closest('[data-drop]');
-      if(d) moveTo(src,d.dataset.drop);
+      const t=team, s=src;
       cleanup();
-    } else {                                   // 탭 = 선택 토글
+      if(d){ if(t!==null) moveTeamTo(t, d.dataset.drop); else moveTo(s, d.dataset.drop); }
+    } else if(src) {                           // 탭 = 선택 토글 (개인 칩만)
       if(sel===src){ sel=null; } else { sel=src; }
       cleanup(); render();
-    }
+    } else cleanup();
   });
   document.addEventListener('pointercancel',cleanup);
   function cleanup(){
     clearTimeout(holdT);
-    if(srcEl) srcEl.classList.remove('ghost');
+    if(srcEl) srcEl.classList.remove('ghost','team-drag');
     if(lastDrop) lastDrop.classList.remove('drop');
-    ghost.style.display='none'; src=null; srcEl=null; drag=false; lastDrop=null;
+    ghost.style.display='none'; src=null; srcEl=null; drag=false; lastDrop=null; team=null;
   }
   /* 탭-투-무브: 선택된 칩이 있을 때 드롭 영역을 탭하면 이동 */
   document.addEventListener('click',e=>{
@@ -86,13 +114,13 @@ document.addEventListener('click',e=>{
 
   const push=t.closest('[data-push]');
   if(push){ if(!requirePerm('edit')||!requirePerm('courtAssign')) return;
-    Sound.play('move');
-    const q=S.queues.find(q=>q.index===+push.dataset.push);
-    const c=S.courts.find(c=>c.status==='EMPTY'&&!c.disabled);
-    if(!c) return toast('빈 코트가 없습니다');
-    return tx(()=>{ c.members=q.members;c.teams=q.teams;c.matchType=q.matchType;c.typeSource=q.typeSource;
-      c.status='FILLING'; q.members.forEach(i=>A(i).state='FILLING');
-      Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',locked:false,notice:null}); });
+    return void pushQueueToCourt(S.queues.find(q=>q.index===+push.dataset.push));
+  }
+
+  const ret=t.closest('[data-return]');
+  if(ret){ if(!requirePerm('edit')||!requirePerm('courtAssign')) return;
+    Sound.play('tap');
+    return returnDialog(S.courts.find(c=>c.no===+ret.dataset.return));
   }
 
   const clr=t.closest('[data-clear]');
@@ -196,6 +224,33 @@ function askPin(title, desc, onOk, opts={}){
   inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
 }
 $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal(); });
+
+/* 코트에 올라간 사람을 되돌린다 — 팀 단위 또는 한 명씩.
+   경기 중인 코트에는 이 버튼이 아예 나오지 않는다(기록이 어긋난다). */
+function returnDialog(c){
+  if(!c || !c.members.length) return;
+  const nm=id=>esc((A(id)||{}).name||'?');
+  const emptyQ=S.queues.some(q=>!q.members.length);
+  openModal(`<h3>${c.no}코트 되돌리기</h3>
+    <div class="sub">${c.members.map(nm).join(' · ')}</div>
+    <div class="opt" data-r="queue" ${emptyQ?'':'style="opacity:.45;cursor:not-allowed"'}>
+      <div><div class="t">팀 그대로 대기열로</div>
+      <div class="d">${emptyQ ? '네 명이 팀을 유지한 채 빈 대기 슬롯으로 돌아갑니다'
+                              : '비어 있는 대기 슬롯이 없습니다'}</div></div></div>
+    <div class="opt" data-r="pool"><div><div class="t">전원 대기 인원으로</div>
+      <div class="d">팀을 풀고 네 명 모두 대기 인원으로 내려갑니다</div></div></div>
+    <div class="sec-h" style="margin:16px 0 8px">한 명만 빼기<span class="rule"></span></div>
+    <div class="row" style="gap:8px">
+      ${c.members.map(id=>`<button class="btn" data-r1="${id}">${nm(id)}</button>`).join('')}
+    </div>
+    <div class="row end"><button class="btn" onclick="closeModal()">취소</button></div>`);
+  $('#modal').querySelector('[data-r="queue"]').onclick=()=>{
+    if(!emptyQ) return;
+    closeModal(); returnCourtToQueue(c);
+  };
+  $('#modal').querySelector('[data-r="pool"]').onclick=()=>{ closeModal(); returnCourtToPool(c); };
+  $$('#modal [data-r1]').forEach(b=>b.onclick=()=>{ closeModal(); returnOneToPool(b.dataset.r1); });
+}
 
 let endTimer=null;
 function endDialog(c){
