@@ -379,9 +379,11 @@ function moveTeamTo(from, target){
    대기 인원 → 대기열 → 코트 → 대기 인원 의 순환이다. 어디를 두드리든
    "지금 있는 곳의 다음 칸"으로 간다. 칩을 두드리면 그 사람만, 코트나
    대기 슬롯의 빈 곳을 두드리면 그 팀 전체가 움직인다.
-   빈자리는 랜덤으로 고른다 — 매번 같은 슬롯만 차는 것을 피하려는 것이다.
+
+   빈자리는 언제나 "앞에서부터" 고른다(선입선출). 한때 랜덤으로 골랐는데,
+   대기열은 Q1부터 순서대로 나가는 줄이라 무작위로 꽂히면 순서가 무너지고
+   운영자가 다음에 나갈 팀을 눈으로 짐작할 수 없었다.
    ===================================================================== */
-const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 
 function advanceChip(id){
   if(!A(id) || !requirePerm('edit')) return;
@@ -394,21 +396,19 @@ function advanceChip(id){
   return void chipToQueue(id);                        // 대기 인원 → 대기열
 }
 
-/* 자리가 남은 코트 중 하나를 고른다. 경기 중인 코트는 건드리지 않는다. */
+/* 자리가 남은 코트 중 가장 앞 번호를 고른다. 경기 중인 코트는 건드리지 않는다. */
 function chipToCourt(id){
   if(!requirePerm('courtAssign')) return;
-  const open=S.courts.filter(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
-  if(!open.length){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
-  const c=pick(open);
+  const c=S.courts.find(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
+  if(!c){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
   flash(id);
   tx(()=>{ removeFrom(id); addTo(id,`court:${c.no}`); });
   Sound.play('move');
 }
-/* 자리가 남은 대기 슬롯 중 하나를 랜덤으로 고른다. */
+/* 자리가 남은 대기 슬롯 중 가장 앞(Q1 쪽)을 고른다 — 선입선출. */
 function chipToQueue(id){
-  const open=S.queues.filter(q=>q.members.length<4);
-  if(!open.length){ Sound.play('error'); toast('빈 대기 자리가 없습니다'); return; }
-  const q=pick(open);
+  const q=S.queues.find(q=>q.members.length<4);
+  if(!q){ Sound.play('error'); toast('빈 대기 자리가 없습니다'); return; }
   flash(id);
   tx(()=>{ removeFrom(id); addTo(id,`queue:${q.index}`); });
   Sound.play('move');
