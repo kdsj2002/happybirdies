@@ -342,7 +342,6 @@ function renderSet(){
       <div class="h">자동화</div>
       <div class="k">자동 배치</div><div><label class="row"><input type="checkbox" id="s_auto" ${s.autoMode?'checked':''} style="width:20px;height:20px"> 켜기</label></div>
       <div class="k">코트 자동 투입</div><div><label class="row"><input type="checkbox" id="s_push" ${s.autoPushToCourt?'checked':''} style="width:20px;height:20px"> 코트가 비면 대기 1번 팀을 바로 올림</label></div>
-      <div class="k">4명 차면 자동 시작</div><div><label class="row"><input type="checkbox" id="s_start" ${s.autoStartOnFull?'checked':''} style="width:20px;height:20px"> 시작 버튼 없이 바로 경기 시작</label></div>
 
       <div class="h">성별 정책</div>
       <div class="k">정책</div><div><select id="s_pol" style="width:280px">${POLICY.map(([v,l])=>`<option value="${v}" ${s.genderPolicy===v?'selected':''}>${l}</option>`).join('')}</select>
@@ -478,7 +477,7 @@ function renderSet(){
     const reset = nc!==s.courtCount || ns!==s.queueSlotCount;
     Object.assign(s,{clubName:$('#s_club').value.trim()||'대진판',courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
-      autoPushToCourt:$('#s_push').checked, autoStartOnFull:$('#s_start').checked,
+      autoPushToCourt:$('#s_push').checked,
       genderPolicy:$('#s_pol').value, oddRelaxThreshold:+$('#s_relax').value||2,
       minPool:Math.max(0,+$('#s_minpool').value||0),
       repeatLookback:+$('#s_look').value||3});

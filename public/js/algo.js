@@ -152,9 +152,9 @@ function compactQueues(){
       // 리벤지 팀(항상 잠김)이 뒤 슬롯에 갇혀 한 게임도 못 나가는 일이 있었다.
       // 잠금 플래그를 그대로 옮겨서 구성은 계속 보호한다.
       Object.assign(a,{members:b.members,teams:b.teams,matchType:b.matchType,
-                       typeSource:b.typeSource,origin:b.origin,notice:b.notice,locked:b.locked});
+                       typeSource:b.typeSource,origin:b.origin,notice:b.notice});
       Object.assign(b,{members:[],teams:{A:[],B:[]},matchType:null,
-                       typeSource:'AUTO',origin:'AUTO',notice:null,locked:false});
+                       typeSource:'AUTO',origin:'AUTO',notice:null});
       moved=true; break;
     }
   }
@@ -165,7 +165,7 @@ function pushToCourt(){
   if(!S.settings.autoPushToCourt) return false;
   let moved=false;
   for(const c of S.courts){
-    if(c.status!=='EMPTY'||c.disabled||c.locked) continue;
+    if(c.status!=='EMPTY'||c.disabled) continue;
     const q=S.queues.find(q=>q.members.length===4);
     if(!q) break;
     c.members=q.members; c.teams=q.teams; c.matchType=q.matchType; c.typeSource=q.typeSource;
@@ -173,7 +173,7 @@ function pushToCourt(){
     c.status = S.settings.autoStartOnFull? 'PLAYING':'FILLING';
     if(c.status==='PLAYING') startCourt(c,true);
     Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
-                     origin:'AUTO',locked:false,notice:null});
+                     origin:'AUTO',notice:null});
     moved=true;
   }
   return moved;
@@ -215,7 +215,8 @@ function fillQueues(){
     if(best.teams){ slot.teams=best.teams; slot.matchType=best.matchType; }
     slot.notice=null;
     // 손으로 만든 슬롯을 채워 준 것뿐이라면 MANUAL/REVENGE 표시는 유지한다.
-    if(!slot.locked) slot.origin='AUTO';
+    // 손으로 짠 팀(MANUAL)과 리벤지는 자동 충원으로 채워져도 그 성격을 유지한다
+    if(slot.origin==='AUTO') slot.origin='AUTO';
     moved=true;
   }
   return moved;
@@ -264,11 +265,11 @@ function endCourt(c, disposition){
   Object.assign(c,{status:'EMPTY',members:[],teams:{A:[],B:[]},matchType:null,
                    typeSource:'AUTO',startedAt:null,matchId:null});
   if(disposition==='REVENGE'){
-    const slot=[...S.queues].reverse().find(q=>!q.members.length&&!q.locked&&!q.pinnedType)
+    const slot=[...S.queues].reverse().find(q=>!q.members.length&&!q.pinnedType)
             || [...S.queues].reverse().find(q=>!q.members.length);
     if(slot){
       slot.members=ids; slot.teams=teams; slot.matchType=mt; slot.typeSource=src;
-      slot.origin='REVENGE'; slot.locked=true; slot.notice=null;
+      slot.origin='REVENGE'; slot.notice=null;
       ids.forEach(i=>{A(i).state='QUEUED'; flash(i);});
       toast('리벤지 — 같은 멤버로 대기 등록');
     } else toast('빈 대기 슬롯이 없어 대기 인원으로 보냈습니다');

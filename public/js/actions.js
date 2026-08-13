@@ -6,7 +6,42 @@ function tx(fn, opts={}){
   if(undoStack.length>20) undoStack.shift();
   fn();
   if(opts.auto!==false) autoAssign();
+  autoStartFullCourts();     // 4명이 차면 무조건 시작 — 어느 경로로 찼든
+  syncPlayingMatches();      // 진행 중 경기의 팀이 바뀌었으면 기록도 맞춘다
   save(); render();
+}
+
+/* 코트가 4명이 되는 순간 경기를 시작한다. 설정이 아니라 규칙이다.
+   "시작" 버튼을 누르는 단계를 없애 달라는 요구라서, 손으로 채우든
+   자동 배치로 채우든 끌어다 놓든 여기 한 곳에서 일괄 처리한다. */
+function autoStartFullCourts(){
+  S.courts.forEach(c=>{
+    if(c.disabled) return;
+    if(c.status!=='PLAYING' && c.members.length===4) startCourt(c, true);
+  });
+}
+/* 진행 중인 경기의 팀 구성이 바뀌면(팀 바꾸기 등) 기록도 따라가야 한다.
+   안 그러면 기록 화면에 시작 당시의 옛 팀이 남는다. */
+function syncPlayingMatches(){
+  S.courts.forEach(c=>{
+    if(c.status!=='PLAYING' || !c.matchId) return;
+    const m=S.matches.find(x=>x.id===c.matchId && !x.endedAt);
+    if(!m) return;
+    const nameOf=id=>(A(id)&&A(id).name)||'?';
+    m.A=[...c.teams.A]; m.B=[...c.teams.B];
+    m.An=m.A.map(nameOf); m.Bn=m.B.map(nameOf);
+    m.type=c.matchType;
+  });
+}
+/* 경기 중인 코트에서 사람이 빠지면 그 경기는 성립하지 않는다.
+   아직 안 끝난 기록을 지우고 코트를 채우는 중 상태로 되돌린다.
+   (끝난 경기 기록은 절대 건드리지 않는다.) */
+function abortMatch(c){
+  if(c.status!=='PLAYING') return;
+  const i=S.matches.findIndex(m=>m.id===c.matchId && !m.endedAt);
+  if(i>=0) S.matches.splice(i,1);
+  c.status='FILLING'; c.startedAt=null; c.matchId=null;
+  c.members.forEach(id=>{ if(A(id)) A(id).state='FILLING'; });
 }
 function undo(){
   if(!undoStack.length) return;
@@ -192,11 +227,11 @@ async function bulkOverwriteMembers(nextList, opt={}){
 function firstEmptyCourt(){ return S.courts.find(c=>c.status==='EMPTY'&&!c.disabled&&!c.members.length); }
 function clearCourt(c){
   Object.assign(c,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
-                   status:'EMPTY',locked:false,startedAt:null,matchId:null});
+                   status:'EMPTY',startedAt:null,matchId:null});
 }
 function clearQueue(q){
   Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
-                   origin:'AUTO',locked:false,notice:null});
+                   origin:'AUTO',notice:null});
 }
 
 /* 대기 슬롯 하나를 코트로 통째로 올린다. c를 안 주면 빈 코트를 찾는다. */
@@ -224,8 +259,9 @@ function returnCourtToQueue(c){
   if(!q){ Sound.play('error'); toast('비어 있는 대기 슬롯이 없습니다'); return false; }
   c.members.forEach(flash);
   tx(()=>{
+    abortMatch(c);          // 진행 중이었다면 그 경기 기록은 무효 (removeFrom을 안 거치므로 직접)
     q.members=c.members; q.teams=c.teams; q.matchType=c.matchType; q.typeSource=c.typeSource;
-    q.origin='MANUAL'; q.locked=true; q.notice=null;   // 손으로 되돌린 팀은 자동 재구성에서 지킨다
+    q.origin='MANUAL'; q.notice=null;     // 손으로 되돌린 팀은 origin으로 자동 재구성에서 지킨다
     q.members.forEach(i=>A(i).state='QUEUED');
     clearCourt(c);
   },{auto:false});
@@ -237,7 +273,7 @@ function returnCourtToQueue(c){
 function returnCourtToPool(c){
   if(!c.members.length) return false;
   c.members.forEach(flash);
-  tx(()=>{ c.members.forEach(i=>A(i).state='POOL'); clearCourt(c); },{auto:false});
+  tx(()=>{ abortMatch(c); c.members.forEach(i=>A(i).state='POOL'); clearCourt(c); },{auto:false});
   Sound.play('move');
   return true;
 }
@@ -245,9 +281,6 @@ function returnCourtToPool(c){
 /* 한 명만 대기 인원으로 뺀다. 코트가 비면 상태도 같이 되돌린다. */
 function returnOneToPool(id){
   const L=locate(id);
-  if(L.kind==='court' && L.obj.status==='PLAYING'){
-    Sound.play('error'); toast('경기 중에는 뺄 수 없습니다'); return false;
-  }
   flash(id);
   tx(()=>{
     removeFrom(id);
@@ -280,10 +313,76 @@ function moveTeamTo(qIndex, target){
     q.members.forEach(flash);
     tx(()=>{
       to.members=q.members; to.teams=q.teams; to.matchType=q.matchType;
-      to.typeSource=q.typeSource; to.origin=q.origin; to.locked=q.locked;
+      to.typeSource=q.typeSource; to.origin=q.origin;
       to.pinnedType=to.pinnedType||null; to.notice=null;
       clearQueue(q);
     },{auto:false});
+    Sound.play('move');
+  }
+}
+
+/* =====================================================================
+   더블탭 = 다음 단계로 보내기
+
+   대기 인원 → 대기열 → 코트 → 대기 인원 의 순환이다. 어디를 두드리든
+   "지금 있는 곳의 다음 칸"으로 간다. 칩을 두드리면 그 사람만, 코트나
+   대기 슬롯의 빈 곳을 두드리면 그 팀 전체가 움직인다.
+   빈자리는 랜덤으로 고른다 — 매번 같은 슬롯만 차는 것을 피하려는 것이다.
+   ===================================================================== */
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+
+function advanceChip(id){
+  if(!A(id) || !requirePerm('edit')) return;
+  const L=locate(id);
+  if(L.kind==='court'){                       // 코트 → 대기 인원
+    if(!requirePerm('courtAssign')) return;
+    return void returnOneToPool(id);
+  }
+  if(L.kind==='queue') return void chipToCourt(id);   // 대기열 → 빈 코트 자리
+  return void chipToQueue(id);                        // 대기 인원 → 대기열
+}
+
+/* 자리가 남은 코트 중 하나를 고른다. 경기 중인 코트는 건드리지 않는다. */
+function chipToCourt(id){
+  if(!requirePerm('courtAssign')) return;
+  const open=S.courts.filter(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
+  if(!open.length){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
+  const c=pick(open);
+  flash(id);
+  tx(()=>{ removeFrom(id); addTo(id,`court:${c.no}`); });
+  Sound.play('move');
+}
+/* 자리가 남은 대기 슬롯 중 하나를 랜덤으로 고른다. */
+function chipToQueue(id){
+  const open=S.queues.filter(q=>q.members.length<4);
+  if(!open.length){ Sound.play('error'); toast('빈 대기 자리가 없습니다'); return; }
+  const q=pick(open);
+  flash(id);
+  tx(()=>{ removeFrom(id); addTo(id,`queue:${q.index}`); });
+  Sound.play('move');
+}
+
+/* 팀 영역(코트 카드 / 대기 슬롯)을 두드렸을 때 — 개인과 같은 방향으로 통째로 */
+function advanceTeam(target){
+  const [kind,key]=String(target||'').split(':');
+  if(!requirePerm('edit')) return;
+  if(kind==='court'){
+    if(!requirePerm('courtAssign')) return;
+    const c=S.courts.find(c=>c.no===+key);
+    if(!c || !c.members.length) return;
+    return void returnCourtToPool(c);          // 코트 팀 → 대기 인원
+  }
+  if(kind==='queue'){
+    if(!requirePerm('courtAssign')) return;
+    const q=S.queues.find(q=>q.index===+key);
+    if(!q || !q.members.length) return;
+    if(q.members.length===4) return void pushQueueToCourt(q);   // 4명이면 통째로
+    // 아직 4명이 아니면 있는 사람만 빈 코트 자리로 옮긴다
+    const c=S.courts.find(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
+    if(!c){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
+    const ids=q.members.slice();
+    ids.forEach(flash);
+    tx(()=>{ ids.forEach(i=>{ if(c.members.length<4){ removeFrom(i); addTo(i,`court:${c.no}`); } }); });
     Sound.play('move');
   }
 }
@@ -300,10 +399,12 @@ function removeFrom(id){
   const L=locate(id);
   if(L.kind==='pool') return;
   const o=L.obj;
+  if(L.kind==='court') abortMatch(o);   // 진행 중이었다면 그 경기는 무효
+
   o.members=o.members.filter(x=>x!==id);
   o.teams.A=o.teams.A.filter(x=>x!==id); o.teams.B=o.teams.B.filter(x=>x!==id);
   o.matchType = o.members.length===4? mtypeOf(o.members,o.teams):null;
-  if(L.kind==='queue'&&!o.members.length) Object.assign(o,{origin:'AUTO',typeSource:'AUTO',locked:o.pinnedType?o.locked:false});
+  if(L.kind==='queue'&&!o.members.length) Object.assign(o,{origin:'AUTO',typeSource:'AUTO'});
   A(id).state='POOL';
 }
 function addTo(id, target){
@@ -327,8 +428,7 @@ function addTo(id, target){
     }
     o.matchType=mtypeOf(o.members,o.teams);
   } else o.matchType=null;
-  o.locked=true;                                   // 수동 배치 → 자동 잠금
-  o.origin='MANUAL'; o.notice=null;
+  o.origin='MANUAL'; o.notice=null;     // 잠금 기능은 없앴다. 손으로 짠 팀은 origin으로 지킨다
   flash(id);
   return true;
 }
@@ -389,7 +489,7 @@ function swap(a,b){
     const sa=La.obj, sb=Lb.obj;
     if(sa===sb&&sa){ rep(sa,a,'__T'); rep(sa,b,a); rep(sa,'__T',b); }
     else { rep(sa,a,b); rep(sb,b,a); const t=A(a).state; A(a).state=A(b).state; A(b).state=t; }
-    [sa,sb].forEach(o=>{ if(o){ o.matchType=o.members.length===4?mtypeOf(o.members,o.teams):null; o.locked=true; o.origin='MANUAL'; }});
+    [sa,sb].forEach(o=>{ if(o){ o.matchType=o.members.length===4?mtypeOf(o.members,o.teams):null; o.origin='MANUAL'; }});
     flash(a); flash(b);
   });
 }

@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.13a';
+const APP_VERSION = '2026.08.13b';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -105,12 +105,12 @@ const isF = a => a.gender==='F';
 
 function initBoard(){
   S.courts = Array.from({length:S.settings.courtCount},(_,i)=>({
-    no:i+1, status:'EMPTY', locked:false, disabled:false,
+    no:i+1, status:'EMPTY', disabled:false,
     members:[], teams:{A:[],B:[]}, matchType:null, typeSource:'AUTO',
     startedAt:null, matchId:null
   }));
   S.queues = Array.from({length:S.settings.queueSlotCount},(_,i)=>({
-    index:i+1, locked:false, members:[], teams:{A:[],B:[]},
+    index:i+1, members:[], teams:{A:[],B:[]},
     matchType:null, typeSource:'AUTO', pinnedType:null, notice:null, origin:'AUTO'
   }));
 }

@@ -13,7 +13,6 @@
     if(c){
       const id=c.dataset.chip;
       const L=locate(id);
-      if(L.kind==='court'&&L.obj.status==='PLAYING') return;   // 경기 중은 잠금
       // 운영자가 아니면 자기 칩만, 그것도 코트 밖에서만 잡을 수 있다
       if(!Auth.can('edit')){
         if(!Auth.can('selfQueue') || !Auth.isMe(id)) return;
@@ -94,6 +93,34 @@
     const d=e.target.closest('[data-drop]'); if(!d) return;
     const id=sel; sel=null; moveTo(id,d.dataset.drop);
   });
+
+  /* ── 더블탭 / 더블클릭 = 다음 단계로 ──────────────────────────
+     같은 대상을 340ms 안에 두 번 두드리면 advance로 넘긴다.
+     마우스의 dblclick만 쓰면 태블릿에서 동작하지 않으므로 포인터
+     이벤트로 직접 센다. 끌기가 있었던 직후는 세지 않는다. */
+  const DOUBLE_MS=340;
+  let tapKey=null, tapAt=0;
+  function targetKey(e){
+    if(e.target.closest('button,.ic,.mt,.seg,.tab,input,select,.grip')) return null;
+    const c=e.target.closest('[data-chip]');
+    if(c) return 'chip:'+c.dataset.chip;
+    const box=e.target.closest('.court,.slot');
+    if(box && box.dataset.drop) return 'box:'+box.dataset.drop;
+    return null;
+  }
+  document.addEventListener('pointerup',e=>{
+    if(drag){ tapKey=null; return; }          // 방금 끌었다면 탭이 아니다
+    const k=targetKey(e);
+    if(!k){ tapKey=null; return; }
+    const t=Date.now();
+    if(tapKey===k && t-tapAt<DOUBLE_MS){
+      tapKey=null; sel=null;
+      if(k.startsWith('chip:')) advanceChip(k.slice(5));
+      else                      advanceTeam(k.slice(4));
+      return;
+    }
+    tapKey=k; tapAt=t;
+  });
 })();
 
 /* =====================================================================
@@ -102,11 +129,6 @@
 document.addEventListener('click',e=>{
   const t=e.target;
   const scr=t.closest('[data-scr]'); if(scr) return show(scr.dataset.scr);
-
-  const start=t.closest('[data-start]');
-  if(start){ if(!requirePerm('edit')) return;
-    const c=S.courts.find(c=>c.no===+start.dataset.start);
-    Sound.play('start'); Sound.buzz(30); return tx(()=>startCourt(c)); }
 
   const end=t.closest('[data-end]');
   if(end){ if(!requirePerm('edit')) return;
@@ -127,13 +149,8 @@ document.addEventListener('click',e=>{
   if(clr){ if(!requirePerm('edit')) return; Sound.play('tap');
     const q=S.queues.find(q=>q.index===+clr.dataset.clear);
     return tx(()=>{ q.members.forEach(i=>A(i).state='POOL');
-      Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',locked:false,notice:null}); }); }
+      Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',notice:null}); }); }
 
-  const lk=t.closest('[data-lock]');
-  if(lk){ if(!requirePerm('edit')) return; Sound.play('tap');
-    const [k,n]=lk.dataset.lock.split(':');
-    const o=k==='court'?S.courts.find(c=>c.no===+n):S.queues.find(q=>q.index===+n);
-    return tx(()=>{o.locked=!o.locked;},{auto:o.locked}); }
 
   const sw=t.closest('[data-swap]');
   if(sw){ if(!requirePerm('edit')) return;
@@ -142,13 +159,12 @@ document.addEventListener('click',e=>{
     Sound.play('move');
     const o=k==='court'?S.courts.find(c=>c.no===+n):S.queues.find(q=>q.index===+n);
     if(o.members.length!==4) return toast('4명이 있어야 팀을 바꿀 수 있습니다');
-    if(k==='court'&&o.status==='PLAYING') return toast('경기 중에는 팀을 바꿀 수 없습니다');
     return tx(()=>{
       const m=o.members, P=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
       const cur=P.findIndex(p=>o.teams.A.includes(m[p[0]])&&o.teams.A.includes(m[p[1]]));
       const nx=P[(cur+1)%3];
       o.teams={A:[m[nx[0]],m[nx[1]]],B:[m[nx[2]],m[nx[3]]]};
-      o.matchType=mtypeOf(m,o.teams); o.typeSource='MANUAL'; o.locked=true;
+      o.matchType=mtypeOf(m,o.teams); o.typeSource='MANUAL';
     },{auto:false}); }
 
   const mt=t.closest('[data-mt]');
@@ -167,9 +183,9 @@ $('#btnSort').onclick=()=>{ if(!requirePerm('edit')) return; Sound.play('confirm
   let n=0;
   S.queues.forEach(q=>{
     if(!q.members.length) return;
-    if(q.locked || q.origin==='REVENGE' || q.pinnedType) return;
+    if(q.origin!=='AUTO' || q.pinnedType) return;   // 손으로 짠 팀·리벤지·유형 지정은 건드리지 않는다
     q.members.forEach(i=>A(i).state='POOL');
-    Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',locked:false,notice:null});
+    Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',notice:null});
     n++;
   });
   toast(n? `대기 ${n}개 팀을 다시 구성했습니다` : '다시 구성할 자동 슬롯이 없습니다');
@@ -231,8 +247,15 @@ function returnDialog(c){
   if(!c || !c.members.length) return;
   const nm=id=>esc((A(id)||{}).name||'?');
   const emptyQ=S.queues.some(q=>!q.members.length);
+  /* 4명이 차면 곧바로 경기가 시작되므로, 되돌리기는 진행 중인 코트에서도
+     되어야 한다. 대신 그 경기는 성립하지 않으므로 기록에서 지운다는 것을
+     확인창에 분명히 적는다. */
+  const live = c.status==='PLAYING';
   openModal(`<h3>${c.no}코트 되돌리기</h3>
     <div class="sub">${c.members.map(nm).join(' · ')}</div>
+    ${live?`<div class="hint" style="color:var(--cork);margin-bottom:12px">
+      진행 중인 경기입니다. 되돌리면 이 경기는 <b>기록에 남지 않습니다</b>
+      (끝난 경기 기록은 그대로입니다). 정상적으로 끝내려면 <b>종료</b>를 누르세요.</div>`:''}
     <div class="opt" data-r="queue" ${emptyQ?'':'style="opacity:.45;cursor:not-allowed"'}>
       <div><div class="t">팀 그대로 대기열로</div>
       <div class="d">${emptyQ ? '네 명이 팀을 유지한 채 빈 대기 슬롯으로 돌아갑니다'
@@ -301,5 +324,5 @@ function typeDialog(o,kind){
     <div class="row end"><button class="btn" onclick="closeModal()">취소</button></div>`);
   $$('#modal .opt[data-t]').forEach(e=>e.onclick=()=>{ const t=e.dataset.t; closeModal();
     tx(()=>{ const sp=bestSplit(ids,t==='MD'||t==='WD'?null:t);
-      if(sp){o.teams=sp.teams;} o.matchType=mtypeOf(ids,o.teams); o.typeSource='MANUAL'; o.locked=true; },{auto:false}); });
+      if(sp){o.teams=sp.teams;} o.matchType=mtypeOf(ids,o.teams); o.typeSource='MANUAL'; },{auto:false}); });
 }

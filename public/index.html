@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>배드민턴 대진판</title>
-<link rel="stylesheet" href="./css/app.css?v=2026.08.13a">
+<link rel="stylesheet" href="./css/app.css?v=2026.08.13b">
 </head>
 <body>
 <div id="app">
@@ -27,37 +27,31 @@
     <button class="btn ghost" id="btnUndo">↩</button>
   </div>
 
-  <!-- 대진판 -->
+  <!-- 대진판 — 위: 코트 / 아래 왼쪽: 대기열 / 아래 오른쪽: 대기 인원 -->
   <div class="screen on" id="scr-board">
-    <div class="mv-bar mobile-only">
-      <div class="seg" id="mvSeg">
-        <button data-mv="courts" class="on">🏸 코트</button>
-        <button data-mv="queues">대기열</button>
-      </div>
-    </div>
-    <div class="board">
-      <div class="courts" id="courts"></div>
+    <div class="courts" id="courts"></div>
+    <div class="lower">
       <div class="qwrap">
         <div class="sec-h">대기열<span class="rule"></span></div>
-        <div id="queues" style="display:flex;flex-direction:column;gap:9px"></div>
+        <div id="queues"></div>
       </div>
-    </div>
-    <div class="pool">
-      <div class="pool-h">
-        <b style="color:var(--text)">대기 인원</b><span id="poolCnt"></span>
-        <div class="spacer"></div>
-        <div class="seg" id="poolSort">
-          <button data-s="pri" class="on">순번</button>
-          <button data-s="game">게임수</button>
-          <button data-s="name">이름</button>
+      <div class="pool">
+        <div class="pool-h">
+          <b style="color:var(--text)">대기 인원</b><span id="poolCnt"></span>
+          <div class="spacer"></div>
+          <div class="seg" id="poolSort">
+            <button data-s="pri" class="on">순번</button>
+            <button data-s="game">게임수</button>
+            <button data-s="name">이름</button>
+          </div>
+          <div class="seg" id="poolSex">
+            <button data-x="" class="on">전체</button>
+            <button data-x="M">♂</button>
+            <button data-x="F">♀</button>
+          </div>
         </div>
-        <div class="seg" id="poolSex">
-          <button data-x="" class="on">전체</button>
-          <button data-x="M">♂</button>
-          <button data-x="F">♀</button>
-        </div>
+        <div class="pool-list" id="pool" data-drop="pool"></div>
       </div>
-      <div class="pool-list" id="pool" data-drop="pool"></div>
     </div>
   </div>
 
@@ -115,17 +109,17 @@
 <!-- Firebase 로더는 모듈, 나머지는 순서대로 읽히는 일반 스크립트다.
      한 파일에 다 몰아넣지 않고 역할별로 나눠 두면 한 군데만 고칠 때
      파일 전체를 다시 쓰지 않아도 된다. 로드 순서에 의존하므로 순서를 지킬 것. -->
-<script type="module" src="./js/firebase-loader.js?v=2026.08.13a"></script>
-<script src="./js/sound.js?v=2026.08.13a"></script>
-<script src="./js/store.js?v=2026.08.13a"></script>
-<script src="./js/state.js?v=2026.08.13a"></script>
-<script src="./js/algo.js?v=2026.08.13a"></script>
-<script src="./js/ui.js?v=2026.08.13a"></script>
-<script src="./js/actions.js?v=2026.08.13a"></script>
-<script src="./js/auth.js?v=2026.08.13a"></script>
-<script src="./js/gate.js?v=2026.08.13a"></script>
-<script src="./js/interact.js?v=2026.08.13a"></script>
-<script src="./js/screens.js?v=2026.08.13a"></script>
-<script src="./js/main.js?v=2026.08.13a"></script>
+<script type="module" src="./js/firebase-loader.js?v=2026.08.13b"></script>
+<script src="./js/sound.js?v=2026.08.13b"></script>
+<script src="./js/store.js?v=2026.08.13b"></script>
+<script src="./js/state.js?v=2026.08.13b"></script>
+<script src="./js/algo.js?v=2026.08.13b"></script>
+<script src="./js/ui.js?v=2026.08.13b"></script>
+<script src="./js/actions.js?v=2026.08.13b"></script>
+<script src="./js/auth.js?v=2026.08.13b"></script>
+<script src="./js/gate.js?v=2026.08.13b"></script>
+<script src="./js/interact.js?v=2026.08.13b"></script>
+<script src="./js/screens.js?v=2026.08.13b"></script>
+<script src="./js/main.js?v=2026.08.13b"></script>
 </body>
 </html>

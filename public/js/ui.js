@@ -42,7 +42,6 @@ function mtBadge(o, kind, key){
 
 function renderCourts(){
   const box=$('#courts'); box.innerHTML='';
-  box.appendChild(el('div','sec-h','코트<span class="rule"></span>'));
   for(const c of S.courts){
     const mins=c.startedAt? (now()-c.startedAt)/60000 : 0;
     const over=c.status==='PLAYING' && mins>=S.settings.matchWarnMinutes;
@@ -54,13 +53,10 @@ function renderCourts(){
         ${mtBadge(c,'court',c.no)}
         <span class="spacer"></span>
         ${t?`<span class="timer num">${t}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
-        ${c.members.length && c.status!=='PLAYING'
+        ${c.members.length
           ? `<button class="btn sm" data-return="${c.no}" title="대기열이나 대기 인원으로 되돌리기">↩ 빼기</button>` : ''}
-        ${c.status==='PLAYING'
-          ? `<button class="btn sm warn" data-end="${c.no}">종료</button>`
-          : `<button class="btn sm primary" data-start="${c.no}" ${c.members.length!==4?'disabled':''}>시작</button>`}
+        ${c.status==='PLAYING' ? `<button class="btn sm warn" data-end="${c.no}">종료</button>` : ''}
         <span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>
-        <span class="ic ${c.locked?'on':''}" data-lock="court:${c.no}">${c.locked?'🔒':'🔓'}</span>
       </div>`;
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
@@ -84,7 +80,7 @@ function renderQueues(){
   const box=$('#queues'); box.innerHTML='';
   const firstFull=S.queues.findIndex(q=>q.members.length===4);
   S.queues.forEach((q,i)=>{
-    const e=el('div','slot'+(i===firstFull?' next':'')+(q.locked?' locked':'')+(!q.members.length?' empty':''));
+    const e=el('div','slot'+(i===firstFull?' next':'')+(!q.members.length?' empty':''));
     e.dataset.drop=`queue:${q.index}`;
     // 4명이 찬 슬롯은 통째로 끌어서 코트에 놓을 수 있다. 작은 투입 버튼을
     // 정확히 누르는 것보다 팀을 통째로 끌어다 놓는 쪽이 훨씬 직관적이다.
@@ -99,7 +95,6 @@ function renderQueues(){
         ${full?`<button class="btn sm primary push-btn" data-push="${q.index}">투입 →</button>`:''}
         ${q.members.length?`<span class="ic" data-swap="queue:${q.index}" title="팀 바꾸기">⇄</span>
           <span class="ic" data-clear="${q.index}" title="비우기">✕</span>`:''}
-        <span class="ic ${q.locked?'on':''}" data-lock="queue:${q.index}">${q.locked?'🔒':'🔓'}</span>
       </div>`;
     const grid=el('div','slot-grid');
     const order = q.teams.A.length? [...q.teams.A,...q.teams.B] : q.members;

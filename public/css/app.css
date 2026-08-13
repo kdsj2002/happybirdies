@@ -95,17 +95,21 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .screen{flex:1;min-height:0;display:none}
 .screen.on{display:flex;flex-direction:column}
 
-/* ── 대진판 ─────────────────────────────── */
-/* grid-template-rows에 minmax(0,1fr)을 주지 않으면 행 높이가 내용에 맞춰
-   늘어나서, 자식의 overflow-y:auto가 동작하지 않고 내용이 그냥 잘려 나간다.
-   코트가 3면일 때 폰에서 아래쪽 코트 이름이 안 보이던 원인이 이것이다. */
-.board{flex:1;min-height:0;display:grid;
-       grid-template-columns:minmax(0,55fr) minmax(0,45fr);
-       grid-template-rows:minmax(0,1fr)}
-.courts{padding:10px;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;
-        display:flex;flex-direction:column;gap:10px;border-right:1px solid var(--line)}
-.qwrap{padding:10px;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;
-       display:flex;flex-direction:column;gap:8px}
+/* ── 대진판 ───────────────────────────────
+   위에 코트를 가로로 늘어놓고, 아래를 왼쪽(대기열) / 오른쪽(대기 인원)으로
+   나눈다. 코트가 화면 위쪽 절반을 차지하므로 이름을 크게 넣을 자리가 난다. */
+#scr-board{display:flex;flex-direction:column}
+
+.courts{
+  flex:0 0 auto;max-height:56vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:10px;padding:10px;border-bottom:1px solid var(--line);
+}
+.lower{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.qwrap{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+       padding:10px;display:flex;flex-direction:column;gap:8px;
+       border-right:1px solid var(--line)}
+#queues{display:flex;flex-direction:column;gap:8px}
 
 .sec-h{display:flex;align-items:center;gap:9px;color:var(--muted);
        font-size:13px;font-weight:800;letter-spacing:.09em;margin-bottom:2px}
@@ -147,7 +151,6 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
   padding:8px 9px 9px;box-shadow:var(--shadow);
 }
 .slot.next{border-color:var(--court);box-shadow:inset 3px 0 0 var(--court)}
-.slot.locked{border-color:var(--gold)}
 .slot.empty{border-style:dashed;opacity:.55}
 .slot-h{display:flex;align-items:center;gap:7px;margin-bottom:7px;min-height:30px}
 .slot-no{font-weight:800;font-size:15px;min-width:24px}
@@ -164,10 +167,15 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
   background:var(--surface2);border:1px solid var(--line);
   cursor:grab;touch-action:none;overflow:hidden;
 }
+.court .chip{min-height:62px;padding:8px 40px 8px 13px}
 .chip.sel{border-color:var(--court);box-shadow:0 0 0 2px var(--court-soft)}
 .chip.ghost{opacity:.3}
-.chip-nm{font-weight:700;font-size:18px;letter-spacing:-.02em;white-space:nowrap;
+/* 이름이 주인공이다. 세 글자가 멀리서도 읽히도록 굵기와 크기를 올리고,
+   위치별로 크기를 달리한다 — 코트가 가장 크다. */
+.chip-nm{font-weight:800;font-size:20px;letter-spacing:-.01em;white-space:nowrap;
          overflow:hidden;text-overflow:ellipsis;width:100%}
+.court .chip-nm{font-size:26px}
+.slot  .chip-nm{font-size:20px}
 .chip-nm .gst{font-size:11px;font-weight:800;color:var(--gold);margin-left:5px;vertical-align:2px}
 /* 성별 아이콘은 회원 명단 화면에서만 쓴다 */
 .sx{font-size:14px;font-weight:800}
@@ -251,12 +259,10 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .ic.on{color:var(--gold)}
 
 /* 풀 */
-/* 예전에는 높이 132px 고정 + 가로 스크롤이라, 대기 인원이 많으면 옆으로
-   밀어야만 전부 볼 수 있었다. 이제 줄바꿈해서 쌓고 세로로 스크롤한다.
-   높이는 인원 수에 따라 늘어나되 화면의 34%를 넘지 않는다. */
+/* 대기 인원 — 하단 오른쪽 칸. 줄바꿈해서 쌓고 넘치면 세로로 스크롤한다.
+   예전에는 가로 한 줄이라 인원이 많으면 옆으로 밀어야만 다 볼 수 있었다. */
 .pool{
-  flex:0 0 auto;min-height:0;max-height:34vh;
-  border-top:1px solid var(--line);background:var(--surface);
+  min-height:0;background:var(--surface);
   display:flex;flex-direction:column;
 }
 .pool-h{display:flex;align-items:center;gap:10px;padding:7px 14px 0;font-size:13px;color:var(--muted)}
@@ -379,49 +385,41 @@ tr:hover td{background:var(--surface)}
   }
   .tab.on{background:var(--raise)}
 
-  /* 대진판: 예전에는 코트/대기열을 세그먼트로 갈아 끼워서 한 번에 한쪽만
-     보였다. 폰에서 "대기열이나 대기 인원이 가려져서 안 보인다"는 게 이것이다.
-     이제 한 컬럼에 코트 → 대기열을 다 쌓고 통째로 스크롤한다.
-     글씨와 칩을 줄여서 대신 자리를 만든다. */
-  /* .mobile-only 규칙이 뒤에 와서 덮어쓰므로 클래스를 둘 다 적어 이긴다 */
-  .mv-bar, .mv-bar.mobile-only{display:none}
-  .board{display:block; grid-template-columns:1fr;
-         overflow-y:auto; -webkit-overflow-scrolling:touch}
-  .courts, .qwrap{overflow:visible; min-height:0; border-right:none; padding:8px 10px}
-  .qwrap{padding-top:2px}
-  /* 예전 토글 클래스가 남아 있어도 한쪽이 사라지지 않게 무력화한다 */
-  #app.mv-queues .courts{display:flex}
-  #app:not(.mv-queues) .qwrap{display:flex}
+  /* 대진판: 폰에서는 위(코트) → 아래(대기열 → 대기 인원)를 한 줄로 쌓고
+     화면 전체를 스크롤한다. 좌우로 나누면 각각 반토막이 나서 못 쓴다. */
+  #scr-board{overflow-y:auto; -webkit-overflow-scrolling:touch}
+  .courts{max-height:none; overflow:visible; grid-template-columns:1fr;
+          gap:8px; padding:8px 10px; border-bottom:none}
+  .lower{display:block; flex:0 0 auto}
+  .qwrap{overflow:visible; border-right:none; padding:2px 10px 8px}
+  .pool{max-height:none}
+  .pool-list{overflow:visible}
 
-  /* 좁은 화면에서는 칩을 확실히 줄인다 — 4명이 다 보이는 게 우선이다 */
-  .chip{min-height:40px; padding:4px 30px 4px 9px}
-  .chip-nm{font-size:15px}
+  /* 좁은 화면에서도 이름은 크게 유지한다 — 그게 요구사항이다.
+     대신 뱃지·여백을 줄여 자리를 만든다. */
+  .chip{min-height:44px; padding:5px 30px 5px 10px}
+  .chip-nm{font-size:17px}
+  .court .chip{min-height:54px; padding:6px 32px 6px 11px}
+  .court .chip-nm{font-size:22px}
+  .slot .chip-nm{font-size:17px}
   .chip-badge{font-size:11px; right:6px; top:4px}
   .chip-wait{font-size:10px; right:6px; bottom:4px}
-  .seat{min-height:40px; font-size:18px}
+  .seat{min-height:44px; font-size:18px}
   .court{padding:8px 9px 9px}
   .court-h{min-height:28px; margin-bottom:6px; gap:6px}
-  .court-no{font-size:15px}
-  .timer{font-size:18px}
+  .court-no{font-size:16px}
+  .timer{font-size:19px}
   .side{gap:5px; padding:0 5px}
   .side-tag{font-size:10px; height:11px}
   .slot{padding:7px 8px 8px}
   .slot-h{min-height:28px; margin-bottom:6px}
   .slot-grid{gap:5px}
-  /* 빈 대기 슬롯은 한 줄로 접는다. 폰에서 빈 슬롯 네 개가 화면 두 개
-     분량을 잡아먹어서, 정작 봐야 할 코트와 대기 인원이 멀어졌다.
-     접어도 드롭 영역은 그대로라 끌어다 놓는 데는 지장이 없다. */
-  .slot.empty .slot-grid{display:none}
-  .slot.empty{padding:6px 9px; opacity:.5}
-  .slot.empty .slot-h{margin-bottom:0; min-height:24px}
-  .slot.empty .slot-no::after{content:' · 비어 있음';font-size:11px;font-weight:600;color:var(--muted2)}
   .sec-h{font-size:12px}
   /* 대기 인원 바: 칩이 이름만 담게 되어 훨씬 좁아졌으므로 두 줄로 감싸
      한 화면에 많이 보이게 한다. 가로로만 밀던 예전보다 훑기 쉽다. */
-  .pool{max-height:30vh}
-  .pool-list{gap:5px; padding:6px 10px 8px}
-  .pool-list .chip{min-width:82px; max-width:none; min-height:38px; padding:4px 28px 4px 8px}
-  .pool-list .chip .chip-nm{font-size:14px}
+  .pool-list{gap:5px; padding:6px 10px 10px}
+  .pool-list .chip{min-width:88px; max-width:none; min-height:42px; padding:4px 26px 4px 9px}
+  .pool-list .chip .chip-nm{font-size:16px}
   .pool-h{flex-wrap:wrap; row-gap:5px; padding:5px 10px 0; font-size:12px}
 
   /* 설정 화면: 라벨/값을 좌우가 아니라 위아래로 */
@@ -450,20 +448,22 @@ tr:hover td{background:var(--surface)}
 /* 아이폰 SE(667px) 등 세로로 짧은 화면: 대기 인원 바를 줄여 코트 영역을 확보 */
 @media (max-width:780px) and (max-height:700px){
   :root{ --navh:48px; --navpad:calc(48px + env(safe-area-inset-bottom)); }
-  .pool{max-height:24vh}
-  .pool-list .chip{min-height:36px; min-width:78px}
-  .pool-list .chip .chip-nm{font-size:13px}
+  .pool-list .chip{min-height:38px; min-width:80px}
+  .pool-list .chip .chip-nm{font-size:15px}
   .court{padding:7px 8px 8px}
-  .chip{min-height:36px; padding:3px 28px 3px 8px}
-  .seat{min-height:36px}
-  .chip-nm{font-size:14px}
+  .chip{min-height:40px; padding:3px 26px 3px 8px}
+  .court .chip{min-height:48px}
+  .court .chip-nm{font-size:19px}
+  .seat{min-height:40px}
+  .chip-nm{font-size:16px}
   .court-h{min-height:26px; margin-bottom:5px}
   .timer{font-size:17px}
 }
 
 @media (max-width:380px){
-  .chip-nm{font-size:13px}
-  .pool-list .chip .chip-nm{font-size:12px}
+  .chip-nm{font-size:15px}
+  .court .chip-nm{font-size:20px}
+  .pool-list .chip .chip-nm{font-size:14px}
   .slot-grid{gap:4px}
   .tab{font-size:12px}
   .brand{max-width:88px}
@@ -539,24 +539,18 @@ body[data-role=viewer] #btnUndo{display:none}
 body[data-role=member] #autoTgl,
 body[data-role=member] #btnSort,
 body[data-role=member] #btnUndo{display:none}
-body[data-role=member] .court [data-start],
 body[data-role=member] .court [data-return],
 body[data-role=viewer] .court [data-return],
 body[data-role=member] .court [data-end],
 body[data-role=member] .court [data-swap],
-body[data-role=member] .court [data-lock],
 body[data-role=member] .slot [data-push],
 body[data-role=member] .slot [data-clear],
 body[data-role=member] .slot [data-swap],
-body[data-role=member] .slot [data-lock],
-body[data-role=viewer] .court [data-start],
 body[data-role=viewer] .court [data-end],
 body[data-role=viewer] .court [data-swap],
-body[data-role=viewer] .court [data-lock],
 body[data-role=viewer] .slot [data-push],
 body[data-role=viewer] .slot [data-clear],
-body[data-role=viewer] .slot [data-swap],
-body[data-role=viewer] .slot [data-lock]{display:none}
+body[data-role=viewer] .slot [data-swap]{display:none}
 /* 회원은 자기 칩만 잡을 수 있으니 나머지는 잡히지 않는 커서로 */
 body[data-role=member] .chip:not(.mine),
 body[data-role=viewer] .chip{cursor:default}
