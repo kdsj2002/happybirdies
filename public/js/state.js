@@ -1,10 +1,10 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.13d';
+const APP_VERSION = '2026.08.13e';
 
 const DEFAULTS = {
   clubName:'대진판',
   courtCount:3, queueSlotCount:7,
-  autoMode:true, autoPushToCourt:true, autoStartOnFull:false,
+  autoMode:true, autoPushToCourt:true,   // 4명이 차면 무조건 시작하므로 별도 설정은 없앴다
   matchWarnMinutes:18,
   genderPolicy:'FREE',
   considerAge:false,

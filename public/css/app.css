@@ -98,7 +98,10 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 /* ── 대진판 ───────────────────────────────
    위에 코트를 가로로 늘어놓고, 아래를 왼쪽(대기열) / 오른쪽(대기 인원)으로
    나눈다. 코트가 화면 위쪽 절반을 차지하므로 이름을 크게 넣을 자리가 난다. */
-#scr-board{display:flex;flex-direction:column}
+/* .on을 반드시 붙인다. #scr-board만 쓰면 ID 선택자(1-0-0)가
+   .screen{display:none}(0-1-0)을 이겨서 대진판이 영영 숨겨지지 않는다.
+   출석·회원 탭을 눌러도 코트가 화면에 남아 있던 원인이 이것이다. */
+#scr-board.on{display:flex;flex-direction:column}
 
 .courts{
   flex:0 0 auto;max-height:56vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
@@ -396,7 +399,7 @@ tr:hover td{background:var(--surface)}
 
   /* 대진판: 폰에서는 위(코트) → 아래(대기열 → 대기 인원)를 한 줄로 쌓고
      화면 전체를 스크롤한다. 좌우로 나누면 각각 반토막이 나서 못 쓴다. */
-  #scr-board{overflow-y:auto; -webkit-overflow-scrolling:touch}
+  #scr-board.on{overflow-y:auto; -webkit-overflow-scrolling:touch}
   .courts{max-height:none; overflow:visible; grid-template-columns:1fr;
           gap:8px; padding:8px 10px; border-bottom:none}
   .lower{display:block; flex:0 0 auto}
