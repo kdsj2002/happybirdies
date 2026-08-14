@@ -211,8 +211,10 @@ const ADMIN_ERR = {
   wrong:  '비밀번호가 맞지 않습니다',
   offline:'클라우드에 연결되지 않아 확인할 수 없습니다 — 연결을 확인해 주세요',
   unset:  '운영자 비밀번호가 아직 설정되지 않았습니다',
-  full:   '운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.'
+  full:   '운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.',
+  locked: '여러 번 틀려서 이 기기에서 잠겼습니다'
 };
+const mmss = ms => { const t=Math.ceil(ms/1000); return `${Math.floor(t/60)}분 ${t%60}초`; };
 
 /* 되돌릴 수 없는 조작 앞에 관리 비밀번호를 묻는다. 맞으면 onOk()를 부른다.
    opts.bodyHtml : 비밀번호 칸 위에 넣을 설명(이 조작이 어떤 결과를 낳는지).
@@ -252,6 +254,14 @@ function askPin(title, desc, onOk, opts={}){
          대신 확인했다. 그 사실을 숨기지 않고 알려 준다. */
       if(v.fallback) toast('소유자 비밀번호가 아직 없어 관리 비밀번호로 확인했습니다');
       onOk(); return;
+    }
+    /* 시도 제한은 Secret이 센다(입장 화면과 같은 기록을 쓴다). 잠겼으면
+       확인 버튼을 막고 남은 시간을 알려 준다 — 계속 누르게 두면 잠긴 줄
+       모르고 "비밀번호가 틀렸나" 하며 애먼 비번을 의심한다. */
+    if(v.reason==='locked'){
+      btn.disabled=true;
+      $('#pinErr').textContent = `${ADMIN_ERR.locked} — ${mmss(v.ms||0)} 뒤에 다시 시도하세요`;
+      return;
     }
     $('#pinErr').textContent = ADMIN_ERR[v.reason] || '확인하지 못했습니다';
     inp.value=''; inp.focus();

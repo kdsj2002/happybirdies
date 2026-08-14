@@ -36,6 +36,24 @@ const CLUB = (() => {
 const clone = o => (typeof structuredClone==='function') ? structuredClone(o) : JSON.parse(JSON.stringify(o));
 const K = (k) => `bmt:${CLUB}:${k}`;
 
+/* ── 최근에 쓴 동호회 ──────────────────────────────────────────────
+   현관(대표 주소)에서 한 번에 들어가기 위한 목록이다. 클럽별 데이터가
+   아니라 이 기기의 기록이므로 K()를 쓰지 않는다 — 클럽 이름을 붙이면
+   동호회마다 따로 쌓여서 목록의 뜻이 없어진다. */
+const RECENT_KEY = 'bmt:recentClubs';
+function recentClubs(){
+  try{ const a=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); return Array.isArray(a)?a:[]; }
+  catch{ return []; }
+}
+function rememberClub(id, name){
+  if(!id || id==='default') return;      // 현관 자체는 기억하지 않는다
+  try{
+    const rest = recentClubs().filter(c=>c.id!==id);
+    rest.unshift({ id, name: name||id, at: Date.now() });
+    localStorage.setItem(RECENT_KEY, JSON.stringify(rest.slice(0,6)));
+  }catch{}
+}
+
 /* ── 저장소 어댑터 ──────────────────────────────────────────────────
    우선순위: Firestore(설정된 경우) → window.storage → localStorage → 메모리
    Firestore가 설정돼 있어도 오프라인이면 로컬 캐시로 읽고 쓰며, 연결이
@@ -172,6 +190,38 @@ const Store = (() => {
         console.warn('동호회 등록 확인 실패', e);
         return { ok:false, error:String(e) };
       }
+    },
+
+    /* ── 다른 동호회 찾기 ─────────────────────────────────────────
+       현관에서 클럽 코드를 입력받아 그 동호회가 있는지 본다.
+       등록 표시 문서는 읽기가 공개라 서버 없이 확인된다. */
+    async lookupClub(code){
+      const id = String(code||'').trim().toLowerCase();
+      if(!/^[a-z0-9][a-z0-9-]{1,30}$/.test(id)) return { ok:true, found:false, bad:true };
+      if(this.mode!=='firebase') return { ok:false };
+      const fb=this._fb;
+      try{
+        const snap = await fb.getDoc(fb.doc(fb.db,'clubs',id,'meta','club'));
+        if(!snap.exists() && snap.metadata && snap.metadata.fromCache) return { ok:false };
+        return { ok:true, found:snap.exists(), id, meta:snap.exists()?snap.data():null };
+      }catch(e){ return { ok:false, error:String(e) }; }
+    },
+
+    /* ── 옛 default 동호회가 아직 살아 있나 ────────────────────────
+       '/' 는 원래 이 동호회 자체였다. teambailey 같은 제 주소로 이관하고
+       clubs/default를 지우면 '/' 는 현관이 되어야 한다. 그 전환을 플래그
+       없이 데이터로 판정한다 — settings 문서가 있으면 아직 쓰는 중이다.
+
+       판단이 안 될 때(오프라인)는 "살아 있다"로 본다. 체육관에서 인터넷이
+       끊겼다고 대진판 대신 현관이 뜨면 그날 운영이 멈춘다. */
+    async legacyDefaultExists(){
+      if(this.mode!=='firebase') return true;
+      const fb=this._fb;
+      try{
+        const snap = await fb.getDoc(fb.doc(fb.db,'clubs','default','kv','settings'));
+        if(!snap.exists() && snap.metadata && snap.metadata.fromCache) return true;
+        return snap.exists();
+      }catch{ return true; }
     },
 
     /* ── 전체 동호회 정원 ────────────────────────────────────────

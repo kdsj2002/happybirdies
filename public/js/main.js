@@ -4,6 +4,21 @@
 (async function boot(){
   await Store.init();
 
+  /* ── '/' 가 대진판인가 현관인가 ─────────────────────────────────
+     원래 '/' 는 동호회 하나(default) 그 자체였다. 그 동호회가 제 주소로
+     이관하고 clubs/default를 지우면, '/' 는 동호회를 찾아 주는 현관이
+     되어야 한다. 그 전환을 설정 플래그로 두지 않고 데이터로 판정한다 —
+     플래그를 쓰면 "지웠는데 아직 옛 화면이 뜬다"가 반드시 생기고,
+     이관 순서를 사람이 기억해야 한다.
+
+     판단이 안 될 때(오프라인)는 대진판 쪽으로 붙는다. 체육관에서 인터넷이
+     끊겼다고 대진판 대신 현관이 뜨면 그날 운영이 멈춘다. */
+  if(CLUB==='default' && !(await Store.legacyDefaultExists())){
+    document.getElementById('app').style.display='none';
+    Gate.landing();
+    return;
+  }
+
   /* 등록되지 않은 동호회면 여기서 멈춘다. 데이터를 읽지도, 최초 비밀번호
      설정 화면을 띄우지도 않는다 — 그게 예전에 아무나 새 동호회를 차지하던
      경로였다. 판단이 안 될 때(오프라인)는 막지 않고 그냥 진행한다. */
@@ -29,6 +44,9 @@
   const st=rSet.value;
   if(st) S.settings=Object.assign(clone(DEFAULTS),st,{w:Object.assign({},DEFAULTS.w,st.w||{})});
   settingsTrusted = rSet.ok;    // 못 읽은 설정은 클라우드에 쓰지 않는다
+  // 현관에서 한 번에 다시 들어갈 수 있게 이 기기에 기록해 둔다.
+  // 설정을 제대로 읽었을 때만 — 못 읽은 채로 적으면 이름이 '대진판'으로 굳는다.
+  if(rSet.ok) rememberClub(CLUB, S.settings.clubName);
   S.members=rMem.value||[];
   // 제대로 읽었을 때만 기준선을 잡는다. 기준선이 없으면 회원 문서에는
   // 아무것도 쓰지 않는다(actions.js의 save 참고).

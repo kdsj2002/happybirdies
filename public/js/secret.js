@@ -29,8 +29,9 @@
    ── 알고 쓸 것 ────────────────────────────────────────────────
    · 초기화 직후(=kv/adminAuth가 없는 동안)에는 앱을 먼저 연 사람이
      비밀번호를 차지한다. 지웠으면 곧바로 본인이 설정할 것.
-   · 온라인 무차별 대입은 규칙으로 못 막는다. 콘솔에서 App Check를
-     켜고, 네 자리 숫자 말고 길게 쓸 것.
+   · 온라인 무차별 대입은 규칙으로 못 막는다. 아래 시도 제한은 이 기기
+     안에서만 도는 장치라 스크립트에는 효력이 없다.
+     **길게 쓰는 것이 여전히 실질적인 방어의 전부다.**
    ===================================================================== */
 const Secret = (() => {
   const ITER = 210000;              // PBKDF2 반복. 새로 설정할 때 쓰는 값.
@@ -93,13 +94,14 @@ const Secret = (() => {
     const salt = randHex(16);
     const hash = await digest(password, salt, ITER);
     const F = fb();
-    if (!F) { localWrite(kind, { salt, iter: ITER, hash }); return { ok: true, local: true }; }
+    if (!F) { localWrite(kind, { salt, iter: ITER, hash }); clearFails(kind); return { ok: true, local: true }; }
     try {
       const batch = F.writeBatch(F.db);
       batch.set(F.doc(F.db, 'clubs', CLUB, 'secret', K_(kind).pin), { hash });
       batch.set(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth),
                 { v: JSON.stringify({ salt, iter: ITER }), updatedAt: new Date() });
       await batch.commit();
+      clearFails(kind);        // 새로 정한 비밀번호에 옛 실패 기록을 물려주지 않는다
       return { ok: true };
     } catch (e) {
       // 이미 누가 설정했거나(taken), 규칙이 아직 배포되지 않았거나(rules).
@@ -108,11 +110,69 @@ const Secret = (() => {
     }
   }
 
+  /* ── 여러 번 틀렸을 때 ────────────────────────────────────────
+     5번 틀리면 이 기기에서 잠그고, 잠금이 풀린 뒤 또 틀리면 다음 잠금은
+     배로 길어진다(1 → 2 → 4 → 8 → 16 → 30분 상한). 맞히면 처음으로 돌아간다.
+
+     여기(Secret)에 두는 이유는 비밀번호를 묻는 곳이 세 군데이기 때문이다 —
+     입장 화면, 소유자 확인 창, 최초 설정 뒤 자동 입장. 화면마다 세면 한
+     군데를 빠뜨리는 순간 그쪽이 우회로가 된다. 세는 곳은 하나여야 한다.
+
+     ── 이것이 막는 것과 못 막는 것 ───────────────────────────────
+     막는 것: 태블릿을 잠깐 만질 수 있는 사람이 "0000 · 0116 · 1234 …"를
+     손으로 찍어 보는 것. 체육관에서 실제로 일어나는 시나리오는 이쪽이다.
+
+     못 막는 것: **스크립트로 하는 무차별 대입.** 이 기록은 이 브라우저의
+     localStorage에 있을 뿐이라, 앱을 거치지 않고 Firestore를 직접 두드리면
+     아무 효력이 없다. 시크릿 창을 열거나 저장소를 비워도 풀린다. 서버가
+     세어 주지 않는 한 이 이상은 안 된다(App Check는 쓰지 않기로 했다).
+     그러니 이 장치를 믿고 짧은 비밀번호를 쓰면 안 된다.
+     ─────────────────────────────────────────────────────────── */
+  const MAX_TRY = 5;
+  const STEPS   = [60000, 120000, 240000, 480000, 960000, 1800000];
+  const lockKey   = kind => `bmt:${CLUB}:pinGate:${K_(kind).auth}`;
+  const lockRead  = kind => { try { return JSON.parse(localStorage.getItem(lockKey(kind)) || '{}') || {}; } catch { return {}; } };
+  const lockWrite = (kind, s) => { try { localStorage.setItem(lockKey(kind), JSON.stringify(s)); } catch {} };
+  const lockLeft  = (kind = 'admin') => { const s = lockRead(kind); return (s.until && s.until > Date.now()) ? s.until - Date.now() : 0; };
+  const triesLeft = (kind = 'admin') => Math.max(0, MAX_TRY - (lockRead(kind).fails || 0));
+  function noteFail(kind) {
+    const s = lockRead(kind);
+    s.fails = (s.fails || 0) + 1;
+    if (s.fails >= MAX_TRY) {
+      const n = s.level || 0;                       // 몇 번째 잠금인지
+      s.fails = 0;
+      s.level = Math.min(n + 1, STEPS.length);
+      s.until = Date.now() + STEPS[Math.min(n, STEPS.length - 1)];
+    }
+    lockWrite(kind, s);
+  }
+  const clearFails = kind => lockWrite(kind, {});
+
   /* 확인. 맞으면 {ok:true}. 서버까지 못 갔으면 reason:'offline'.
      비밀번호가 틀린 것과 통신이 안 되는 것을 반드시 구분해야 한다 —
-     둘을 뭉뚱그리면 오프라인일 때 "비밀번호가 틀렸다"고 거짓말을 한다. */
+     둘을 뭉뚱그리면 오프라인일 때 "비밀번호가 틀렸다"고 거짓말을 한다.
+     잠겨 있으면 reason:'locked'와 남은 시간을 함께 돌려준다. */
   async function verify(password, kind = 'admin') {
+    const wait = lockLeft(kind);
+    if (wait > 0) return { ok: false, reason: 'locked', ms: wait };
+    // 빈 입력은 시도로 세지 않는다. 엔터를 잘못 눌러 잠기면 억울하다.
     if (!password) return { ok: false, reason: 'wrong' };
+
+    const r = await check(password, kind);
+    if (r.ok) { clearFails(kind); return r; }
+    /* 틀린 것만 센다. 통신이 안 되거나(offline) 아직 설정되지 않은 것은
+       시도가 아니다 — 그것까지 세면 지하 체육관에서 와이파이가 오락가락할
+       때 멀쩡한 운영자가 잠겨 버린다. */
+    if (r.reason === 'wrong') {
+      noteFail(kind);
+      const ms = lockLeft(kind);
+      if (ms > 0) return { ok: false, reason: 'locked', ms };
+    }
+    return r;
+  }
+
+  /* 실제 대조. 시도 횟수는 위 verify가 센다. */
+  async function check(password, kind) {
     const F = fb();
 
     if (!F) {
@@ -162,5 +222,6 @@ const Secret = (() => {
     return { ok: false, reason: 'offline' };
   }
 
-  return { state, verify, verifyOwner, bootstrap, ITER };
+  return { state, verify, verifyOwner, bootstrap, ITER,
+           lockLeft, triesLeft, clearFails, MAX_TRY };
 })();
