@@ -72,6 +72,73 @@ const Gate = (() => {
     });
   }
 
+  /* ── 대표 주소 현관 ────────────────────────────────────────────
+     '/' 는 원래 동호회 하나(default)의 대진판이었다. 그 동호회가 제 주소로
+     이관해 clubs/default가 비면, 여기는 "어느 동호회로 가시나요"를 묻는
+     현관이 된다. 전환에 플래그를 두지 않은 이유는 main.js에 적어 뒀다.
+
+     여기서는 동호회를 만들지 않는다. 코드가 맞는지 확인해서 보내 줄 뿐이다 —
+     주소를 치면 동호회가 생기던 예전 동작이 남용의 통로였다. */
+  function screenLanding(){
+    const recent = (typeof recentClubs==='function') ? recentClubs() : [];
+    open(`
+      <div class="gate-card wide">
+        <div class="gate-title">배드민턴 대진판</div>
+        <div class="gate-sub">동호회 코드를 입력하시면 그 동호회 대진판으로 갑니다.</div>
+        <input type="text" id="cCode" placeholder="예: teambailey" autocomplete="off"
+               autocapitalize="off" autocorrect="off" spellcheck="false"
+               style="width:100%;height:52px;font-size:20px;text-align:center">
+        <div id="gErr" class="gate-err"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="cGo" style="width:100%">들어가기</button>
+        </div>
+        ${recent.length?`<div class="gate-sub" style="margin:16px 0 6px">최근에 들어간 동호회</div>
+          <div class="gate-list">${recent.map(c=>
+            `<button class="gate-name" data-c="${esc(c.id)}">${esc(c.name||c.id)}</button>`).join('')}</div>`:''}
+        <div class="hint" style="margin-top:18px;line-height:1.7">
+          코드는 운영자에게 받은 링크의 주소 조각입니다
+          (<span class="doc-k">happybirdies.web.app/<b>teambailey</b>/</span>).<br>
+          <span id="quotaNote"></span>
+        </div>
+        <div class="hint" style="margin-top:10px">
+          <a href="/manual.html">사용 설명서 보기 →</a>
+        </div>
+      </div>`);
+
+    const inp=$('#cCode'); setTimeout(()=>inp&&inp.focus(),60);
+    const go=async()=>{
+      const btn=$('#cGo'); if(btn.disabled) return;
+      const code=(inp.value||'').trim().toLowerCase();
+      if(!code) return;
+      btn.disabled=true; $('#gErr').textContent='찾는 중...';
+      const r=await Store.lookupClub(code);
+      btn.disabled=false;
+      if(r.ok && r.found){
+        Sound.play('confirm');
+        location.href = '/' + r.id + '/';
+        return;
+      }
+      Sound.play('error');
+      // 못 찾은 것과 못 물어본 것은 다르다. 오프라인에서 "없는 동호회"라고
+      // 말하면 멀쩡한 코드를 의심하게 된다.
+      $('#gErr').textContent = r.bad ? '영문 소문자·숫자·하이픈만 쓸 수 있습니다'
+                              : r.ok ? '그런 동호회를 찾지 못했습니다'
+                                     : '지금은 확인할 수 없습니다 — 연결을 확인해 주세요';
+    };
+    $('#cGo').onclick=go;
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+    box().querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{
+      Sound.play('tap'); location.href = '/' + b.dataset.c + '/';
+    });
+
+    Store.clubQuota().then(q=>{
+      const el=$('#quotaNote'); if(!el || !q.ok) return;
+      el.innerHTML = q.full
+        ? `새 동호회는 지금 정원(${q.limit}개)이 다 차서 받지 못합니다.`
+        : `새 동호회를 열고 싶으시면 운영자에게 문의해 주세요 (현재 <b>${q.count}</b>/${q.limit}개).`;
+    });
+  }
+
   function screenHome(){
     open(`
       <div class="gate-card">
@@ -490,6 +557,7 @@ const Gate = (() => {
 
   return { start(){ screenHome(); }, close, enter,
            unknownClub(){ screenUnknownClub(); },
+           landing(){ screenLanding(); },
            reopen(){ screenHome(); } };
 })();
 
