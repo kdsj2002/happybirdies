@@ -52,7 +52,7 @@ function chipEl(id, ctx){
   // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
   const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
   /* 파워는 대기열·대기 인원에서만 보여 준다. 코트는 팀 단위로 따로
-     보여 주므로(courtGauge) 사람마다 또 넣으면 같은 정보가
+     보여 주므로(powerGauge) 사람마다 또 넣으면 같은 정보가
      두 번 보인다.
 
      막대를 이름 옆에 세우지 않고 칩 바탕을 아래에서부터 채운다. 옆에 세우면
@@ -119,25 +119,28 @@ function elapsedColor(pct, dl=0){
 }
 
 /* ── 통합 게이지 ──────────────────────────────────────────────────
-   코트 하나에 가로 막대 하나. 두 가지를 한꺼번에 읽는다.
+   코트·대기 슬롯 하나에 가로 막대 하나. 두 가지를 한꺼번에 읽는다.
 
      · 길이  = 두 팀의 파워 비율. 왼쪽이 A팀, 오른쪽이 B팀이고 그 경계에
                구분선이 선다. 50:50이면 구분선이 한가운데 온다.
                가운데의 옅은 눈금이 "딱 반"의 기준선이라, 구분선이 거기서
                얼마나 밀려 있는지로 한쪽이 얼마나 센지 바로 보인다.
      · 색    = 경기 경과 시간. 최대 경기 시간(설정의 경기 시간 경고)에
-               가까워질수록 붉어진다.
+               가까워질수록 붉어진다. 대기 슬롯은 아직 경기가 아니므로
+               ce가 없고, 그때는 0%(코트 초록)로 고정된다.
 
    막대를 따로 두 개 세워 눈으로 재는 것보다, 하나를 나눠 갖게 하는 편이
    비율을 훨씬 빨리 읽는다(격투 게임 체력바와 같은 원리다). */
-function courtGauge(c, ce){
-  const pw = s => (c.teams[s]||[]).reduce((n,id)=>{const a=A(id); return n+(a?powerOf(a):0);},0);
+function hasTeams(o){ return !!((o.teams&&o.teams.A||[]).length || (o.teams&&o.teams.B||[]).length); }
+
+function powerGauge(o, ce){
+  const pw = s => ((o.teams&&o.teams[s])||[]).reduce((n,id)=>{const a=A(id); return n+(a?powerOf(a):0);},0);
   const a=pw('A'), b=pw('B'), total=a+b;
-  // 아직 팀이 안 짜였거나 파워가 0이면 반반으로 둔다 — 한쪽으로 쏠린 채
-  // 보여 주면 없는 정보를 있는 것처럼 말하는 셈이다.
+  // 파워가 0이면 반반으로 둔다 — 한쪽으로 쏠린 채 보여 주면 없는 정보를
+  // 있는 것처럼 말하는 셈이다. (팀이 아예 없으면 hasTeams가 걸러 낸다.)
   const aPct = total>0 ? a/total*100 : 50;
   const pct  = ce ? ce.pct : 0;
-  return `<div class="court-gauge">
+  return `<div class="pw-gauge">
       <i class="ga" style="width:${aPct.toFixed(1)}%;background:${elapsedColor(pct)}"></i>
       <i class="gb" style="width:${(100-aPct).toFixed(1)}%;background:${elapsedColor(pct,26)}"></i>
       <i class="gmid"></i>
@@ -159,9 +162,8 @@ function renderCourts(){
         ${mtBadge(c,'court',c.no)}
         <span class="spacer"></span>
         ${ce?`<span class="timer num">${ce.label}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
-        ${c.members.length===4?`<span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>`:''}
       </div>
-      ${c.members.length? courtGauge(c,ce) : ''}`;
+      ${hasTeams(c)? powerGauge(c,ce) : ''}`;
 
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
@@ -195,7 +197,7 @@ function tickCourts(){
     const timerEl=card.querySelector('.timer'); if(timerEl) timerEl.textContent=ce.label;
     /* 게이지에서 매 초 바뀌는 것은 색(경과 시간)뿐이다. 길이(파워 비율)는
        사람이 바뀔 때만 달라지므로 render()가 맡는다. */
-    const ga=card.querySelector('.court-gauge .ga'), gb=card.querySelector('.court-gauge .gb');
+    const ga=card.querySelector('.pw-gauge .ga'), gb=card.querySelector('.pw-gauge .gb');
     if(ga) ga.style.background=elapsedColor(ce.pct);
     if(gb) gb.style.background=elapsedColor(ce.pct,26);
   });
@@ -207,20 +209,18 @@ function renderQueues(){
   S.queues.forEach((q,i)=>{
     const e=el('div','slot'+(i===firstFull?' next':'')+(!q.members.length?' empty':''));
     e.dataset.drop=`queue:${q.index}`;
-    // 4명이 찬 슬롯은 통째로 끌어서 코트에 놓을 수 있다. 작은 투입 버튼을
-    // 정확히 누르는 것보다 팀을 통째로 끌어다 놓는 쪽이 훨씬 직관적이다.
-    const full = q.members.length===4;
     // 4명이 아니어도 사람이 있으면 통째로 끌 수 있다.
+    // 투입 버튼은 없앴다 — 코트가 비면 자동으로 올라가고, 손으로 올릴 때는
+    // 슬롯을 통째로 끌어다 놓는다. 작은 버튼을 정확히 누르는 것보다 낫다.
     if(q.members.length && Auth.can('courtAssign')) e.dataset.team=`queue:${q.index}`;
     e.innerHTML=`<div class="slot-h">
         <span class="slot-no">Q${q.index}</span>
         ${mtBadge(q,'queue',q.index)}
         ${q.origin==='REVENGE'?'<span class="stat" style="color:var(--gold)">리벤지</span>':''}
         <span class="spacer"></span>
-        ${full?`<button class="btn sm primary push-btn" data-push="${q.index}">투입 →</button>`:''}
-        ${q.members.length?`<span class="ic" data-swap="queue:${q.index}" title="팀 바꾸기">⇄</span>
-          <span class="ic" data-clear="${q.index}" title="비우기">✕</span>`:''}
-      </div>`;
+        ${q.members.length?`<span class="ic" data-clear="${q.index}" title="비우기">✕</span>`:''}
+      </div>
+      ${hasTeams(q)? powerGauge(q,null) : ''}`;
     const grid=el('div','slot-grid');
     const order = q.teams.A.length? [...q.teams.A,...q.teams.B] : q.members;
     for(let k=0;k<4;k++){

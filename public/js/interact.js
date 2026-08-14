@@ -130,12 +130,6 @@ document.addEventListener('click',e=>{
   const scr=t.closest('[data-scr]'); if(scr) return show(scr.dataset.scr);
 
 
-  const push=t.closest('[data-push]');
-  if(push){ if(!requirePerm('edit')||!requirePerm('courtAssign')) return;
-    return void pushQueueToCourt(S.queues.find(q=>q.index===+push.dataset.push));
-  }
-
-
   const clr=t.closest('[data-clear]');
   if(clr){ if(!requirePerm('edit')) return; Sound.play('tap');
     const q=S.queues.find(q=>q.index===+clr.dataset.clear);
@@ -143,20 +137,6 @@ document.addEventListener('click',e=>{
       Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',notice:null}); }); }
 
 
-  const sw=t.closest('[data-swap]');
-  if(sw){ if(!requirePerm('edit')) return;
-    const [k,n]=sw.dataset.swap.split(':');
-    if(k==='court' && !requirePerm('courtAssign')) return;
-    Sound.play('move');
-    const o=k==='court'?S.courts.find(c=>c.no===+n):S.queues.find(q=>q.index===+n);
-    if(o.members.length!==4) return toast('4명이 있어야 팀을 바꿀 수 있습니다');
-    return tx(()=>{
-      const m=o.members, P=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
-      const cur=P.findIndex(p=>o.teams.A.includes(m[p[0]])&&o.teams.A.includes(m[p[1]]));
-      const nx=P[(cur+1)%3];
-      o.teams={A:[m[nx[0]],m[nx[1]]],B:[m[nx[2]],m[nx[3]]]};
-      o.matchType=mtypeOf(m,o.teams); o.typeSource='MANUAL';
-    },{auto:false}); }
 
   const mt=t.closest('[data-mt]');
   if(mt){ if(!requirePerm('edit')) return; Sound.play('tap');

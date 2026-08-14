@@ -25,8 +25,8 @@ function autoStartFullCourts(){
     if(c.status!=='PLAYING' && c.members.length===4) startCourt(c, true);
   });
 }
-/* 진행 중인 경기의 팀 구성이 바뀌면(팀 바꾸기 등) 기록도 따라가야 한다.
-   안 그러면 기록 화면에 시작 당시의 옛 팀이 남는다. */
+/* 진행 중인 경기의 팀 구성이 바뀌면(사람을 끌어다 옮기는 등) 기록도 따라가야
+   한다. 안 그러면 기록 화면에 시작 당시의 옛 팀이 남는다. */
 function syncPlayingMatches(){
   S.courts.forEach(c=>{
     if(c.status!=='PLAYING' || !c.matchId) return;
