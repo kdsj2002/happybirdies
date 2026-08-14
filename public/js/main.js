@@ -77,7 +77,9 @@
   // 브라우저는 첫 사용자 조작 전에는 소리를 못 내게 막는다. 아무 터치에서 깨운다.
   ['pointerdown','keydown'].forEach(ev=>
     window.addEventListener(ev, ()=>Sound.unlock(), {once:true}));
-  if(Store.mode!=='firebase'){
+  // 설정 화면에 갈 수 있는 사람에게만 안내한다. 게스트에게는 설정 탭이
+  // 아예 없어서 "설정 → 저장소로 가세요"가 갈 수 없는 곳을 가리켰다.
+  if(Store.mode!=='firebase' && Auth.can('settings')){
     const cfg = window.__fbReadCfg && window.__fbReadCfg();
     if(!cfg) setTimeout(()=>toast('설정 → 저장소에서 Firebase를 연결할 수 있습니다 (지금은 이 기기에만 저장됨)'),1200);
   }

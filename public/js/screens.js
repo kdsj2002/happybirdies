@@ -2,12 +2,30 @@
    화면 전환
    ===================================================================== */
 function show(name){
+  // 탭을 감추는 것만으로는 부족하다. show()를 직접 부르는 경로(버튼·콘솔)도
+  // 있으므로 여기서 한 번 더 막는다.
+  if(!allowedScreen(name)) name='board';
   $$('.screen').forEach(s=>s.classList.toggle('on',s.id==='scr-'+name));
   $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.scr===name));
   if(name==='att') renderAtt();
   if(name==='mem') renderMem();
   if(name==='hist') renderHist();
   if(name==='set') renderSet();
+  if(name==='help') renderHelp();
+}
+
+/* ── 도움말 ─────────────────────────────────────────────────────
+   글은 js/manual.js에 있다. 여기서는 지금 역할을 넘겨 "내 역할" 표시만
+   붙이고, 따로 열어 링크로 뿌릴 수 있는 manual.html 안내를 덧붙인다. */
+function renderHelp(){
+  $('#helpBody').innerHTML = Manual.html({role:Auth.role})
+    + `<div class="doc" style="padding-top:0">
+         <div class="doc-note">
+           이 설명서는 따로 열어 링크로 보낼 수도 있습니다 —
+           <a href="./manual.html" target="_blank" rel="noopener"><b>설명서만 새 창으로 열기 →</b></a><br>
+           단톡방에 붙여 두거나 인쇄해서 체육관에 붙여 두세요.
+         </div>
+       </div>`;
 }
 
 /* ── 초성 검색 ─────────────────────────────────────────────────── */
@@ -233,6 +251,13 @@ $('#fileIn').onchange=e=>{
 
 /* ── 기록 ───────────────────────────────────────────────────────── */
 function renderHist(){
+  /* 기록에는 출석자 전원의 이름과 게임 수가 그대로 있다. 게스트에게는
+     탭도 감추지만(applyRole) 화면 함수에서도 한 번 더 막는다. */
+  if(Auth.isViewer){
+    $('#histBody').innerHTML='<div class="hint">경기 기록은 회원과 운영자만 볼 수 있습니다.<br>'
+      + '본인 이름으로 입장하면 내 게임 수를 확인할 수 있습니다.</div>';
+    return;
+  }
   const done=S.matches.filter(m=>m.endedAt);
   const all=Object.values(S.att).sort((a,b)=>b.games-a.games||a.name.localeCompare(b.name,'ko'));
   const byType={}; done.forEach(m=>byType[m.type||'UNKNOWN']=(byType[m.type||'UNKNOWN']||0)+1);
@@ -300,7 +325,16 @@ const POLICY=[['FREE','성별 무시 (권장)','공정성만 보고 조합. 결�
   ['STRICT_SAME','동성 강제','남4·여4만 허용'],
   ['STRICT_MIXED','혼복 강제','남2여2만 허용. 성비가 치우치면 공정성이 깨짐']];
 function renderSet(){
-  // 설정은 운영자 전용이다. 회원·뷰어에게는 현재 값을 읽기 전용으로 보여 준다.
+  /* 게스트에게는 클럽 운영 값을 보여 주지 않는다. 대신 역할을 바꿀 길만
+     남긴다 — 이것마저 없으면 게스트로 한 번 들어온 기기가 갇힌다. */
+  if(Auth.isViewer){
+    $('#setBody').innerHTML=`
+      <div class="hint" style="margin-bottom:16px">설정은 회원과 운영자만 볼 수 있습니다.</div>
+      <div class="row"><button class="btn primary" id="s_relogin">입장하기</button></div>`;
+    $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
+    return;
+  }
+  // 설정은 운영자 전용이다. 회원에게는 현재 값을 읽기 전용으로 보여 준다.
   // 화면을 통째로 비우면 "지금 어떤 규칙으로 돌고 있는지"조차 확인할 수 없어서다.
   if(!Auth.can('settings')){
     const s=S.settings;

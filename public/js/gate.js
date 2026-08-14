@@ -298,19 +298,45 @@ const Gate = (() => {
            reopen(){ screenHome(); } };
 })();
 
+/* ── 역할별로 볼 수 있는 화면 ────────────────────────────────────
+   게스트(뷰어)는 대진판 하나만 본다.
+
+   처음에는 회원 명단이 있는 탭(회원·출석)만 가렸는데, 그것으로는 부족했다.
+   기록에는 출석자 전원의 이름과 게임 수가 그대로 늘어서 있고, 설정에는
+   클럽 운영 값이 다 들어 있다. 구경하러 온 사람에게 내줄 것이 아니다.
+
+   대진판에 올라간 사람의 이름은 여전히 보인다. 그건 지금 코트에서 부르는
+   이름이라 체육관에 서 있으면 어차피 들리는 것이고, 가리면 대진판이 대진판이
+   아니게 된다. 가리는 것은 "등록된 회원 전체 명단"이다.
+   ───────────────────────────────────────────────────────────── */
+function allowedScreen(name){
+  if(Auth.isViewer) return name==='board';
+  if(name==='mem' || name==='att') return Auth.can('members');
+  return true;
+}
+
 /* 역할에 따라 화면 요소를 켜고 끈다 */
 function applyRole(){
   document.body.dataset.role = Auth.role;
   const lbl=$('#roleLbl');
   if(lbl) lbl.textContent = Auth.roleLabel() + (Auth.isMember && Auth.memberId
       ? ' · ' + ((S.members.find(m=>m.id===Auth.memberId)||{}).name || '') : '');
-  /* 뷰어(게스트로 구경)에게는 회원 명단이 보이는 탭을 전부 감춘다.
-     회원 탭만 감췄더니 출석 탭에 명단이 그대로 펼쳐져 있었다. */
-  const seesMembers = Auth.can('members');
-  $$('.tab').forEach(t=>{
-    if(t.dataset.scr==='mem' || t.dataset.scr==='att')
-      t.style.display = seesMembers ? '' : 'none';
-  });
-  if(!seesMembers && ($('#scr-mem').classList.contains('on') || $('#scr-att').classList.contains('on')))
-    show('board');
+
+  $$('.tab').forEach(t=>{ t.style.display = allowedScreen(t.dataset.scr) ? '' : 'none'; });
+  /* 탭이 하나만 남으면 탭 줄 자체를 치운다. 폰에서는 이 줄이 화면 아래를
+     56px 차지하는 고정 바라, 누를 곳이 하나뿐인 바를 남겨 둘 이유가 없다.
+     body에 표시를 남겨 폰에서 비워 둔 그 자리(padding)도 같이 걷는다. */
+  const one = $$('.tab').filter(t=>t.style.display!=='none').length<=1;
+  const tabs=document.querySelector('.tabs');
+  if(tabs) tabs.style.display = one ? 'none' : '';
+  document.body.classList.toggle('no-tabs', one);
+
+  /* 역할이 바뀌는 순간(다시 입장하기) 볼 수 없는 화면이 켜져 있을 수 있다. */
+  const cur = ($$('.screen').find(s=>s.classList.contains('on')) || {}).id || '';
+  if(cur && !allowedScreen(cur.replace('scr-',''))) show('board');
+
+  /* 뷰어는 탭이 대진판 하나뿐이라 설정 화면으로 갈 수 없다. 역할을 바꿀 길이
+     아주 막히면 게스트로 한 번 들어온 기기는 영영 회원이 될 수 없으므로,
+     상단에 입장 버튼을 따로 내준다. */
+  const be=$('#btnEnter'); if(be) be.style.display = Auth.isViewer ? '' : 'none';
 }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>배드민턴 대진판</title>
-<link rel="stylesheet" href="./css/app.css?v=2026.08.13f">
+<link rel="stylesheet" href="./css/app.css?v=2026.08.14a">
 </head>
 <body>
 <div id="app">
@@ -18,8 +18,12 @@
       <button class="tab" data-scr="mem">회원</button>
       <button class="tab" data-scr="hist">기록</button>
       <button class="tab" data-scr="set">설정</button>
+      <button class="tab" data-scr="help">도움말</button>
     </div>
     <button class="btn" id="myBtn" style="display:none"></button>
+    <!-- 게스트는 탭이 대진판 하나뿐이라 설정으로 갈 수 없다. 회원·운영자로
+         다시 들어가는 길을 여기 하나 남겨 둔다. -->
+    <button class="btn primary" id="btnEnter" style="display:none">입장하기</button>
     <span id="roleLbl"></span>
     <span id="cloudDot" title="저장소 상태" style="width:8px;height:8px;border-radius:50%;background:var(--muted2)"></span>
     <div class="toggle on" id="autoTgl"><span class="dot"></span><span>자동</span></div>
@@ -96,6 +100,9 @@
 
   <!-- 설정 -->
   <div class="screen" id="scr-set"><div class="pad" id="setBody"></div></div>
+
+  <!-- 도움말 — 내용은 js/manual.js 한 곳에서 온다 (manual.html과 공용) -->
+  <div class="screen" id="scr-help"><div class="pad" id="helpBody"></div></div>
 </div>
 
 <div class="mask" id="mask"><div class="modal" id="modal"></div></div>
@@ -109,17 +116,18 @@
 <!-- Firebase 로더는 모듈, 나머지는 순서대로 읽히는 일반 스크립트다.
      한 파일에 다 몰아넣지 않고 역할별로 나눠 두면 한 군데만 고칠 때
      파일 전체를 다시 쓰지 않아도 된다. 로드 순서에 의존하므로 순서를 지킬 것. -->
-<script type="module" src="./js/firebase-loader.js?v=2026.08.13f"></script>
-<script src="./js/sound.js?v=2026.08.13f"></script>
-<script src="./js/store.js?v=2026.08.13f"></script>
-<script src="./js/state.js?v=2026.08.13f"></script>
-<script src="./js/algo.js?v=2026.08.13f"></script>
-<script src="./js/ui.js?v=2026.08.13f"></script>
-<script src="./js/actions.js?v=2026.08.13f"></script>
-<script src="./js/auth.js?v=2026.08.13f"></script>
-<script src="./js/gate.js?v=2026.08.13f"></script>
-<script src="./js/interact.js?v=2026.08.13f"></script>
-<script src="./js/screens.js?v=2026.08.13f"></script>
-<script src="./js/main.js?v=2026.08.13f"></script>
+<script type="module" src="./js/firebase-loader.js?v=2026.08.14a"></script>
+<script src="./js/sound.js?v=2026.08.14a"></script>
+<script src="./js/store.js?v=2026.08.14a"></script>
+<script src="./js/state.js?v=2026.08.14a"></script>
+<script src="./js/algo.js?v=2026.08.14a"></script>
+<script src="./js/manual.js?v=2026.08.14a"></script>
+<script src="./js/ui.js?v=2026.08.14a"></script>
+<script src="./js/actions.js?v=2026.08.14a"></script>
+<script src="./js/auth.js?v=2026.08.14a"></script>
+<script src="./js/gate.js?v=2026.08.14a"></script>
+<script src="./js/interact.js?v=2026.08.14a"></script>
+<script src="./js/screens.js?v=2026.08.14a"></script>
+<script src="./js/main.js?v=2026.08.14a"></script>
 </body>
 </html>

@@ -199,6 +199,9 @@ $('#myBtn').onclick=()=>{
 
 $('#btnUndo').onclick=()=>{ if(!requirePerm('edit')) return; Sound.play('tap'); undo(); };
 
+/* 게스트 전용 — 회원·운영자로 다시 입장 */
+$('#btnEnter').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
+
 /* ── 모달 ───────────────────────────────────────────────────────── */
 function openModal(html){ $('#modal').innerHTML=html; $('#mask').classList.add('on'); }
 function closeModal(){ $('#mask').classList.remove('on'); }
