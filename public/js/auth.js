@@ -1,6 +1,10 @@
 /* =====================================================================
    역할과 권한
-     운영자(admin)  : 모든 조작 가능. 동시 접속 2명까지.
+     소유자(owner)  : 운영자가 하는 것 전부 + 소유자 전용 조작.
+                      비밀번호가 운영자와 따로다. 그래야 "구분하는 척"이
+                      아니라 실제로 구분된다 — 운영자 비밀번호만 아는
+                      사람은 소유자 조작을 할 수 없다.
+     운영자(admin)  : 경기 운영 전반. 동시 접속 2명까지.
      회원(member)   : 코트 수동 배정만 차단. 그 외는 조작 가능.
      뷰어(viewer)   : 모든 수정 차단, 회원 명단 화면도 차단.
 
@@ -21,6 +25,11 @@ const Auth = (() => {
   /* 회원에게 허용되는 것만 나열한다(화이트리스트).
      경기 운영은 전부 운영자 탭에서만 한다는 원칙이라, 목록에 없으면 막힌다. */
   const MEMBER_ALLOW = new Set(['view','selfQueue','selfCheckIn','members']);
+
+  /* 소유자만 되는 것. 운영자에게도 열어 주면 역할이 이름뿐이 된다.
+     지금은 "회원 명단을 통째로 갈아끼우는 조작" 하나다 — 되돌릴 수 없고
+     모든 기기에 즉시 퍼지는, 이 앱에서 가장 파괴적인 동작이다. */
+  const OWNER_ONLY = new Set(['membersBulk']);
 
   let role = 'viewer';
   let memberId = null;
@@ -119,10 +128,14 @@ const Auth = (() => {
   return {
     get role(){ return role; },
     get memberId(){ return memberId; },
-    get isAdmin(){ return role === 'admin'; },
+    get isOwner(){ return role === 'owner'; },
+    /* 소유자는 운영자가 할 수 있는 것을 전부 할 수 있다. 화면 곳곳의
+       isAdmin 분기가 소유자에게도 적용되도록 여기서 포함시킨다. */
+    get isAdmin(){ return role === 'admin' || role === 'owner'; },
     get isMember(){ return role === 'member'; },
     get isViewer(){ return role === 'viewer'; },
-    roleLabel(){ return role==='admin'?'운영자' : role==='member'?'회원' : '뷰어'; },
+    roleLabel(){ return role==='owner'?'소유자' : role==='admin'?'운영자'
+                      : role==='member'?'회원' : '뷰어'; },
 
     /* 저장된 역할 복원. 운영자는 자리를 다시 확보해야 하므로 재확인한다. */
     async restore(){
@@ -136,9 +149,9 @@ const Auth = (() => {
         if(!loaded || S.members.some(m=>m.id===id)){ role='member'; memberId=id; return true; }
         ls.del(ROLE_KEY); ls.del(MEMBER_KEY); return false;
       }
-      if(r === 'admin'){
+      if(r === 'admin' || r === 'owner'){
         const res = await claimAdmin();
-        if(res.ok){ role='admin'; startBeat(); return true; }
+        if(res.ok){ role=r; startBeat(); return true; }
         ls.del(ROLE_KEY); return false;      // 정원이 찼으면 다시 고르게 한다
       }
       if(r === 'viewer'){ role='viewer'; return true; }
@@ -146,15 +159,20 @@ const Auth = (() => {
     },
 
     /* 비밀번호 확인은 Secret이 한다. 여기서는 결과만 받는다 —
-       앱 어디에도 비밀번호나 그 해시가 남지 않는다. */
-    async loginAdmin(pin){
-      const v = await Secret.verify(pin);
+       앱 어디에도 비밀번호나 그 해시가 남지 않는다.
+       소유자도 운영자 자리(동시 접속 2명)를 함께 차지한다. 실제로 대진을
+       돌리는 사람이므로 정원 밖에 두면 제한이 무의미해진다. */
+    async loginAs(kind, pin){
+      const v = await Secret.verify(pin, kind==='owner'?'owner':'admin');
       if(!v.ok) return { ok:false, reason:v.reason };   // 'wrong'|'offline'|'unset'
       const res = await claimAdmin();
       if(!res.ok) return { ok:false, reason:'full' };
-      role='admin'; memberId=null; ls.set(ROLE_KEY,'admin'); startBeat();
+      role = (kind==='owner') ? 'owner' : 'admin';
+      memberId=null; ls.set(ROLE_KEY, role); startBeat();
       return { ok:true, offline:res.offline };
     },
+    async loginAdmin(pin){ return this.loginAs('admin', pin); },
+    async loginOwner(pin){ return this.loginAs('owner', pin); },
     loginMember(id){
       role='member'; memberId=id;
       ls.set(ROLE_KEY,'member'); ls.set(MEMBER_KEY,id);
@@ -164,7 +182,7 @@ const Auth = (() => {
       ls.set(ROLE_KEY,'viewer'); ls.del(MEMBER_KEY);
     },
     async logout(){
-      if(role==='admin'){ stopBeat(); await releaseAdmin(); }
+      if(role==='admin' || role==='owner'){ stopBeat(); await releaseAdmin(); }
       role='viewer'; memberId=null;
       ls.del(ROLE_KEY); ls.del(MEMBER_KEY);
     },
@@ -178,9 +196,11 @@ const Auth = (() => {
        courtAssign  코트 수동 배정 — 운영자만
        membersEdit  회원 추가·수정·삭제 — 운영자만
        settings     설정 변경 — 운영자만
-       closeSess    세션 마감 — 운영자만 */
+       closeSess    세션 마감 — 운영자만
+       membersBulk  회원 명단 통째 교체(복원·CSV·다시 불러오기) — 소유자만 */
     can(action){
-      if(role === 'admin')  return true;
+      if(role === 'owner')  return true;
+      if(role === 'admin')  return !OWNER_ONLY.has(action);
       if(role === 'member') return MEMBER_ALLOW.has(action);
       return action === 'view';
     },
@@ -191,6 +211,7 @@ const Auth = (() => {
       if(action === 'settings')    return '설정 변경은 운영자만 할 수 있습니다';
       if(action === 'membersEdit') return '회원 정보 수정은 운영자만 할 수 있습니다';
       if(action === 'closeSess')   return '세션 마감은 운영자만 할 수 있습니다';
+      if(action === 'membersBulk') return '회원 명단을 통째로 바꾸는 것은 소유자만 할 수 있습니다';
       return '경기 운영은 운영자만 할 수 있습니다';
     },
 

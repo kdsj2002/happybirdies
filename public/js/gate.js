@@ -57,9 +57,19 @@ const Gate = (() => {
           동호회 주소는 운영자에게 받은 링크를 그대로 여는 것이 가장 확실합니다.<br>
           새 동호회를 열고 싶으시면 대표 주소에서 신청할 수 있습니다.
         </div>
+        <div id="quotaNote"></div>
         <a class="gate-btn" href="/" style="text-decoration:none;display:block">
           <b>대표 주소로 가기</b><span>여기서 동호회를 찾거나 새로 신청합니다</span></a>
       </div>`);
+    /* 정원이 찼으면 헛걸음하지 않게 미리 알려 준다. */
+    Store.clubQuota().then(q=>{
+      const el=$('#quotaNote'); if(!el || !q.ok) return;
+      el.innerHTML = q.full
+        ? `<div class="hint" style="color:var(--cork);font-weight:700;margin-bottom:12px">
+             지금은 신규 동호회 정원(${q.limit}개)이 다 찼습니다. 자리가 나면 다시 열립니다.</div>`
+        : `<div class="hint" style="margin-bottom:12px">
+             현재 <b>${q.count}</b> / ${q.limit}개 동호회가 열려 있습니다.</div>`;
+    });
   }
 
   function screenHome(){
@@ -67,8 +77,10 @@ const Gate = (() => {
       <div class="gate-card">
         <div class="gate-title">${esc(S.settings.clubName || '대진판')}</div>
         <div class="gate-sub">어떻게 입장하시겠어요?</div>
+        <button class="gate-btn" data-go="owner">
+          <b>소유자</b><span>이 동호회의 주인입니다 · 소유자 비밀번호 필요</span></button>
         <button class="gate-btn" data-go="admin">
-          <b>운영자</b><span>대진 배정과 설정을 모두 관리합니다 · 비밀번호 필요</span></button>
+          <b>운영자</b><span>대진 배정과 설정을 관리합니다 · 관리 비밀번호 필요</span></button>
         <button class="gate-btn" data-go="member">
           <b>회원</b><span>내 경기 알림을 받습니다 · 코트 수동 배정은 제한됩니다</span></button>
         <button class="gate-btn" data-go="guest">
@@ -78,6 +90,7 @@ const Gate = (() => {
       Sound.unlock(); Sound.play('tap');
       const g=b.dataset.go;
       if(g==='admin') screenAdmin();
+      else if(g==='owner') screenAdmin('owner');
       else if(g==='member') screenMember();
       else screenGuest();
     });
@@ -86,28 +99,34 @@ const Gate = (() => {
   /* 운영자 입장. 비밀번호가 아직 없으면(새 DB·초기화 직후) 설정 화면으로
      넘긴다. 그 판정은 서버가 한다 — 오프라인 캐시가 "없다"고 답한 것은
      믿지 않는다(Secret.state가 'unknown'을 돌려준다). */
-  async function screenAdmin(){
-    open(`<div class="gate-card"><div class="gate-title">운영자 입장</div>
+  /* kind: 'admin' | 'owner'. 저장 구조도 화면도 같고 어느 비밀번호를 쓰느냐만
+     다르다. 소유자 비밀번호를 따로 두는 것이 이 역할 구분의 전부다 — 같은
+     비밀번호를 쓰면 화면만 다르고 권한은 같아서, 구분하는 척이 된다. */
+  const ROLE_TITLE = { admin:'운영자', owner:'소유자' };
+  async function screenAdmin(kind='admin'){
+    const label = ROLE_TITLE[kind];
+    open(`<div class="gate-card"><div class="gate-title">${label} 입장</div>
       <div class="gate-sub">확인 중...</div></div>`);
-    const st = await Secret.state();
-    if(st==='unset') return screenSetPin();
+    const st = await Secret.state(kind);
+    if(st==='unset') return screenSetPin(kind);
     if(st==='unknown'){
       open(`<div class="gate-card">
         <div class="gate-title">연결을 확인해 주세요</div>
-        <div class="gate-sub">운영자 확인은 클라우드에 물어봅니다. 지금은 연결되지 않아
+        <div class="gate-sub">${label} 확인은 클라우드에 물어봅니다. 지금은 연결되지 않아
           비밀번호를 확인할 수 없습니다. 이미 이 기기로 운영자 입장을 한 적이 있다면
           그대로 유지되니, 연결이 돌아온 뒤 다시 시도하세요.</div>
         <div class="row" style="gap:8px;margin-top:14px">
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
           <button class="btn primary" id="gRetry" style="flex:2">다시 확인</button></div></div>`);
       $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
-      $('#gRetry').onclick=()=>{ Sound.play('tap'); screenAdmin(); };
+      $('#gRetry').onclick=()=>{ Sound.play('tap'); screenAdmin(kind); };
       return;
     }
     open(`
       <div class="gate-card">
-        <div class="gate-title">운영자 입장</div>
-        <div class="gate-sub">관리 비밀번호를 입력하세요. 동시 접속은 2명까지입니다.</div>
+        <div class="gate-title">${label} 입장</div>
+        <div class="gate-sub">${kind==='owner'?'소유자':'관리'} 비밀번호를 입력하세요.
+          운영자 자리는 동시 2명까지입니다.</div>
         <input type="password" id="gPin" maxlength="64" autocomplete="off"
                style="width:100%;height:56px;font-size:22px;text-align:center">
         <div id="gErr" class="gate-err"></div>
@@ -120,7 +139,7 @@ const Gate = (() => {
     const go=async()=>{
       if($('#gOk').disabled) return;
       $('#gOk').disabled=true; $('#gErr').textContent='확인 중...';
-      const res=await Auth.loginAdmin(inp.value);
+      const res=await Auth.loginAs(kind, inp.value);
       $('#gOk').disabled=false;
       if(res.ok){
         Sound.play('confirm'); close(); enter();
@@ -144,12 +163,15 @@ const Gate = (() => {
      날 지나가던 사람이 운영자 자리를 차지하는 것을 막는 잠금이다.
      (평문 PIN은 어차피 공개돼 있던 값이라 강한 잠금은 아니다.
       그래서 설정을 마치는 즉시 settings에서 지운다.) */
-  function screenSetPin(){
-    const legacy = S.settings && S.settings.adminPin ? String(S.settings.adminPin) : null;
+  function screenSetPin(kind='admin'){
+    const label = ROLE_TITLE[kind];
+    // 옛 평문 PIN 확인은 운영자 비밀번호를 처음 정할 때만 의미가 있다.
+    const legacy = (kind==='admin' && S.settings && S.settings.adminPin)
+                     ? String(S.settings.adminPin) : null;
     open(`
       <div class="gate-card wide">
-        <div class="gate-title">최초 운영자 비밀번호 설정</div>
-        <div class="gate-sub">이 동호회에는 아직 운영자 비밀번호가 없습니다.
+        <div class="gate-title">최초 ${label} 비밀번호 설정</div>
+        <div class="gate-sub">이 동호회에는 아직 ${label} 비밀번호가 없습니다.
           지금 정하면 클라우드에 <b>되돌릴 수 없는 형태로만</b> 저장됩니다 —
           앱도, 콘솔도, 누구도 원래 값을 다시 볼 수 없습니다.</div>
         ${legacy?`<label class="fl">기존 비밀번호(확인용)
@@ -161,7 +183,9 @@ const Gate = (() => {
         <div class="hint" style="margin-top:10px;line-height:1.7">
           네 자리 숫자는 쉽게 뚫립니다. <b>8자 이상</b>으로 정하고 어딘가에 적어 두세요.
           잊어버리면 Firebase 콘솔에서
-          <span class="doc-k">clubs/${esc(CLUB)}/kv/adminAuth</span> 문서를 지워야 다시 정할 수 있습니다.
+          <span class="doc-k">clubs/${esc(CLUB)}/kv/${kind==='owner'?'ownerAuth':'adminAuth'}</span>
+          문서를 지워야 다시 정할 수 있습니다.
+          ${kind==='owner'?'<br><b>소유자 비밀번호는 운영자 비밀번호와 달라야 의미가 있습니다.</b> 대진을 돌리는 사람과 나눠 쓰지 마세요.':''}
         </div>
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="gap:8px;margin-top:14px">
@@ -179,7 +203,7 @@ const Gate = (() => {
       if(a.length<8){ Sound.play('error'); return err.textContent='8자 이상으로 정해 주세요'; }
       if(a!==b){ Sound.play('error'); return err.textContent='두 번 입력한 값이 다릅니다'; }
       $('#pOk').disabled=true; err.textContent='설정 중...';
-      const r=await Secret.bootstrap(a);
+      const r=await Secret.bootstrap(a, kind);
       $('#pOk').disabled=false;
       if(!r.ok){
         Sound.play('error');
@@ -190,13 +214,13 @@ const Gate = (() => {
       }
       /* 평문 PIN은 더 이상 쓰지 않는다. 남겨 두면 공개된 settings 문서에
          계속 실려 다니므로 여기서 지우고 저장한다. */
-      if(S.settings && S.settings.adminPin!=null){
+      if(kind==='admin' && S.settings && S.settings.adminPin!=null){
         delete S.settings.adminPin; settingsTrusted = true; save();
       }
-      const res = await Auth.loginAdmin(a);
+      const res = await Auth.loginAs(kind, a);
       Sound.play('confirm');
-      if(res.ok){ close(); enter(); toast('운영자 비밀번호를 설정했습니다'); }
-      else { screenAdmin(); }
+      if(res.ok){ close(); enter(); toast(`${label} 비밀번호를 설정했습니다`); }
+      else { screenAdmin(kind); }
     };
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
   }

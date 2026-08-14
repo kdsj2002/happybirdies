@@ -218,11 +218,12 @@ const ADMIN_ERR = {
    opts.bodyHtml : 비밀번호 칸 위에 넣을 설명(이 조작이 어떤 결과를 낳는지).
                    여기 들어가는 HTML은 만드는 쪽에서 esc() 해서 넘긴다.
    opts.okLabel  : 확인 버튼 문구
-   opts.onReady  : 모달이 그려진 뒤 불린다(설명 안의 버튼을 묶을 때 쓴다) */
+   opts.onReady  : 모달이 그려진 뒤 불린다(설명 안의 버튼을 묶을 때 쓴다)
+   opts.kind     : 'admin'(기본) | 'owner' — 어느 비밀번호로 확인할지 */
 function askPin(title, desc, onOk, opts={}){
   openModal(`<h3>${esc(title)}</h3><div class="sub">${esc(desc)}</div>
     ${opts.bodyHtml||''}
-    <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 관리 비밀번호를 입력하세요</div>
+    <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 ${opts.kind==='owner'?'소유자':'관리'} 비밀번호를 입력하세요</div>
     <!-- 네 자리 숫자 시절의 흔적(maxlength=8, 숫자 키패드)을 걷어냈다.
          그대로 두면 여덟 자를 넘는 비밀번호가 소리 없이 잘려서, 맞게 넣어도
          계속 "틀렸다"고 나온다. -->
@@ -242,9 +243,16 @@ function askPin(title, desc, onOk, opts={}){
   const submit=async()=>{
     const btn=$('#pinOk'); if(btn.disabled) return;
     btn.disabled=true; $('#pinErr').textContent='확인 중...';
-    const v=await Secret.verify(inp.value);
+    const v = opts.kind==='owner' ? await Secret.verifyOwner(inp.value)
+                                  : await Secret.verify(inp.value);
     btn.disabled=false;
-    if(v.ok){ closeModal(); onOk(); return; }
+    if(v.ok){
+      closeModal();
+      /* 소유자 비밀번호를 아직 안 정한 동호회에서는 운영자 비밀번호로
+         대신 확인했다. 그 사실을 숨기지 않고 알려 준다. */
+      if(v.fallback) toast('소유자 비밀번호가 아직 없어 관리 비밀번호로 확인했습니다');
+      onOk(); return;
+    }
     $('#pinErr').textContent = ADMIN_ERR[v.reason] || '확인하지 못했습니다';
     inp.value=''; inp.focus();
   };
