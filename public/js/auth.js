@@ -145,8 +145,11 @@ const Auth = (() => {
       return false;
     },
 
+    /* 비밀번호 확인은 Secret이 한다. 여기서는 결과만 받는다 —
+       앱 어디에도 비밀번호나 그 해시가 남지 않는다. */
     async loginAdmin(pin){
-      if(String(pin) !== String(S.settings.adminPin || '0116')) return { ok:false, reason:'pin' };
+      const v = await Secret.verify(pin);
+      if(!v.ok) return { ok:false, reason:v.reason };   // 'wrong'|'offline'|'unset'
       const res = await claimAdmin();
       if(!res.ok) return { ok:false, reason:'full' };
       role='admin'; memberId=null; ls.set(ROLE_KEY,'admin'); startBeat();

@@ -206,6 +206,14 @@ $('#btnEnter').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.r
 function openModal(html){ $('#modal').innerHTML=html; $('#mask').classList.add('on'); }
 function closeModal(){ $('#mask').classList.remove('on'); }
 
+/* 비밀번호 확인이 실패한 이유별 안내. 게이트와 모달이 같이 쓴다. */
+const ADMIN_ERR = {
+  wrong:  '비밀번호가 맞지 않습니다',
+  offline:'클라우드에 연결되지 않아 확인할 수 없습니다 — 연결을 확인해 주세요',
+  unset:  '운영자 비밀번호가 아직 설정되지 않았습니다',
+  full:   '운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.'
+};
+
 /* 되돌릴 수 없는 조작 앞에 관리 비밀번호를 묻는다. 맞으면 onOk()를 부른다.
    opts.bodyHtml : 비밀번호 칸 위에 넣을 설명(이 조작이 어떤 결과를 낳는지).
                    여기 들어가는 HTML은 만드는 쪽에서 esc() 해서 넘긴다.
@@ -215,9 +223,12 @@ function askPin(title, desc, onOk, opts={}){
   openModal(`<h3>${esc(title)}</h3><div class="sub">${esc(desc)}</div>
     ${opts.bodyHtml||''}
     <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 관리 비밀번호를 입력하세요</div>
+    <!-- 네 자리 숫자 시절의 흔적(maxlength=8, 숫자 키패드)을 걷어냈다.
+         그대로 두면 여덟 자를 넘는 비밀번호가 소리 없이 잘려서, 맞게 넣어도
+         계속 "틀렸다"고 나온다. -->
     <div style="display:flex;justify-content:center;margin:6px 0 4px">
-      <input type="password" id="pinIn" inputmode="numeric" autocomplete="off" maxlength="8"
-             style="width:190px;height:56px;font-size:26px;letter-spacing:.4em;text-align:center">
+      <input type="password" id="pinIn" autocomplete="off" maxlength="64"
+             style="width:260px;height:56px;font-size:20px;text-align:center">
     </div>
     <div id="pinErr" style="text-align:center;color:var(--cork);font-size:13px;font-weight:700;min-height:20px"></div>
     <div class="row end"><button class="btn" id="pinCancel">취소</button>
@@ -225,9 +236,17 @@ function askPin(title, desc, onOk, opts={}){
   if(opts.onReady) opts.onReady();
   const inp=$('#pinIn');
   setTimeout(()=>inp&&inp.focus(),50);
-  const submit=()=>{
-    if(inp.value === String(S.settings.adminPin||'0116')){ closeModal(); onOk(); }
-    else { $('#pinErr').textContent='비밀번호가 맞지 않습니다'; inp.value=''; inp.focus(); }
+  /* 확인은 서버에 물어본다(Secret.verify). 비밀번호가 틀린 것과 통신이
+     안 되는 것을 반드시 구분한다 — 뭉뚱그리면 오프라인일 때 "비밀번호가
+     틀렸다"고 거짓말을 하게 되고, 운영자가 멀쩡한 비번을 의심한다. */
+  const submit=async()=>{
+    const btn=$('#pinOk'); if(btn.disabled) return;
+    btn.disabled=true; $('#pinErr').textContent='확인 중...';
+    const v=await Secret.verify(inp.value);
+    btn.disabled=false;
+    if(v.ok){ closeModal(); onOk(); return; }
+    $('#pinErr').textContent = ADMIN_ERR[v.reason] || '확인하지 못했습니다';
+    inp.value=''; inp.focus();
   };
   $('#pinOk').onclick=submit;
   $('#pinCancel').onclick=closeModal;

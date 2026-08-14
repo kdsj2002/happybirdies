@@ -22,7 +22,10 @@ function renderHelp(){
     + `<div class="doc" style="padding-top:0">
          <div class="doc-note">
            이 설명서는 따로 열어 링크로 보낼 수도 있습니다 —
-           <a href="./manual.html" target="_blank" rel="noopener"><b>설명서만 새 창으로 열기 →</b></a><br>
+           <!-- 절대 경로여야 한다. 동호회 주소(/hanul/) 아래에서 상대 경로로
+                걸면 /hanul/manual.html이 되는데, 그건 실제 파일이 아니라
+                호스팅 rewrite가 대진판(index.html)으로 되돌려 버린다. -->
+           <a href="/manual.html" target="_blank" rel="noopener"><b>설명서만 새 창으로 열기 →</b></a><br>
            단톡방에 붙여 두거나 인쇄해서 체육관에 붙여 두세요.
          </div>
        </div>`;
@@ -130,6 +133,7 @@ function renderMem(){
       <td style="text-align:right"><button class="btn sm" data-edit="${m.id}">수정</button></td></tr>`).join('');
   // 복원 버튼은 설정을 덮어쓰므로 운영자에게만 보인다
   const imp=$('#btnImport'); if(imp) imp.style.display = Auth.can('settings')? '' : 'none';
+  renderJoinBtn();
   ['#btnAddMem','#btnCsv'].forEach(sel=>{ const b=$(sel);
     if(b) b.style.display = Auth.can('membersEdit')? '' : 'none'; });
   const act=S.members.filter(m=>m.active!==false);
@@ -140,6 +144,48 @@ function renderMem(){
     if(!requirePerm('membersEdit')) return;
     memDialog(S.members.find(m=>m.id===b.dataset.edit)); };
 }
+/* ── 가입 요청 승인 ──────────────────────────────────────────────
+   게스트가 낸 요청은 members가 아니라 joinRequests에 쌓인다. 승인해야
+   회원이 되고, 그때서야 입장 화면·출석 화면의 명단에 나타난다. */
+function renderJoinBtn(){
+  const b=$('#btnJoin'); if(!b) return;
+  const n=(S.joinRequests||[]).length;
+  b.style.display = (Auth.can('membersEdit') && n) ? '' : 'none';
+  b.textContent = `가입 요청 ${n}`;
+  b.classList.toggle('warn', n>0);
+}
+function joinDialog(){
+  if(!requirePerm('membersEdit')) return;
+  const list=(S.joinRequests||[]).slice().sort((a,b)=>a.at-b.at);
+  if(!list.length){ closeModal(); return toast('대기 중인 가입 요청이 없습니다'); }
+  openModal(`<h3>가입 요청 ${list.length}건</h3>
+    <div class="sub">승인하면 회원 명단에 올라가고, 그 사람 기기는 자동으로 회원으로 전환됩니다.</div>
+    ${list.map(r=>`<div class="opt" style="cursor:default">
+      <div style="flex:1">
+        <div class="t">${esc(r.name)} <span style="color:${G(r.grade).color}">${esc(r.grade)}</span></div>
+        <div class="d">${r.gender==='M'?'♂ 남':'♀ 여'}${r.birthYear?' · '+r.birthYear:''}
+          · ${new Date(r.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <button class="btn sm" data-rej="${esc(r.id)}">거절</button>
+      <button class="btn sm primary" data-app="${esc(r.id)}">승인</button>
+    </div>`).join('')}
+    <div class="row end"><button class="btn" onclick="closeModal()">닫기</button></div>`);
+  $$('#modal [data-app]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    const m=await approveJoinRequest(b.dataset.app);
+    Sound.play('confirm');
+    if(m) toast(`${m.name} 님을 회원으로 등록했습니다`);
+    renderMem(); joinDialog();
+  });
+  $$('#modal [data-rej]').forEach(b=>b.onclick=async()=>{
+    const r=(S.joinRequests||[]).find(x=>x.id===b.dataset.rej);
+    if(!confirm(`${r?r.name:'이 요청'} 님의 가입 요청을 거절할까요?`)) return;
+    b.disabled=true;
+    await rejectJoinRequest(b.dataset.rej);
+    Sound.play('tap'); renderMem(); joinDialog();
+  });
+}
+$('#btnJoin').onclick=()=>{ Sound.play('tap'); joinDialog(); };
 $('#memQ').oninput=e=>{memQ=e.target.value;renderMem();};
 $('#btnAddMem').onclick=()=>{ if(!requirePerm('membersEdit')) return; Sound.play('tap'); memDialog(null); };
 function memDialog(m){

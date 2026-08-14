@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.14a';
+const APP_VERSION = '2026.08.14c';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -11,7 +11,9 @@ const DEFAULTS = {
   candidateK:10, repeatLookback:3, oddRelaxThreshold:2,
   minPool:4,        // 자동 충원 시 풀에 남겨 둘 최소 인원 (섞을 여지를 확보)
   sessionAutoCloseHours:12,   // 세션 시작 후 이 시간이 지나면 자동 마감
-  adminPin:'0116',            // 운영자 입장에 필요한 관리 비밀번호
+  /* 관리 비밀번호는 더 이상 여기 없다. settings 문서는 누구나 읽을 수 있어서
+     평문 PIN을 두는 것은 비밀번호가 아니라 공지사항이었다. 지금은 클라우드에
+     되돌릴 수 없는 해시로만 두고, 확인은 서버가 한다 — js/secret.js 참고. */
   sound:true,                 // 버튼/알림 효과음
   w:{ game:100, wait:3, new:40, repeat:25, balance:10, age:0, odd:-250, same:60, mixed:20 },
   grades:[
@@ -33,7 +35,10 @@ let S = {
   att:{},            // attendeeId -> {id,memberId,name,grade,gender,birthYear,guest,games,lastEnd,state}
   courts:[], queues:[],
   matches:[],        // {id,court,type,typeSource,startedAt,endedAt,A:[],B:[]}
-  hist:[]            // 최근 경기 참가자 id 배열 (중복 회피용)
+  hist:[],           // 최근 경기 참가자 id 배열 (중복 회피용)
+  /* 게스트가 낸 회원 가입 요청. 운영자가 승인해야 members로 넘어간다.
+     {id,name,gender,birthYear,grade,at} — 승인/거절하면 목록에서 빠진다. */
+  joinRequests:[]
 };
 let undoStack=[], sel=null, dirty=false;
 

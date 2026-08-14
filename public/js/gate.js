@@ -62,13 +62,33 @@ const Gate = (() => {
     });
   }
 
-  function screenAdmin(){
+  /* 운영자 입장. 비밀번호가 아직 없으면(새 DB·초기화 직후) 설정 화면으로
+     넘긴다. 그 판정은 서버가 한다 — 오프라인 캐시가 "없다"고 답한 것은
+     믿지 않는다(Secret.state가 'unknown'을 돌려준다). */
+  async function screenAdmin(){
+    open(`<div class="gate-card"><div class="gate-title">운영자 입장</div>
+      <div class="gate-sub">확인 중...</div></div>`);
+    const st = await Secret.state();
+    if(st==='unset') return screenSetPin();
+    if(st==='unknown'){
+      open(`<div class="gate-card">
+        <div class="gate-title">연결을 확인해 주세요</div>
+        <div class="gate-sub">운영자 확인은 클라우드에 물어봅니다. 지금은 연결되지 않아
+          비밀번호를 확인할 수 없습니다. 이미 이 기기로 운영자 입장을 한 적이 있다면
+          그대로 유지되니, 연결이 돌아온 뒤 다시 시도하세요.</div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gBack" style="flex:1">뒤로</button>
+          <button class="btn primary" id="gRetry" style="flex:2">다시 확인</button></div></div>`);
+      $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
+      $('#gRetry').onclick=()=>{ Sound.play('tap'); screenAdmin(); };
+      return;
+    }
     open(`
       <div class="gate-card">
         <div class="gate-title">운영자 입장</div>
         <div class="gate-sub">관리 비밀번호를 입력하세요. 동시 접속은 2명까지입니다.</div>
-        <input type="password" id="gPin" inputmode="numeric" maxlength="8" autocomplete="off"
-               style="width:100%;height:56px;font-size:26px;letter-spacing:.4em;text-align:center">
+        <input type="password" id="gPin" maxlength="64" autocomplete="off"
+               style="width:100%;height:56px;font-size:22px;text-align:center">
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="gap:8px;margin-top:14px">
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
@@ -77,22 +97,86 @@ const Gate = (() => {
       </div>`);
     const inp=$('#gPin'); setTimeout(()=>inp&&inp.focus(),60);
     const go=async()=>{
-      $('#gOk').disabled=true;
+      if($('#gOk').disabled) return;
+      $('#gOk').disabled=true; $('#gErr').textContent='확인 중...';
       const res=await Auth.loginAdmin(inp.value);
       $('#gOk').disabled=false;
       if(res.ok){
         Sound.play('confirm'); close(); enter();
         if(res.offline) toast('클라우드 미연결 — 동시 접속 제한은 적용되지 않습니다');
-      }else if(res.reason==='full'){
-        Sound.play('error');
-        $('#gErr').textContent='운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.';
-      }else{
-        Sound.play('error');
-        $('#gErr').textContent='비밀번호가 맞지 않습니다'; inp.value=''; inp.focus();
+        return;
       }
+      Sound.play('error');
+      $('#gErr').textContent = ADMIN_ERR[res.reason] || '확인하지 못했습니다';
+      inp.value=''; inp.focus();
     };
     $('#gOk').onclick=go;
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+    $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
+  }
+
+  /* ── 최초 운영자 비밀번호 설정 ──────────────────────────────────
+     DB가 비어 있거나(첫 배포) 콘솔에서 kv/adminAuth를 지운 직후에 뜬다.
+
+     이 화면이 떠 있는 동안은 먼저 여는 사람이 임자다. 그래서 예전
+     설정에 평문 PIN이 남아 있으면 그것부터 확인한다 — 새로 배포한
+     날 지나가던 사람이 운영자 자리를 차지하는 것을 막는 잠금이다.
+     (평문 PIN은 어차피 공개돼 있던 값이라 강한 잠금은 아니다.
+      그래서 설정을 마치는 즉시 settings에서 지운다.) */
+  function screenSetPin(){
+    const legacy = S.settings && S.settings.adminPin ? String(S.settings.adminPin) : null;
+    open(`
+      <div class="gate-card wide">
+        <div class="gate-title">최초 운영자 비밀번호 설정</div>
+        <div class="gate-sub">이 동호회에는 아직 운영자 비밀번호가 없습니다.
+          지금 정하면 클라우드에 <b>되돌릴 수 없는 형태로만</b> 저장됩니다 —
+          앱도, 콘솔도, 누구도 원래 값을 다시 볼 수 없습니다.</div>
+        ${legacy?`<label class="fl">기존 비밀번호(확인용)
+          <input type="password" id="pOld" autocomplete="off"></label>
+          <div class="hint" style="margin:6px 0 12px">지금까지 쓰던 관리 비밀번호를 넣어 주세요.
+            엉뚱한 사람이 운영자 자리를 가져가는 것을 막기 위한 확인입니다.</div>`:''}
+        <label class="fl">새 비밀번호<input type="password" id="pNew" autocomplete="new-password"></label>
+        <label class="fl" style="margin-top:10px">한 번 더<input type="password" id="pNew2" autocomplete="new-password"></label>
+        <div class="hint" style="margin-top:10px;line-height:1.7">
+          네 자리 숫자는 쉽게 뚫립니다. <b>8자 이상</b>으로 정하고 어딘가에 적어 두세요.
+          잊어버리면 Firebase 콘솔에서
+          <span class="doc-k">clubs/${esc(CLUB)}/kv/adminAuth</span> 문서를 지워야 다시 정할 수 있습니다.
+        </div>
+        <div id="gErr" class="gate-err"></div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gBack" style="flex:1">뒤로</button>
+          <button class="btn primary" id="pOk" style="flex:2">설정하고 입장</button>
+        </div>
+      </div>`);
+    setTimeout(()=>{ const f=$(legacy?'#pOld':'#pNew'); f&&f.focus(); },60);
+    $('#pOk').onclick=async()=>{
+      const err=$('#gErr');
+      if(legacy && $('#pOld').value !== legacy){
+        Sound.play('error'); return err.textContent='기존 비밀번호가 맞지 않습니다';
+      }
+      const a=$('#pNew').value, b=$('#pNew2').value;
+      if(a.length<8){ Sound.play('error'); return err.textContent='8자 이상으로 정해 주세요'; }
+      if(a!==b){ Sound.play('error'); return err.textContent='두 번 입력한 값이 다릅니다'; }
+      $('#pOk').disabled=true; err.textContent='설정 중...';
+      const r=await Secret.bootstrap(a);
+      $('#pOk').disabled=false;
+      if(!r.ok){
+        Sound.play('error');
+        err.textContent = r.reason==='taken'
+          ? '방금 다른 기기에서 먼저 설정했습니다. 뒤로 가서 그 비밀번호로 입장하세요.'
+          : '설정하지 못했습니다 — 클라우드 연결과 보안 규칙 배포를 확인해 주세요';
+        return;
+      }
+      /* 평문 PIN은 더 이상 쓰지 않는다. 남겨 두면 공개된 settings 문서에
+         계속 실려 다니므로 여기서 지우고 저장한다. */
+      if(S.settings && S.settings.adminPin!=null){
+        delete S.settings.adminPin; settingsTrusted = true; save();
+      }
+      const res = await Auth.loginAdmin(a);
+      Sound.play('confirm');
+      if(res.ok){ close(); enter(); toast('운영자 비밀번호를 설정했습니다'); }
+      else { screenAdmin(); }
+    };
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
   }
 
@@ -262,30 +346,95 @@ const Gate = (() => {
           <label class="fl" style="flex:1">급수<select id="rG"></select></label>
         </div>
         <div id="gErr" class="gate-err"></div>
+        <div class="hint" style="margin-top:10px;line-height:1.7">
+          가입은 <b>운영자 승인</b>을 거칩니다. 운영자가 옆에 계시면 아래
+          <b>운영자 확인 후 바로 등록</b>으로 즉시 처리할 수 있습니다.
+        </div>
         <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn primary" id="rOk" style="width:100%">승인 요청 보내기</button>
+        </div>
+        <div class="row" style="gap:8px;margin-top:8px">
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="rOk" style="flex:2">등록하고 입장</button>
+          <button class="btn" id="rNow" style="flex:2">운영자 확인 후 바로 등록</button>
         </div>
       </div>`);
     $('#rG').innerHTML=S.settings.grades.map(g=>
       `<option value="${g.code}" ${g.code==='C'?'selected':''}>${esc(g.code)} ${esc(g.label)}</option>`).join('');
-    $('#rOk').onclick=()=>{
+
+    /* 입력값을 모아 검증한다. 통과하면 {name,gender,birthYear,grade}. */
+    const collect=()=>{
       const n=$('#rN').value.trim(), sx=$('#rS').value;
-      if(!n){ Sound.play('error'); return $('#gErr').textContent='이름을 입력하세요'; }
-      if(!sx){ Sound.play('error'); return $('#gErr').textContent='성별을 선택하세요'; }
+      if(!n){ Sound.play('error'); $('#gErr').textContent='이름을 입력하세요'; return null; }
+      if(!sx){ Sound.play('error'); $('#gErr').textContent='성별을 선택하세요'; return null; }
+      /* 이미 회원인 이름은 돌려보낸다. 이 안내가 "그 이름이 명단에 있다"는
+         것을 알려 주는 것은 사실이다(가입 화면의 어쩔 수 없는 한계).
+         대신 여기서 걸러야 같은 이름이 두 번 올라가지 않는다. */
       if(S.members.some(m=>m.name===n && m.active!==false)){
-        Sound.play('error'); return $('#gErr').textContent='같은 이름의 회원이 이미 있습니다. 회원 입장에서 선택해 주세요.';
+        Sound.play('error');
+        $('#gErr').textContent='같은 이름의 회원이 이미 있습니다. 회원 입장에서 선택해 주세요.';
+        return null;
       }
-      const id=uid('m');
-      S.members.push({id,name:n,gender:sx,birthYear:parseInt($('#rY').value)||null,
-                      grade:$('#rG').value,active:true,lastSeen:0});
-      save();
-      Sound.play('confirm');
-      Auth.loginMember(id);
-      screenCheckIn(id);
-      setTimeout(()=>toast(`${n} 님, 등록되었습니다`),300);
+      return { name:n, gender:sx, birthYear:parseInt($('#rY').value)||null, grade:$('#rG').value };
+    };
+
+    // ① 승인 요청 — 운영자가 자리에 없어도 접수된다
+    $('#rOk').onclick=async()=>{
+      const info=collect(); if(!info) return;
+      const btn=$('#rOk'); btn.disabled=true; $('#gErr').textContent='보내는 중...';
+      try{
+        const req=await submitJoinRequest(info);
+        writePending({ id:req.id, name:req.name });
+        Sound.play('confirm');
+        screenPending(req.name);
+      }catch(e){
+        Sound.play('error');
+        $('#gErr').textContent='요청을 보내지 못했습니다 — 연결을 확인해 주세요';
+      }finally{ btn.disabled=false; }
+    };
+
+    // ② 운영자가 옆에 있을 때 — 비밀번호를 받고 바로 등록
+    $('#rNow').onclick=()=>{
+      const info=collect(); if(!info) return;
+      Sound.play('tap');
+      close();
+      askPin('운영자 확인', `${info.name} 님을 지금 바로 회원으로 등록합니다.`, ()=>{
+        const id=uid('m');
+        S.members.push({id,name:info.name,gender:info.gender,birthYear:info.birthYear,
+                        grade:info.grade,active:true,lastSeen:0});
+        setMembersBaseline(S.members);
+        save();
+        writePending(null);
+        Sound.play('confirm');
+        Auth.loginMember(id);
+        box().classList.add('on');
+        screenCheckIn(id);
+        setTimeout(()=>toast(`${info.name} 님, 등록되었습니다`),300);
+      }, { okLabel:'등록', bodyHtml:'<div class="hint" style="text-align:center;margin-bottom:10px">'
+           + '운영자가 직접 입력해 주세요. 옆에 없다면 <b>승인 요청</b>으로 접수하세요.</div>' });
+      // 비밀번호 창을 닫으면 게이트로 돌아온다
+      $('#pinCancel').onclick=()=>{ closeModal(); box().classList.add('on'); screenRegister(); };
     };
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenGuest(); };
+  }
+
+  /* 승인 대기 화면. 여기서 기다릴 필요는 없고, 뷰어로 구경하고 있으면
+     승인되는 순간 이 기기가 알아채고 회원으로 바꿔 준다(checkJoinApproved). */
+  function screenPending(name){
+    Auth.loginViewer();
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">가입 요청을 보냈습니다</div>
+        <div class="gate-sub"><b>${esc(name)}</b> 님으로 접수했습니다.
+          운영자가 승인하면 자동으로 회원으로 전환됩니다 — 앱을 닫았다 열 필요 없습니다.</div>
+        <div class="hint" style="line-height:1.7;margin-bottom:14px">
+          지금은 대진판을 구경할 수 있습니다. 운영자가 옆에 계시면 승인해 달라고
+          말씀하세요. 승인되면 화면에 알려 드립니다.
+        </div>
+        <button class="gate-btn" data-p="view"><b>대진판 보기</b><span>승인될 때까지 구경합니다</span></button>
+        <div class="row" style="margin-top:10px"><button class="btn" id="gBack" style="width:100%">처음으로</button></div>
+      </div>`);
+    box().querySelector('[data-p="view"]').onclick=()=>{ Sound.play('tap'); close(); enter(); };
+    $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
   }
 
   /* 역할이 정해진 뒤 실제 화면으로 들어간다 */
@@ -308,9 +457,12 @@ const Gate = (() => {
    대진판에 올라간 사람의 이름은 여전히 보인다. 그건 지금 코트에서 부르는
    이름이라 체육관에 서 있으면 어차피 들리는 것이고, 가리면 대진판이 대진판이
    아니게 된다. 가리는 것은 "등록된 회원 전체 명단"이다.
+
+   도움말은 예외로 열어 둔다. 설명서에는 클럽 데이터가 한 줄도 없고, 처음 온
+   사람이 회원 등록하는 법을 읽어야 할 곳이 바로 거기다. 가려서 얻는 것이 없다.
    ───────────────────────────────────────────────────────────── */
 function allowedScreen(name){
-  if(Auth.isViewer) return name==='board';
+  if(Auth.isViewer) return name==='board' || name==='help';
   if(name==='mem' || name==='att') return Auth.can('members');
   return true;
 }
@@ -323,13 +475,6 @@ function applyRole(){
       ? ' · ' + ((S.members.find(m=>m.id===Auth.memberId)||{}).name || '') : '');
 
   $$('.tab').forEach(t=>{ t.style.display = allowedScreen(t.dataset.scr) ? '' : 'none'; });
-  /* 탭이 하나만 남으면 탭 줄 자체를 치운다. 폰에서는 이 줄이 화면 아래를
-     56px 차지하는 고정 바라, 누를 곳이 하나뿐인 바를 남겨 둘 이유가 없다.
-     body에 표시를 남겨 폰에서 비워 둔 그 자리(padding)도 같이 걷는다. */
-  const one = $$('.tab').filter(t=>t.style.display!=='none').length<=1;
-  const tabs=document.querySelector('.tabs');
-  if(tabs) tabs.style.display = one ? 'none' : '';
-  document.body.classList.toggle('no-tabs', one);
 
   /* 역할이 바뀌는 순간(다시 입장하기) 볼 수 없는 화면이 켜져 있을 수 있다. */
   const cur = ($$('.screen').find(s=>s.classList.contains('on')) || {}).id || '';

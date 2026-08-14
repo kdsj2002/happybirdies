@@ -547,3 +547,110 @@ function swap(a,b){
     flash(a); flash(b);
   });
 }
+
+/* =====================================================================
+   회원 가입 요청 — 게스트가 내고, 운영자가 승인한다
+
+   예전에는 게스트가 등록 화면에서 이름만 넣으면 곧바로 회원 명단에
+   올라갔다. 아무나 명단에 이름을 밀어 넣을 수 있었다는 뜻이고, 그렇게
+   들어온 이름은 입장 화면의 회원 목록에도 그대로 노출됐다.
+
+   이제 두 갈래다.
+     1) 승인 요청 — kv/joinRequests에 쌓이고, 운영자가 회원 화면에서
+        승인해야 members로 넘어간다. 운영자가 자리에 없어도 접수는 된다.
+     2) 운영자 비번으로 즉시 등록 — 운영자가 옆에 있을 때. 비밀번호는
+        서버가 확인하므로 이 기기에 남지 않는다.
+
+   요청 문서는 members와 따로 둔다. 그래야 승인 전 이름이 명단(과 그
+   명단을 쓰는 입장 화면·출석 화면)에 섞이지 않는다.
+
+   동시성: 두 사람이 같은 순간에 요청을 내면 나중 것이 앞 것을 지울 수
+   있다. 그래서 읽고-고치고-쓰기를 트랜잭션으로 감싼다.
+   ===================================================================== */
+const JOIN_KEY = () => K('joinRequests');
+
+/* joinRequests 문서 하나만 읽고-고치고-쓴다. 세션이나 회원 문서는 건드리지
+   않는다 — 게스트 기기는 명단을 온전히 못 들고 있을 수 있어서, save()의
+   전체 저장 경로를 태우면 오히려 위험하다. */
+async function mutateJoinRequests(fn){
+  const F = (Store.mode==='firebase') ? Store._fb : null;
+  if(!F || !F.runTransaction){
+    const cur = (await Store.get(JOIN_KEY())) || [];
+    const next = fn(cur.slice());
+    await Store.set(JOIN_KEY(), next);
+    S.joinRequests = next;
+    return next;
+  }
+  const ref = F.doc(F.db,'clubs',CLUB,'kv','joinRequests');
+  const next = await F.runTransaction(F.db, async tr=>{
+    const snap = await tr.get(ref);
+    let cur = [];
+    if(snap.exists()){ try{ cur = JSON.parse(snap.data().v) || []; }catch{} }
+    const out = fn(cur.slice());
+    tr.set(ref, { v: JSON.stringify(out), updatedAt: new Date() });
+    return out;
+  });
+  S.joinRequests = next;
+  return next;
+}
+
+/* 게스트가 요청을 낸다. 성공하면 요청 id를 돌려준다. */
+async function submitJoinRequest(info){
+  const req = { id: uid('j'), name: info.name, gender: info.gender,
+                birthYear: info.birthYear || null, grade: info.grade || 'C', at: now() };
+  await mutateJoinRequests(list=>{
+    // 같은 이름으로 이미 대기 중이면 덮어쓴다(두 번 눌렀거나 오타 수정).
+    const rest = list.filter(r=>r.name!==req.name);
+    rest.push(req);
+    return rest.slice(-200);       // 무한정 쌓이지 않게 상한을 둔다
+  });
+  return req;
+}
+
+/* 운영자가 승인한다. 회원으로 올리고 요청 목록에서 뺀다.
+   joinReqId를 회원 기록에 남겨 두면, 요청을 낸 기기가 승인된 것을 알아채고
+   스스로 회원으로 입장할 수 있다. */
+async function approveJoinRequest(id){
+  if(!requirePerm('membersEdit')) return null;
+  const req = S.joinRequests.find(r=>r.id===id);
+  if(!req) return null;
+  if(S.members.some(m=>m.name===req.name && m.active!==false)){
+    await mutateJoinRequests(list=>list.filter(r=>r.id!==id));
+    toast(`${req.name} 님은 이미 회원입니다 — 요청만 정리했습니다`);
+    return null;
+  }
+  const m = { id: uid('m'), name: req.name, gender: req.gender, birthYear: req.birthYear,
+              grade: req.grade, active: true, lastSeen: 0, joinReqId: req.id };
+  S.members.push(m);
+  setMembersBaseline(S.members);   // 추가는 삭제가 아니므로 잠금에 걸리지 않는다
+  save();
+  await mutateJoinRequests(list=>list.filter(r=>r.id!==id));
+  return m;
+}
+
+async function rejectJoinRequest(id){
+  if(!requirePerm('membersEdit')) return;
+  await mutateJoinRequests(list=>list.filter(r=>r.id!==id));
+}
+
+/* ── 요청을 낸 기기 쪽 ──────────────────────────────────────────
+   승인되기를 기다리는 동안 이 기기가 스스로 알아채고 회원으로 들어간다.
+   운영자가 "승인했으니 새로고침하세요"라고 말해 줄 필요가 없게. */
+const PENDING_KEY = () => `bmt:${CLUB}:joinPending`;
+const readPending  = () => { try{ return JSON.parse(localStorage.getItem(PENDING_KEY())||'null'); }catch{ return null; } };
+const writePending = v => { try{ v? localStorage.setItem(PENDING_KEY(),JSON.stringify(v))
+                                 : localStorage.removeItem(PENDING_KEY()); }catch{} };
+
+/* 승인됐으면 그 회원으로 입장시키고 true를 돌려준다. */
+function checkJoinApproved(){
+  const p = readPending(); if(!p) return false;
+  const m = S.members.find(x=>x.joinReqId===p.id)
+         || S.members.find(x=>x.name===p.name && x.active!==false);
+  if(!m) return false;
+  writePending(null);
+  Auth.loginMember(m.id);
+  applyRole();
+  Sound.play('confirm');
+  toast(`${m.name} 님, 가입이 승인되었습니다`);
+  return true;
+}
