@@ -36,6 +36,12 @@ function shownName(name){
 }
 function waitMin(a){ return a.lastEnd? Math.floor((now()-a.lastEnd)/60000) : null; }
 
+/* 이번 렌더 주기의 파워 최댓값. 막대 길이는 절대값이 아니라 "지금 이
+   화면에 있는 사람들 중 누가 제일 센가" 기준의 상대값이라 매 render()마다
+   다시 잰다. render() 밖에서(드래그 고스트 등) 잠깐 옛 값을 쓰더라도
+   막대가 좀 덜 정확할 뿐 깨지지는 않는다. */
+let powerMax = 1;
+
 function chipEl(id, ctx){
   const a=A(id); if(!a) return el('div','seat','');
   const w=waitMin(a);
@@ -45,7 +51,13 @@ function chipEl(id, ctx){
   e.dataset.chip=id; e.dataset.ctx=ctx;
   // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
   const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
+  /* 파워 막대는 대기열·대기 인원에서만 이름 옆에 세운다. 코트는 팀 단위로
+     따로 보여 주므로(renderCourts의 pw-bar) 사람마다 또 넣으면 같은 정보가
+     두 번 보인다. */
+  const showPw = ctx==='pool' || ctx.startsWith('queue:');
+  const pw = showPw ? `<div class="chip-pw" style="--pw:${Math.min(1,powerOf(a)/powerMax).toFixed(3)}"><i></i></div>` : '';
   e.innerHTML=`<div class="chip-nm${g}">${esc(shownName(a.name))}${a.guest?'<span class="gst">G</span>':''}</div>
+    ${pw}
     <div class="chip-badge ${a.games===0?'zero':''}">${a.games}G</div>
     ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${w}분</div>`:''}`;
   if(sel===id) e.classList.add('sel');
@@ -63,14 +75,25 @@ function mtBadge(o, kind, key){
   return `<span class="mt ${t}${o.pinnedType?' pin':''}" data-mt="${kind}:${key}">${o.pinnedType?'📌 ':''}${MT_LBL[t]}${o.typeSource==='MANUAL'?' ✎':''}</span>`;
 }
 
+/* 경기 경과 — 헤더 숫자 타이머와 그 아래 경과 막대가 같은 값을 쓴다.
+   진행 중이 아니면(코트가 비었거나 채우는 중이면) null. */
+function courtElapsed(c){
+  if(c.status!=='PLAYING' || !c.startedAt) return null;
+  const ms=now()-c.startedAt, mins=ms/60000;
+  const warn=S.settings.matchWarnMinutes||1;
+  return {
+    over: mins>=warn,
+    label: `${String(Math.floor(mins)).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}`,
+    pct: Math.min(100, mins/warn*100)
+  };
+}
+
 function renderCourts(){
   const box=$('#courts'); box.innerHTML='';
   for(const c of S.courts){
-    const mins=c.startedAt? (now()-c.startedAt)/60000 : 0;
-    const over=c.status==='PLAYING' && mins>=S.settings.matchWarnMinutes;
-    const card=el('div','court'+(c.status==='PLAYING'?' playing':'')+(over?' over':'')+(c.disabled?' disabled':''));
+    const ce=courtElapsed(c);
+    const card=el('div','court'+(c.status==='PLAYING'?' playing':'')+(ce&&ce.over?' over':'')+(c.disabled?' disabled':''));
     card.dataset.drop=`court:${c.no}`;
-    const t=c.startedAt? `${String(Math.floor(mins)).padStart(2,'0')}:${String(Math.floor((now()-c.startedAt)/1000)%60).padStart(2,'0')}` : '';
     // 버튼(시작·종료·빼기·잠금)은 전부 없앴다. 머리 부분을 두 번 두드리면
     // 다음 단계로 가고, 끌면 원하는 곳으로 옮긴다.
     if(c.members.length && Auth.can('courtAssign')) card.dataset.team=`court:${c.no}`;
@@ -78,13 +101,25 @@ function renderCourts(){
         <span class="court-no">${c.no}코트</span>
         ${mtBadge(c,'court',c.no)}
         <span class="spacer"></span>
-        ${t?`<span class="timer num">${t}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
+        ${ce?`<span class="timer num">${ce.label}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
         ${c.members.length===4?`<span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>`:''}
-      </div>`;
+      </div>
+      ${ce?`<div class="court-elapsed"><i style="width:${ce.pct}%"></i></div>`:''}`;
+
+    // 팀 파워 — 두 팀을 나란히 비교하는 것이 목적이라, 더 센 쪽이 100%를
+    // 채우고 나머지는 그 안에서의 비율로 짧아진다(전체 인원 대비가 아니다).
+    const teamPower={A:0,B:0};
+    ['A','B'].forEach(side=>{
+      teamPower[side]=(c.teams[side]||[]).reduce((s,id)=>{const a=A(id); return s+(a?powerOf(a):0);},0);
+    });
+    const maxTP=Math.max(teamPower.A,teamPower.B,1);
+
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
       const sd=el('div','side');
-      sd.appendChild(el('div','side-tag',side+'팀'));
+      const bar=c.members.length
+        ? `<span class="pw-bar" style="--pw:${(teamPower[side]/maxTP).toFixed(3)}"><i></i></span>` : '';
+      sd.appendChild(el('div','side-tag',`${side}팀${bar}`));
       const arr=c.teams[side]||[];
       for(let k=0;k<2;k++){
         const id=arr[k];
@@ -97,6 +132,22 @@ function renderCourts(){
     card.appendChild(net);
     box.appendChild(card);
   }
+}
+
+/* 1초마다 타이머만 갱신한다. renderCourts()를 통째로 다시 부르면 진행 중인
+   코트 카드가 매초 새로 만들어지면서 "경기 시작" 테두리 애니메이션이 다시
+   실행돼, 아무 일도 없는데 코트 가장자리가 계속 번쩍였다. 그래서 이미 있는
+   DOM은 그대로 두고 숫자와 막대 값만 바꾼다 — 시작 때 한 번만 반짝인다. */
+function tickCourts(){
+  $$('#courts .court').forEach(card=>{
+    const no=+(card.dataset.drop||'').split(':')[1];
+    const c=S.courts.find(x=>x.no===no);
+    const ce=c&&courtElapsed(c);
+    if(!ce) return;
+    card.classList.toggle('over',ce.over);
+    const timerEl=card.querySelector('.timer'); if(timerEl) timerEl.textContent=ce.label;
+    const barEl=card.querySelector('.court-elapsed > i'); if(barEl) barEl.style.width=ce.pct+'%';
+  });
 }
 
 function renderQueues(){
@@ -188,5 +239,10 @@ function renderTop(){
   }
 }
 
-function render(){ renderTop(); renderCourts(); renderQueues(); renderPool(); }
-setInterval(()=>{ if($('#scr-board').classList.contains('on')) renderCourts(); },1000);
+function render(){
+  // 파워 막대는 절대값이 아니라 "지금 화면에 있는 사람 중 최댓값 대비"라서
+  // 출석자가 바뀔 때마다(=render 때마다) 기준을 다시 잰다.
+  powerMax = Math.max(1, ...Object.values(S.att).map(powerOf));
+  renderTop(); renderCourts(); renderQueues(); renderPool();
+}
+setInterval(()=>{ if($('#scr-board').classList.contains('on')) tickCourts(); },1000);

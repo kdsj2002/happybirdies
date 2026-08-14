@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.14e';
+const APP_VERSION = '2026.08.14h';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -107,6 +107,26 @@ const gw  = code => G(code).weight;
 const A   = id => S.att[id];
 const isM = a => a.gender==='M';
 const isF = a => a.gender==='F';
+
+/* ── 파워 게이지 ────────────────────────────────────────────────
+   "이 팀이 더 세 보이는지" 대진판에서 한눈에 비교하려고 만든 상대값이다.
+   정밀한 실력 측정이 아니라 화면 위 눈대중 장치라서, 급수(기술)가 가장 크게
+   흔들리도록 두고(1~6배) 나이·성별은 그 위에서 ±5~22% 안쪽으로만 깎거나
+   얹는다. 절대값 자체는 의미가 없고 서로 비교할 때만 뜻이 있다.
+   출생년도·성별을 모르면 그 요인은 1(중립)로 둔다 — 모른다고 불리하게
+   계산하면 정보를 안 적은 사람만 손해를 본다. */
+function ageFactor(birthYear){
+  if(!birthYear) return 1;
+  const age = new Date().getFullYear() - birthYear;
+  if(age<30) return 1.10;
+  if(age<40) return 1.05;
+  if(age<50) return 1.00;
+  if(age<60) return 0.93;
+  if(age<70) return 0.85;
+  return 0.78;
+}
+const genderFactor = gender => gender==='M' ? 1.05 : gender==='F' ? 0.95 : 1;
+const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gender);
 
 function initBoard(){
   S.courts = Array.from({length:S.settings.courtCount},(_,i)=>({
