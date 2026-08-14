@@ -467,9 +467,6 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
 
   html,body{overflow:hidden}
   #app{height:100dvh; padding-bottom:var(--navpad)}
-  /* 탭 줄을 치운 역할(게스트)에서는 그 자리도 같이 걷는다 — 안 그러면
-     화면 아래에 아무것도 없는 56px 여백만 남는다. */
-  body.no-tabs #app{padding-bottom:env(safe-area-inset-bottom)}
 
   /* 상단바: 한 줄만. 넘치면 줄이지 말고 가로 스크롤 없이 요소를 덜어낸다. */
   .topbar{

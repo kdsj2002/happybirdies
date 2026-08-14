@@ -308,9 +308,12 @@ const Gate = (() => {
    대진판에 올라간 사람의 이름은 여전히 보인다. 그건 지금 코트에서 부르는
    이름이라 체육관에 서 있으면 어차피 들리는 것이고, 가리면 대진판이 대진판이
    아니게 된다. 가리는 것은 "등록된 회원 전체 명단"이다.
+
+   도움말은 예외로 열어 둔다. 설명서에는 클럽 데이터가 한 줄도 없고, 처음 온
+   사람이 회원 등록하는 법을 읽어야 할 곳이 바로 거기다. 가려서 얻는 것이 없다.
    ───────────────────────────────────────────────────────────── */
 function allowedScreen(name){
-  if(Auth.isViewer) return name==='board';
+  if(Auth.isViewer) return name==='board' || name==='help';
   if(name==='mem' || name==='att') return Auth.can('members');
   return true;
 }
@@ -323,13 +326,6 @@ function applyRole(){
       ? ' · ' + ((S.members.find(m=>m.id===Auth.memberId)||{}).name || '') : '');
 
   $$('.tab').forEach(t=>{ t.style.display = allowedScreen(t.dataset.scr) ? '' : 'none'; });
-  /* 탭이 하나만 남으면 탭 줄 자체를 치운다. 폰에서는 이 줄이 화면 아래를
-     56px 차지하는 고정 바라, 누를 곳이 하나뿐인 바를 남겨 둘 이유가 없다.
-     body에 표시를 남겨 폰에서 비워 둔 그 자리(padding)도 같이 걷는다. */
-  const one = $$('.tab').filter(t=>t.style.display!=='none').length<=1;
-  const tabs=document.querySelector('.tabs');
-  if(tabs) tabs.style.display = one ? 'none' : '';
-  document.body.classList.toggle('no-tabs', one);
 
   /* 역할이 바뀌는 순간(다시 입장하기) 볼 수 없는 화면이 켜져 있을 수 있다. */
   const cur = ($$('.screen').find(s=>s.classList.contains('on')) || {}).id || '';
