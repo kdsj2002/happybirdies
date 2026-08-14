@@ -4,6 +4,16 @@
 (async function boot(){
   await Store.init();
 
+  /* 등록되지 않은 동호회면 여기서 멈춘다. 데이터를 읽지도, 최초 비밀번호
+     설정 화면을 띄우지도 않는다 — 그게 예전에 아무나 새 동호회를 차지하던
+     경로였다. 판단이 안 될 때(오프라인)는 막지 않고 그냥 진행한다. */
+  const club = await Store.clubMeta();
+  if(club.ok && !club.registered){
+    document.getElementById('app').style.display='none';
+    Gate.unknownClub();
+    return;
+  }
+
   // 읽기가 하나라도 실패하면 안전 모드로 들어가 저장을 잠근다.
   // 반쪽 상태를 저장해 클라우드 데이터를 덮어쓰는 것이 가장 위험하다.
   // 설정과 회원 명단은 strict로 읽는다 — 오프라인 캐시가 "문서 없음"이라고

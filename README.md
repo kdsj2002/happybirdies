@@ -7,6 +7,7 @@
 ├── firebase.json              Firebase Hosting 설정
 ├── firestore.rules            Firestore 보안 규칙 (따로 배포해야 합니다)
 ├── docs/
+│   ├── requirements.md        확장·글로벌·유료화 요구사항 명세서
 │   └── multi-club.md          여러 동호회 · 유료 멤버십 구조 설계
 └── public/                    실제로 배포되는 폴더
     ├── index.html
@@ -64,7 +65,7 @@ firebase deploy --only hosting
 
 ## 배포가 반영됐는지 확인하는 법
 
-**설정 → 버전 → 앱 버전**을 보세요. 현재 배포본은 `2026.08.14c` 입니다.
+**설정 → 버전 → 앱 버전**을 보세요. 현재 배포본은 `2026.08.14d` 입니다.
 재배포했는데 이 숫자가 그대로면 브라우저가 옛 파일을 쓰고 있는 것입니다.
 새로고침(모바일은 탭을 닫았다 다시 열기)하세요.
 
@@ -425,7 +426,8 @@ Firestore 경로와 로컬 저장 키가 통째로 갈라지고, 동호회마다
 
 지금은 **아무 주소나 치면 그 이름의 빈 동호회가 생깁니다.** 등록부·소유권·요금제는
 아직 없습니다. 전체 구조와 남은 단계는 **[`docs/multi-club.md`](docs/multi-club.md)**
-에 정리했습니다. 유료 멤버십은 서버(Cloud Functions)와 결제사 웹훅이 필요해
+에, 글로벌 확장·유료화까지 포함한 요구사항은
+**[`docs/requirements.md`](docs/requirements.md)** 에 정리했습니다. 유료 멤버십은 서버(Cloud Functions)와 결제사 웹훅이 필요해
 클라이언트만으로는 불가능하며, 같은 문서에 설계만 담았습니다.
 
 ## 운영 메모

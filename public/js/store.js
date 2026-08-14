@@ -149,6 +149,31 @@ const Store = (() => {
       }
     },
     /* 세션 문서 실시간 구독 — 다른 태블릿이 저장하면 콜백이 불린다 */
+    /* ── 이 동호회가 등록돼 있나 ──────────────────────────────────
+       clubs/{CLUB}/meta/club 문서의 존재로 판정한다. 그 문서는 규칙이
+       클라이언트 쓰기를 막고 있어서, 서버가 만들어 준 동호회에만 있다.
+       예전에는 주소창에 아무 이름이나 치면 그 이름의 빈 동호회가 생겼다.
+
+       반환: {ok, registered, meta}
+         ok:false → 판단 못 함(오프라인 등). 이때는 막지 않는다 —
+         체육관에서 인터넷이 끊겼다고 앱이 안 열리면 안 된다. */
+    async clubMeta(){
+      // 기존 동호회는 이 구조가 생기기 전부터 쓰던 곳이라 조회 자체를 생략한다.
+      if(CLUB==='default') return { ok:true, registered:true, meta:null };
+      if(this.mode!=='firebase') return { ok:true, registered:true, meta:null, local:true };
+      const fb=this._fb;
+      try{
+        const snap = await fb.getDoc(fb.doc(fb.db,'clubs',CLUB,'meta','club'));
+        // 캐시가 "없다"고 답한 것을 미등록으로 받아들이면 오프라인에서 멀쩡한
+        // 동호회가 막힌다. 캐시 답은 판단하지 않는다.
+        if(!snap.exists() && snap.metadata && snap.metadata.fromCache) return { ok:false };
+        return { ok:true, registered:snap.exists(), meta:snap.exists()?snap.data():null };
+      }catch(e){
+        console.warn('동호회 등록 확인 실패', e);
+        return { ok:false, error:String(e) };
+      }
+    },
+
     subscribe(key, cb){
       if(this.mode!=='firebase') return ()=>{};
       const fb=this._fb;
