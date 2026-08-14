@@ -137,15 +137,16 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .court.playing .timer{color:var(--court)}
 .court.over .timer{color:var(--cork)}
 
-/* 경과 시간 막대 — 경고 시간(matchWarnMinutes) 대비 얼마나 왔는지.
-   숫자 타이머와 같은 값을 그리므로 tickCourts()가 1초마다 너비만 바꾼다. */
-.court-elapsed{height:4px;border-radius:3px;background:var(--line-soft);overflow:hidden;margin:0 0 8px}
+/* 경과 시간 막대 — 최대 경기 시간(matchWarnMinutes)이 100%다.
+   색은 차오를수록 --court에서 --cork 쪽으로 옮겨 간다. 매 초 바뀌는 값이라
+   JS(elapsedColor)가 인라인으로 얹는다 — 여기서는 바탕과 모양만 잡는다. */
+.court-elapsed{height:5px;border-radius:3px;background:var(--line-soft);overflow:hidden;margin:0 0 8px}
 .court-elapsed i{display:block;height:100%;border-radius:3px;background:var(--court);
-                 transition:width 1s linear}
-.court.over .court-elapsed i{background:var(--cork)}
+                 transition:width 1s linear, background-color 1s linear}
 
 .net{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:stretch}
-.side{display:flex;flex-direction:column;gap:6px;padding:0 7px}
+/* 안쪽(네트 쪽) 여백을 넉넉히 둬서 파워 막대가 설 자리를 만든다. */
+.side{position:relative;display:flex;flex-direction:column;gap:6px;padding:0 14px}
 .side:first-child{padding-left:0}
 .side:last-child{padding-right:0}
 .netline{
@@ -153,13 +154,21 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
   width:1px;
 }
 .side-tag{font-size:11px;font-weight:800;color:var(--muted2);letter-spacing:.1em;height:13px;
-          display:flex;align-items:center;gap:6px}
-/* 팀 파워 막대 — 더 센 팀이 100%를 채우고 상대는 그 안에서의 비율만큼만 찬다.
-   두 팀을 나란히 놓고 보는 것이 목적이라 절대량은 의미가 없다. */
-.pw-bar{position:relative;display:inline-block;width:44px;height:5px;border-radius:3px;
-        background:var(--line-soft);overflow:hidden;flex:0 0 auto}
-.pw-bar i{position:absolute;left:0;top:0;bottom:0;display:block;border-radius:3px;
-          width:calc(var(--pw,0)*100%);background:var(--court)}
+          display:flex;align-items:center}
+/* B팀 이름표는 바깥(오른쪽)으로 보낸다. 안쪽에는 파워 막대가 서므로
+   자리가 겹치고, 두 팀이 네트를 두고 마주 보는 배치와도 맞는다. */
+.side:last-child .side-tag{justify-content:flex-end}
+
+/* 팀 파워 막대 — 네트를 사이에 두고 두 막대가 맞붙는다.
+   A팀은 제 칸의 오른쪽 끝, B팀은 왼쪽 끝. 더 센 팀이 100%를 채우고
+   상대는 그 안에서의 비율만큼만 찬다(절대량은 의미가 없다).
+   칩 높이 전체를 쓰므로 길이 차이가 한눈에 읽힌다. */
+.pw-col{position:absolute;top:0;bottom:0;width:7px;border-radius:4px;
+        background:var(--line-soft);overflow:hidden}
+.side:first-child .pw-col{right:0}
+.side:last-child  .pw-col{left:0}
+.pw-col i{position:absolute;left:0;right:0;bottom:0;display:block;
+          border-radius:4px;background:var(--court)}
 
 /* 대기 슬롯 */
 .slot{
@@ -532,7 +541,8 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
   .chip-wait{font-size:10px; right:4px; bottom:3px}
   .chip-pw{flex-basis:4px; margin-left:4px}
   .slot .chip-pw{flex-basis:3px; margin-left:3px}
-  .pw-bar{width:34px}
+  .side{padding:0 11px}
+  .pw-col{width:6px}
   .seat{min-height:44px; font-size:18px}
   .court{padding:8px 9px 9px}
   .court-h{min-height:28px; margin-bottom:6px; gap:6px}

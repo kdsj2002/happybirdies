@@ -52,7 +52,7 @@ function chipEl(id, ctx){
   // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
   const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
   /* 파워 막대는 대기열·대기 인원에서만 이름 옆에 세운다. 코트는 팀 단위로
-     따로 보여 주므로(renderCourts의 pw-bar) 사람마다 또 넣으면 같은 정보가
+     따로 보여 주므로(renderCourts의 pw-col) 사람마다 또 넣으면 같은 정보가
      두 번 보인다. */
   const showPw = ctx==='pool' || ctx.startsWith('queue:');
   const pw = showPw ? `<div class="chip-pw" style="--pw:${Math.min(1,powerOf(a)/powerMax).toFixed(3)}"><i></i></div>` : '';
@@ -76,6 +76,7 @@ function mtBadge(o, kind, key){
 }
 
 /* 경기 경과 — 헤더 숫자 타이머와 그 아래 경과 막대가 같은 값을 쓴다.
+   100%의 기준은 설정의 '경기 시간 경고'(= 이 클럽이 정한 최대 경기 시간)다.
    진행 중이 아니면(코트가 비었거나 채우는 중이면) null. */
 function courtElapsed(c){
   if(c.status!=='PLAYING' || !c.startedAt) return null;
@@ -86,6 +87,22 @@ function courtElapsed(c){
     label: `${String(Math.floor(mins)).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')}`,
     pct: Math.min(100, mins/warn*100)
   };
+}
+
+/* 경과 막대 색 — 차오를수록 초록에서 붉은 쪽으로 옮겨 간다.
+   양 끝값을 팔레트의 --court(0%)와 --cork(100%)에 정확히 맞춰 잡았다.
+   그래야 다 찼을 때의 막대 색과 그때 함께 붉어지는 코트 테두리가 같은
+   색이 되고, 중간 구간도 이 앱의 다른 색들과 겉돌지 않는다.
+
+   구형 태블릿 브라우저를 생각해 hsl()은 쉼표 표기로 쓴다. */
+function elapsedColor(pct){
+  const t = Math.max(0, Math.min(1, pct/100));
+  // 양 끝값은 팔레트를 HSL로 옮긴 것이다.
+  //   --court #0B7A56 → hsl(160, 83%, 26%)   --cork #C2410C → hsl(18, 88%, 40%)
+  const h = 160 + (18-160)*t;
+  const s =  83 + (88-83) *t;
+  const l =  26 + (40-26) *t;
+  return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
 }
 
 function renderCourts(){
@@ -104,7 +121,7 @@ function renderCourts(){
         ${ce?`<span class="timer num">${ce.label}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
         ${c.members.length===4?`<span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>`:''}
       </div>
-      ${ce?`<div class="court-elapsed"><i style="width:${ce.pct}%"></i></div>`:''}`;
+      ${ce?`<div class="court-elapsed"><i style="width:${ce.pct}%;background:${elapsedColor(ce.pct)}"></i></div>`:''}`;
 
     // 팀 파워 — 두 팀을 나란히 비교하는 것이 목적이라, 더 센 쪽이 100%를
     // 채우고 나머지는 그 안에서의 비율로 짧아진다(전체 인원 대비가 아니다).
@@ -117,15 +134,19 @@ function renderCourts(){
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
       const sd=el('div','side');
-      const bar=c.members.length
-        ? `<span class="pw-bar" style="--pw:${(teamPower[side]/maxTP).toFixed(3)}"><i></i></span>` : '';
-      sd.appendChild(el('div','side-tag',`${side}팀${bar}`));
+      sd.appendChild(el('div','side-tag',`${side}팀`));
       const arr=c.teams[side]||[];
       for(let k=0;k<2;k++){
         const id=arr[k];
         sd.appendChild(id? (()=>{const e=chipEl(id,`court:${c.no}:${side}:${k}`); e.dataset.drop=`court:${c.no}:${side}:${k}`; return e;})()
                          : seatEl(`court:${c.no}:${side}:${k}`));
       }
+      /* 파워 막대는 네트 쪽 가장자리에 세운다 — A팀은 오른쪽 끝, B팀은
+         왼쪽 끝. 둘이 네트를 사이에 두고 맞붙어야 길이 차이가 바로 읽힌다.
+         떨어뜨려 놓으면 두 막대를 번갈아 보며 눈으로 재야 한다. */
+      if(c.members.length)
+        sd.appendChild(el('div','pw-col',
+          `<i style="height:${(teamPower[side]/maxTP*100).toFixed(1)}%"></i>`));
       net.appendChild(sd);
       if(si===0) net.appendChild(el('div','netline'));
     });
@@ -146,7 +167,8 @@ function tickCourts(){
     if(!ce) return;
     card.classList.toggle('over',ce.over);
     const timerEl=card.querySelector('.timer'); if(timerEl) timerEl.textContent=ce.label;
-    const barEl=card.querySelector('.court-elapsed > i'); if(barEl) barEl.style.width=ce.pct+'%';
+    const barEl=card.querySelector('.court-elapsed > i');
+    if(barEl){ barEl.style.width=ce.pct+'%'; barEl.style.background=elapsedColor(ce.pct); }
   });
 }
 
