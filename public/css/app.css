@@ -137,16 +137,25 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .court.playing .timer{color:var(--court)}
 .court.over .timer{color:var(--cork)}
 
-/* 경과 시간 막대 — 최대 경기 시간(matchWarnMinutes)이 100%다.
-   색은 차오를수록 --court에서 --cork 쪽으로 옮겨 간다. 매 초 바뀌는 값이라
-   JS(elapsedColor)가 인라인으로 얹는다 — 여기서는 바탕과 모양만 잡는다. */
-.court-elapsed{height:5px;border-radius:3px;background:var(--line-soft);overflow:hidden;margin:0 0 8px}
-.court-elapsed i{display:block;height:100%;border-radius:3px;background:var(--court);
-                 transition:width 1s linear, background-color 1s linear}
+/* 통합 게이지 — 길이는 두 팀의 파워 비율, 색은 경기 경과 시간.
+   값은 전부 JS(courtGauge·tickCourts)가 인라인으로 얹는다. 여기서는 자리와
+   모양만 잡는다. */
+.court-gauge{position:relative;height:12px;border-radius:6px;
+             background:var(--line-soft);overflow:hidden;margin:0 0 9px}
+.court-gauge i{position:absolute;top:0;bottom:0;display:block}
+.court-gauge .ga{left:0}
+.court-gauge .gb{right:0}
+.court-gauge .ga,.court-gauge .gb{transition:width .3s ease, background-color 1s linear}
+/* 한가운데 눈금 — "딱 반"의 기준선. 구분선이 여기서 얼마나 밀렸는지로
+   어느 쪽이 얼마나 센지 읽는다. */
+.court-gauge .gmid{left:50%;width:1px;margin-left:-1px;background:rgba(22,33,29,.28)}
+/* 두 팀의 경계 */
+.court-gauge .gsplit{width:3px;margin-left:-2px;background:var(--surface);
+                     box-shadow:0 0 0 1px rgba(22,33,29,.20);
+                     transition:left .3s ease}
 
 .net{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:stretch}
-/* 안쪽(네트 쪽) 여백을 넉넉히 둬서 파워 막대가 설 자리를 만든다. */
-.side{position:relative;display:flex;flex-direction:column;gap:6px;padding:0 14px}
+.side{display:flex;flex-direction:column;gap:6px;padding:0 7px}
 .side:first-child{padding-left:0}
 .side:last-child{padding-right:0}
 .netline{
@@ -155,20 +164,8 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 }
 .side-tag{font-size:11px;font-weight:800;color:var(--muted2);letter-spacing:.1em;height:13px;
           display:flex;align-items:center}
-/* B팀 이름표는 바깥(오른쪽)으로 보낸다. 안쪽에는 파워 막대가 서므로
-   자리가 겹치고, 두 팀이 네트를 두고 마주 보는 배치와도 맞는다. */
+/* B팀 이름표는 오른쪽으로 — 게이지의 오른쪽 몫이 B팀이라 그쪽에 맞춘다. */
 .side:last-child .side-tag{justify-content:flex-end}
-
-/* 팀 파워 막대 — 네트를 사이에 두고 두 막대가 맞붙는다.
-   A팀은 제 칸의 오른쪽 끝, B팀은 왼쪽 끝. 더 센 팀이 100%를 채우고
-   상대는 그 안에서의 비율만큼만 찬다(절대량은 의미가 없다).
-   칩 높이 전체를 쓰므로 길이 차이가 한눈에 읽힌다. */
-.pw-col{position:absolute;top:0;bottom:0;width:7px;border-radius:4px;
-        background:var(--line-soft);overflow:hidden}
-.side:first-child .pw-col{right:0}
-.side:last-child  .pw-col{left:0}
-.pw-col i{position:absolute;left:0;right:0;bottom:0;display:block;
-          border-radius:4px;background:var(--court)}
 
 /* 대기 슬롯 */
 .slot{
@@ -548,8 +545,7 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
   #pool .chip-nm{font-size:18px}
   .chip-badge{font-size:10px; right:4px; top:3px}
   .chip-wait{font-size:10px; right:4px; bottom:3px}
-  .side{padding:0 11px}
-  .pw-col{width:6px}
+  .court-gauge{height:10px; margin-bottom:7px}
   .seat{min-height:44px; font-size:18px}
   .court{padding:8px 9px 9px}
   .court-h{min-height:28px; margin-bottom:6px; gap:6px}

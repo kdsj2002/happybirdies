@@ -52,7 +52,7 @@ function chipEl(id, ctx){
   // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
   const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
   /* 파워는 대기열·대기 인원에서만 보여 준다. 코트는 팀 단위로 따로
-     보여 주므로(renderCourts의 pw-col) 사람마다 또 넣으면 같은 정보가
+     보여 주므로(courtGauge) 사람마다 또 넣으면 같은 정보가
      두 번 보인다.
 
      막대를 이름 옆에 세우지 않고 칩 바탕을 아래에서부터 채운다. 옆에 세우면
@@ -98,20 +98,51 @@ function courtElapsed(c){
   };
 }
 
-/* 경과 막대 색 — 차오를수록 초록에서 붉은 쪽으로 옮겨 간다.
-   양 끝값을 팔레트의 --court(0%)와 --cork(100%)에 정확히 맞춰 잡았다.
-   그래야 다 찼을 때의 막대 색과 그때 함께 붉어지는 코트 테두리가 같은
-   색이 되고, 중간 구간도 이 앱의 다른 색들과 겉돌지 않는다.
+/* 경과 시간 색 — 시간이 갈수록 초록에서 붉은 쪽으로 옮겨 간다.
+   양 끝값을 팔레트의 --court(0%)와 --cork(100%)에 맞춰 잡았다. 그래야 다
+   찼을 때의 색과 그때 함께 붉어지는 코트 테두리가 같은 색이 되고, 중간
+   구간도 이 앱의 다른 색들과 겉돌지 않는다.
+
+   dl은 밝기를 더하는 값이다. 통합 게이지에서 A팀은 그대로, B팀은 밝게 써서
+   같은 색 계열을 유지한 채 두 쪽을 구분한다(색을 아예 다르게 하면 "시간"을
+   나타내는 색이 두 개가 되어 뜻이 흐려진다).
 
    구형 태블릿 브라우저를 생각해 hsl()은 쉼표 표기로 쓴다. */
-function elapsedColor(pct){
+function elapsedColor(pct, dl=0){
   const t = Math.max(0, Math.min(1, pct/100));
   // 양 끝값은 팔레트를 HSL로 옮긴 것이다.
   //   --court #0B7A56 → hsl(160, 83%, 26%)   --cork #C2410C → hsl(18, 88%, 40%)
   const h = 160 + (18-160)*t;
   const s =  83 + (88-83) *t;
-  const l =  26 + (40-26) *t;
-  return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
+  const l =  26 + (40-26) *t + dl;
+  return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${Math.min(92,l).toFixed(0)}%)`;
+}
+
+/* ── 통합 게이지 ──────────────────────────────────────────────────
+   코트 하나에 가로 막대 하나. 두 가지를 한꺼번에 읽는다.
+
+     · 길이  = 두 팀의 파워 비율. 왼쪽이 A팀, 오른쪽이 B팀이고 그 경계에
+               구분선이 선다. 50:50이면 구분선이 한가운데 온다.
+               가운데의 옅은 눈금이 "딱 반"의 기준선이라, 구분선이 거기서
+               얼마나 밀려 있는지로 한쪽이 얼마나 센지 바로 보인다.
+     · 색    = 경기 경과 시간. 최대 경기 시간(설정의 경기 시간 경고)에
+               가까워질수록 붉어진다.
+
+   막대를 따로 두 개 세워 눈으로 재는 것보다, 하나를 나눠 갖게 하는 편이
+   비율을 훨씬 빨리 읽는다(격투 게임 체력바와 같은 원리다). */
+function courtGauge(c, ce){
+  const pw = s => (c.teams[s]||[]).reduce((n,id)=>{const a=A(id); return n+(a?powerOf(a):0);},0);
+  const a=pw('A'), b=pw('B'), total=a+b;
+  // 아직 팀이 안 짜였거나 파워가 0이면 반반으로 둔다 — 한쪽으로 쏠린 채
+  // 보여 주면 없는 정보를 있는 것처럼 말하는 셈이다.
+  const aPct = total>0 ? a/total*100 : 50;
+  const pct  = ce ? ce.pct : 0;
+  return `<div class="court-gauge">
+      <i class="ga" style="width:${aPct.toFixed(1)}%;background:${elapsedColor(pct)}"></i>
+      <i class="gb" style="width:${(100-aPct).toFixed(1)}%;background:${elapsedColor(pct,26)}"></i>
+      <i class="gmid"></i>
+      <i class="gsplit" style="left:${aPct.toFixed(1)}%"></i>
+    </div>`;
 }
 
 function renderCourts(){
@@ -130,15 +161,7 @@ function renderCourts(){
         ${ce?`<span class="timer num">${ce.label}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
         ${c.members.length===4?`<span class="ic" data-swap="court:${c.no}" title="팀 바꾸기">⇄</span>`:''}
       </div>
-      ${ce?`<div class="court-elapsed"><i style="width:${ce.pct}%;background:${elapsedColor(ce.pct)}"></i></div>`:''}`;
-
-    // 팀 파워 — 두 팀을 나란히 비교하는 것이 목적이라, 더 센 쪽이 100%를
-    // 채우고 나머지는 그 안에서의 비율로 짧아진다(전체 인원 대비가 아니다).
-    const teamPower={A:0,B:0};
-    ['A','B'].forEach(side=>{
-      teamPower[side]=(c.teams[side]||[]).reduce((s,id)=>{const a=A(id); return s+(a?powerOf(a):0);},0);
-    });
-    const maxTP=Math.max(teamPower.A,teamPower.B,1);
+      ${c.members.length? courtGauge(c,ce) : ''}`;
 
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
@@ -150,12 +173,6 @@ function renderCourts(){
         sd.appendChild(id? (()=>{const e=chipEl(id,`court:${c.no}:${side}:${k}`); e.dataset.drop=`court:${c.no}:${side}:${k}`; return e;})()
                          : seatEl(`court:${c.no}:${side}:${k}`));
       }
-      /* 파워 막대는 네트 쪽 가장자리에 세운다 — A팀은 오른쪽 끝, B팀은
-         왼쪽 끝. 둘이 네트를 사이에 두고 맞붙어야 길이 차이가 바로 읽힌다.
-         떨어뜨려 놓으면 두 막대를 번갈아 보며 눈으로 재야 한다. */
-      if(c.members.length)
-        sd.appendChild(el('div','pw-col',
-          `<i style="height:${(teamPower[side]/maxTP*100).toFixed(1)}%"></i>`));
       net.appendChild(sd);
       if(si===0) net.appendChild(el('div','netline'));
     });
@@ -176,8 +193,11 @@ function tickCourts(){
     if(!ce) return;
     card.classList.toggle('over',ce.over);
     const timerEl=card.querySelector('.timer'); if(timerEl) timerEl.textContent=ce.label;
-    const barEl=card.querySelector('.court-elapsed > i');
-    if(barEl){ barEl.style.width=ce.pct+'%'; barEl.style.background=elapsedColor(ce.pct); }
+    /* 게이지에서 매 초 바뀌는 것은 색(경과 시간)뿐이다. 길이(파워 비율)는
+       사람이 바뀔 때만 달라지므로 render()가 맡는다. */
+    const ga=card.querySelector('.court-gauge .ga'), gb=card.querySelector('.court-gauge .gb');
+    if(ga) ga.style.background=elapsedColor(ce.pct);
+    if(gb) gb.style.background=elapsedColor(ce.pct,26);
   });
 }
 
