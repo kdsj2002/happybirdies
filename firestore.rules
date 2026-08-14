@@ -51,11 +51,20 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
 
-    function adminAuthPath(club) {
-      return /databases/$(database)/documents/clubs/$(club)/kv/adminAuth;
+    /* ── 비밀번호는 두 종류다 ───────────────────────────────────────
+       운영자(admin)와 소유자(owner). 저장 구조는 완전히 같고 이름만 다르다.
+         kv/adminAuth  ↔ secret/adminPin
+         kv/ownerAuth  ↔ secret/ownerPin
+       소유자 비밀번호를 따로 두는 이유는 §운영자 비밀번호 주석 아래에 적었다. */
+    function authDocFor(kind) { return kind == 'owner' ? 'ownerAuth' : 'adminAuth'; }
+    function pinDocFor(kind)  { return kind == 'owner' ? 'ownerPin'  : 'adminPin';  }
+    function kindOfPin(pinDoc){ return pinDoc == 'ownerPin' ? 'owner' : 'admin'; }
+
+    function authPath(club, kind) {
+      return /databases/$(database)/documents/clubs/$(club)/kv/$(authDocFor(kind));
     }
-    function adminPinPath(club) {
-      return /databases/$(database)/documents/clubs/$(club)/secret/adminPin;
+    function pinPath(club, kind) {
+      return /databases/$(database)/documents/clubs/$(club)/secret/$(pinDocFor(kind));
     }
 
     /* ── 등록된 동호회만 ────────────────────────────────────────────
@@ -81,13 +90,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /* ── 전체 동호회 정원 ───────────────────────────────────────────
+       캡차가 준비되기 전까지는 "전체 몇 개까지"가 남용 방지 장치다.
+         registry/clubs = { count, limit }
+       앱은 이 값을 읽어 "정원이 찼습니다"를 보여 준다. 쓰기는 서버만 —
+       지금은 개설 자체가 수동(콘솔)이므로 개설할 때 count를 함께 올린다.
+       Functions가 생기면 트랜잭션으로 읽고-올리고-만들기를 한 번에 한다. */
+    match /registry/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ── 평범한 앱 데이터 ────────────────────────────────────────────
     match /clubs/{club}/kv/{docId} {
 
       // 앱이 실제로 만드는 문서 이름만 허용한다.
       function knownDoc() {
         return docId in ['settings', 'members', 'sessions', 'adminLeases',
-                         'adminAuth', 'joinRequests']
+                         'adminAuth', 'ownerAuth', 'joinRequests']
             || docId.matches('session:[0-9]{4}-[0-9]{2}-[0-9]{2}');
       }
 
@@ -113,18 +133,19 @@ service cloud.firestore {
                  && resource.data.v.size() > 100);
       }
 
-      /* adminAuth(비밀번호의 salt)는 최초 설정 때 한 번만 만들어진다.
+      /* salt 문서(adminAuth·ownerAuth)는 최초 설정 때 한 번만 만들어진다.
          앱에서 고치거나 지울 수 없다 — 그래야 남이 salt를 갈아끼워
          비밀번호를 무력화하는 짓을 못 한다. 초기화는 콘솔에서만. */
-      function adminAuthOk() {
-        return docId != 'adminAuth' || !exists(adminAuthPath(club));
+      function saltDocOk() {
+        return !(docId in ['adminAuth', 'ownerAuth'])
+            || !exists(/databases/$(database)/documents/clubs/$(club)/kv/$(docId));
       }
 
       allow read:   if signedIn() && registered(club) && knownDoc();
       allow create: if signedIn() && registered(club) && knownDoc()
-                    && validShape() && adminAuthOk();
+                    && validShape() && saltDocOk();
       allow update: if signedIn() && registered(club) && knownDoc() && validShape()
-                    && notWipingMembers() && adminAuthOk();
+                    && notWipingMembers() && saltDocOk();
       allow delete: if false;      // 앱은 어떤 문서도 지우지 않는다
     }
 
@@ -142,8 +163,8 @@ service cloud.firestore {
          영영 로그인 불가가 된다 — 규칙 테스트가 바로 이걸 잡아냈다. */
       allow create, update: if signedIn()
                     && registered(club)
-                    && docId == 'adminPin'
-                    && !exists(adminAuthPath(club))
+                    && docId in ['adminPin', 'ownerPin']
+                    && !exists(authPath(club, kindOfPin(docId)))
                     && request.resource.data.keys().hasOnly(['hash'])
                     && request.resource.data.hash is string
                     && request.resource.data.hash.size() == 64;   // SHA-256 hex
@@ -157,10 +178,12 @@ service cloud.firestore {
       allow read: if false;
       allow create: if signedIn()
                     && registered(club)
-                    && exists(adminPinPath(club))
-                    && request.resource.data.keys().hasOnly(['hash'])
+                    && request.resource.data.keys().hasOnly(['hash', 'kind'])
+                    && request.resource.data.kind in ['admin', 'owner']
                     && request.resource.data.hash is string
-                    && request.resource.data.hash == get(adminPinPath(club)).data.hash;
+                    && exists(pinPath(club, request.resource.data.kind))
+                    && request.resource.data.hash
+                       == get(pinPath(club, request.resource.data.kind)).data.hash;
       allow update: if false;
       allow delete: if signedIn();   // 확인이 끝나면 앱이 스스로 치운다
     }

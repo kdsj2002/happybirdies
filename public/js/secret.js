@@ -34,7 +34,16 @@
    ===================================================================== */
 const Secret = (() => {
   const ITER = 210000;              // PBKDF2 반복. 새로 설정할 때 쓰는 값.
-  const LOCAL_KEY = () => `bmt:${CLUB}:adminAuthLocal`;
+
+  /* ── 비밀번호는 두 종류다 ──────────────────────────────────────
+     admin(운영자)과 owner(소유자). 저장 구조는 완전히 같고 이름만 다르다.
+     소유자 비밀번호를 따로 두는 것이 핵심이다 — 같은 비밀번호로 두 역할을
+     나누면 화면만 다르고 실제로는 같은 권한이라, 구분하는 척하는 것이 된다.
+     비밀번호가 다르면 운영자 비밀번호만 아는 사람은 소유자 권한을 못 쓴다. */
+  const KINDS = { admin:{ auth:'adminAuth', pin:'adminPin' },
+                  owner:{ auth:'ownerAuth', pin:'ownerPin' } };
+  const K_ = k => KINDS[k] || KINDS.admin;
+  const LOCAL_KEY = (kind) => `bmt:${CLUB}:${K_(kind).auth}Local`;
 
   const fb = () => (Store.mode === 'firebase' ? Store._fb : null);
   const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -56,16 +65,16 @@ const Secret = (() => {
      쓰지만 localStorage에 두므로 기기 주인이 열어 보면 보인다. 여기서는
      그게 한계다 — 서버가 없으면 "못 읽는 곳"이란 게 존재하지 않는다.
      Firebase에 붙이면 자동으로 위의 구조를 쓴다. */
-  const localRead  = () => { try { return JSON.parse(localStorage.getItem(LOCAL_KEY()) || 'null'); } catch { return null; } };
-  const localWrite = v  => { try { localStorage.setItem(LOCAL_KEY(), JSON.stringify(v)); } catch {} };
+  const localRead  = (kind) => { try { return JSON.parse(localStorage.getItem(LOCAL_KEY(kind)) || 'null'); } catch { return null; } };
+  const localWrite = (kind, v) => { try { localStorage.setItem(LOCAL_KEY(kind), JSON.stringify(v)); } catch {} };
 
   /* 지금 비밀번호가 설정돼 있는지. salt 문서의 존재로 판정한다.
      반환: 'set' | 'unset' | 'unknown'(읽기 실패 — 판단하지 않는다) */
-  async function state() {
+  async function state(kind = 'admin') {
     const F = fb();
-    if (!F) return localRead() ? 'set' : 'unset';
+    if (!F) return localRead(kind) ? 'set' : 'unset';
     try {
-      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', 'adminAuth'));
+      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth));
       // 오프라인 캐시가 "없다"고 답한 것을 미설정으로 받아들이면,
       // 비행기 모드에서 최초 설정 화면이 떠 버린다. 캐시 답은 믿지 않는다.
       if (!snap.exists() && snap.metadata && snap.metadata.fromCache) return 'unknown';
@@ -79,16 +88,16 @@ const Secret = (() => {
   /* 최초 설정. salt 문서와 해시 문서를 한 번에 만든다.
      규칙이 "adminAuth가 없을 때만"을 강제하므로, 이미 설정돼 있으면
      서버가 거절한다(둘이 동시에 눌러도 한쪽만 성공한다). */
-  async function bootstrap(password) {
+  async function bootstrap(password, kind = 'admin') {
     if (!password) return { ok: false, reason: 'empty' };
     const salt = randHex(16);
     const hash = await digest(password, salt, ITER);
     const F = fb();
-    if (!F) { localWrite({ salt, iter: ITER, hash }); return { ok: true, local: true }; }
+    if (!F) { localWrite(kind, { salt, iter: ITER, hash }); return { ok: true, local: true }; }
     try {
       const batch = F.writeBatch(F.db);
-      batch.set(F.doc(F.db, 'clubs', CLUB, 'secret', 'adminPin'), { hash });
-      batch.set(F.doc(F.db, 'clubs', CLUB, 'kv', 'adminAuth'),
+      batch.set(F.doc(F.db, 'clubs', CLUB, 'secret', K_(kind).pin), { hash });
+      batch.set(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth),
                 { v: JSON.stringify({ salt, iter: ITER }), updatedAt: new Date() });
       await batch.commit();
       return { ok: true };
@@ -102,12 +111,12 @@ const Secret = (() => {
   /* 확인. 맞으면 {ok:true}. 서버까지 못 갔으면 reason:'offline'.
      비밀번호가 틀린 것과 통신이 안 되는 것을 반드시 구분해야 한다 —
      둘을 뭉뚱그리면 오프라인일 때 "비밀번호가 틀렸다"고 거짓말을 한다. */
-  async function verify(password) {
+  async function verify(password, kind = 'admin') {
     if (!password) return { ok: false, reason: 'wrong' };
     const F = fb();
 
     if (!F) {
-      const rec = localRead();
+      const rec = localRead(kind);
       if (!rec) return { ok: false, reason: 'unset' };
       const h = await digest(password, rec.salt, rec.iter || ITER);
       return h === rec.hash ? { ok: true, local: true } : { ok: false, reason: 'wrong' };
@@ -115,7 +124,7 @@ const Secret = (() => {
 
     let cfg;
     try {
-      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', 'adminAuth'));
+      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth));
       if (!snap.exists()) return { ok: false, reason: 'unset' };
       cfg = JSON.parse(snap.data().v || '{}');
     } catch (e) {
@@ -127,7 +136,7 @@ const Secret = (() => {
     const ref = F.doc(F.db, 'clubs', CLUB, 'probe', randHex(12));
     try {
       // 트랜잭션이라 오프라인에서는 큐에 쌓이지 않고 실패한다.
-      await F.runTransaction(F.db, async tr => { tr.set(ref, { hash }); });
+      await F.runTransaction(F.db, async tr => { tr.set(ref, { hash, kind }); });
     } catch (e) {
       if (String(e && e.code) === 'permission-denied') return { ok: false, reason: 'wrong' };
       return { ok: false, reason: 'offline', error: String(e) };
@@ -137,5 +146,21 @@ const Secret = (() => {
     return { ok: true };
   }
 
-  return { state, verify, bootstrap, ITER };
+  /* ── 소유자 확인 ────────────────────────────────────────────────
+     소유자 비밀번호가 아직 없는 동호회(이 구조 이전부터 쓰던 곳)에서는
+     운영자 비밀번호로 대신 확인한다. 안 그러면 소유자 전용으로 돌린
+     조작(복원·CSV 일괄등록 등)이 통째로 막혀 버린다.
+     대신 fallback 표시를 달아, 화면이 "소유자 비밀번호를 아직 안 정했다"고
+     알려 줄 수 있게 한다. */
+  async function verifyOwner(password) {
+    const st = await state('owner');
+    if (st === 'set')   return verify(password, 'owner');
+    if (st === 'unset') {
+      const r = await verify(password, 'admin');
+      return r.ok ? Object.assign({}, r, { fallback: true }) : r;
+    }
+    return { ok: false, reason: 'offline' };
+  }
+
+  return { state, verify, verifyOwner, bootstrap, ITER };
 })();

@@ -174,6 +174,22 @@ const Store = (() => {
       }
     },
 
+    /* ── 전체 동호회 정원 ────────────────────────────────────────
+       캡차가 준비되기 전까지는 "전체 몇 개까지"가 남용 방지 장치다.
+       registry/clubs = { count, limit }. 쓰기는 서버만 하고 앱은 읽어서
+       "정원이 찼습니다"를 보여 주는 데만 쓴다. */
+    async clubQuota(){
+      if(this.mode!=='firebase') return { ok:false };
+      const fb=this._fb;
+      try{
+        const snap = await fb.getDoc(fb.doc(fb.db,'registry','clubs'));
+        if(!snap.exists()) return { ok:false };
+        const d = snap.data() || {};
+        const count = +d.count || 0, limit = +d.limit || 0;
+        return { ok:true, count, limit, full: limit>0 && count>=limit };
+      }catch(e){ return { ok:false, error:String(e) }; }
+    },
+
     subscribe(key, cb){
       if(this.mode!=='firebase') return ()=>{};
       const fb=this._fb;

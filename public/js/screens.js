@@ -454,9 +454,16 @@ function renderSet(){
         <button class="btn sm" id="s_reload">지금 다시 불러오기</button>
         <div class="hint" style="margin-top:6px">화면의 회원·기록이 비어 보이면 저장하지 말고 이 버튼을 먼저 누르세요.
           클라우드(Firestore)에 있는 원본을 그대로 다시 읽어 옵니다.</div></div>
+      <div class="k">소유자 비밀번호</div><div>
+        <b id="ownerState" style="color:var(--muted)">확인 중...</b>
+        <div class="hint" style="margin-top:6px">소유자는 운영자가 하는 것을 전부 할 수 있고,
+          거기에 <b>회원 명단을 통째로 바꾸는 조작</b>이 더해집니다.
+          비밀번호가 운영자와 <b>달라야</b> 역할이 실제로 나뉩니다 — 같은 값을 쓰면
+          화면만 다르고 권한은 같습니다.<br>
+          아직 정하지 않았다면 설정 → 다시 입장하기 → <b>소유자</b>에서 정할 수 있습니다.</div></div>
       <div class="k">회원 명단 보호</div><div>
         <div class="hint">회원 명단을 통째로 바꾸는 조작(백업 복원 · CSV 일괄등록 · 클라우드에서 다시 불러오기)은
-          <b>관리 비밀번호</b>를 받고 진행합니다. 확인 창에서 누가 사라지고 누가 생기는지,
+          <b>소유자 비밀번호</b>를 받고 진행합니다. 확인 창에서 누가 사라지고 누가 생기는지,
           그 결과가 무엇인지 먼저 보여 줍니다.<br>
           비밀번호를 거치지 않은 채 회원이 사라지는 저장(명단을 못 불러와 화면이 빈 경우 등)은
           자동으로 차단되고 화면 위에 붉은 띠가 뜹니다. 그때는 아무것도 만지지 말고 새로고침하세요.<br>
@@ -550,6 +557,15 @@ function renderSet(){
     localStorage.removeItem(window.__fbConfigKey); setTimeout(()=>location.reload(),300);
   });
   $('#fb_recheck')?.addEventListener('click',()=>{ toast('다시 확인합니다...'); setTimeout(()=>location.reload(),300); });
+  /* 소유자 비밀번호가 정해져 있는지 보여 준다. 화면을 그린 뒤 비동기로 채운다. */
+  (async()=>{
+    const el=$('#ownerState'); if(!el) return;
+    const st=await Secret.state('owner');
+    if(st==='set'){ el.textContent='설정됨'; el.style.color='var(--court)'; }
+    else if(st==='unset'){ el.textContent='아직 없음 — 관리 비밀번호로 대신 확인합니다';
+                           el.style.color='var(--cork)'; }
+    else { el.textContent='확인하지 못했습니다(연결 확인)'; }
+  })();
   $('#s_pol').onchange=renderSetHint;
   function renderSetHint(){ $('#s_pol').parentElement.querySelector('.hint').textContent=POLICY.find(p=>p[0]===$('#s_pol').value)[2]; }
   $('#s_save').onclick=()=>{

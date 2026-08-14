@@ -119,7 +119,10 @@ function save(){
    걸리지 않고 정상적으로 클라우드에 올라간다.
    ===================================================================== */
 async function bulkOverwriteMembers(nextList, opt={}){
-  if(!requirePerm('membersEdit')) return;
+  /* 명단을 통째로 갈아끼우는 것은 이 앱에서 가장 파괴적인 조작이다 —
+     되돌릴 수 없고, 모든 기기에 즉시 퍼진다. 그래서 소유자 전용으로 둔다.
+     운영자에게도 열어 주면 소유자라는 역할이 이름뿐이 된다. */
+  if(!requirePerm('membersBulk')) return;
   // 오래된 백업 파일에는 id가 없는 회원이 섞여 있을 수 있다. 비교의 기준이
   // id이므로 여기서 채워 둔다(없으면 전부 같은 사람으로 취급돼 버린다).
   const next = (Array.isArray(nextList) ? nextList : [])
@@ -203,7 +206,7 @@ async function bulkOverwriteMembers(nextList, opt={}){
       <span class="hint">되돌릴 수단은 이 백업 파일뿐입니다.</span>
     </div>`;
 
-  // 3) 관리 비밀번호 확인
+  // 3) 소유자 비밀번호 확인
   askPin('회원 명단 덮어쓰기', opt.source || '회원 명단 전체를 바꿉니다', async ()=>{
     S.members = next;
     setMembersBaseline(next);        // 승인받은 내용이 새 기준선이 된다
@@ -215,7 +218,7 @@ async function bulkOverwriteMembers(nextList, opt={}){
     Sound.play('confirm');
     toast(`회원 명단을 덮어썼습니다 (${d.from}명 → ${d.to}명)`);
     if(opt.after) opt.after();
-  }, { bodyHtml, okLabel:'덮어쓰기', onReady(){
+  }, { bodyHtml, okLabel:'덮어쓰기', kind:'owner', onReady(){
     const b=$('#pinBackup'); if(b) b.onclick=()=>exportBackup();
   }});
 }
