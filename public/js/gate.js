@@ -41,6 +41,27 @@ const Gate = (() => {
   const maskName = n => { const a=chars(n); return a.length<2 ? a.join('') : a.slice(0,-1).join('')+'○'; };
   const lastChar = n => { const a=chars(n); return a.length ? a[a.length-1] : ''; };
 
+  /* ── 등록되지 않은 동호회 ──────────────────────────────────────
+     주소창에 없는 이름을 친 경우다. 예전에는 여기서 빈 동호회가 생기고
+     먼저 연 사람이 운영자 비밀번호까지 차지했다. 이제는 서버가 만들어 준
+     동호회만 열리고, 새로 만들려면 신청을 거친다.
+
+     주소를 잘못 친 사람이 대부분이므로 문책하는 말투를 쓰지 않는다. */
+  function screenUnknownClub(){
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">없는 주소입니다</div>
+        <div class="gate-sub"><span class="doc-k">${esc(CLUB)}</span> 라는 동호회를 찾지 못했습니다.
+          주소를 다시 확인해 주세요.</div>
+        <div class="hint" style="line-height:1.7;margin-bottom:14px">
+          동호회 주소는 운영자에게 받은 링크를 그대로 여는 것이 가장 확실합니다.<br>
+          새 동호회를 열고 싶으시면 대표 주소에서 신청할 수 있습니다.
+        </div>
+        <a class="gate-btn" href="/" style="text-decoration:none;display:block">
+          <b>대표 주소로 가기</b><span>여기서 동호회를 찾거나 새로 신청합니다</span></a>
+      </div>`);
+  }
+
   function screenHome(){
     open(`
       <div class="gate-card">
@@ -444,6 +465,7 @@ const Gate = (() => {
   }
 
   return { start(){ screenHome(); }, close, enter,
+           unknownClub(){ screenUnknownClub(); },
            reopen(){ screenHome(); } };
 })();
 

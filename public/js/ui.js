@@ -13,6 +13,27 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='bl
   clearTimeout(toastT); toastT=setTimeout(()=>t.style.display='none',2000); }
 
 function sexIcon(g){ return g==='M'?'<span class="sx m">♂</span>' : g==='F'?'<span class="sx f">♀</span>' : '<span class="sx u">?</span>'; }
+
+/* ── 게스트에게 보이는 이름 ────────────────────────────────────────
+   구경만 하러 온 사람에게 코트 위 이름이 통째로 보일 이유가 없다.
+   성만 남기고 나머지를 가린다 — 김철수 → 김○○.
+
+   입장 화면의 가리기(gate.js maskName)와는 반대 방향이다. 저기는 본인
+   확인용이라 마지막 한 글자만 가리고, 여기는 남에게 안 보이는 것이 목적이라
+   첫 글자만 남긴다.
+
+   한계: 남궁·선우처럼 두 글자 성은 한 글자로 잘린다. 성씨 목록을 들고
+   다니면서까지 맞출 값어치는 없다고 보고 그대로 뒀다. 어차피 가리는 쪽이
+   목적이라 덜 보이는 것은 문제가 되지 않는다. */
+function viewerName(name){
+  const a = [...String(name||'')];
+  if(a.length < 2) return a.join('');
+  return a[0] + '○'.repeat(a.length - 1);
+}
+/* 지금 역할에서 화면에 쓸 이름. 게스트만 가려진다. */
+function shownName(name){
+  return (typeof Auth!=='undefined' && Auth.isViewer) ? viewerName(name) : name;
+}
 function waitMin(a){ return a.lastEnd? Math.floor((now()-a.lastEnd)/60000) : null; }
 
 function chipEl(id, ctx){
@@ -24,7 +45,7 @@ function chipEl(id, ctx){
   e.dataset.chip=id; e.dataset.ctx=ctx;
   // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
   const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
-  e.innerHTML=`<div class="chip-nm${g}">${esc(a.name)}${a.guest?'<span class="gst">G</span>':''}</div>
+  e.innerHTML=`<div class="chip-nm${g}">${esc(shownName(a.name))}${a.guest?'<span class="gst">G</span>':''}</div>
     <div class="chip-badge ${a.games===0?'zero':''}">${a.games}G</div>
     ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${w}분</div>`:''}`;
   if(sel===id) e.classList.add('sel');
