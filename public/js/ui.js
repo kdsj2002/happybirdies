@@ -51,13 +51,22 @@ function chipEl(id, ctx){
   e.dataset.chip=id; e.dataset.ctx=ctx;
   // 남녀는 이름 색으로만 구분한다(♂♀ 아이콘이나 배지를 따로 두지 않는다).
   const g = a.gender==='M' ? ' m' : a.gender==='F' ? ' f' : ' u';
-  /* 파워 막대는 대기열·대기 인원에서만 이름 옆에 세운다. 코트는 팀 단위로
-     따로 보여 주므로(renderCourts의 pw-col) 사람마다 또 넣으면 같은 정보가
-     두 번 보인다. */
+  /* 파워는 대기열·대기 인원에서만 보여 준다. 코트는 팀 단위로 따로
+     보여 주므로(renderCourts의 pw-col) 사람마다 또 넣으면 같은 정보가
+     두 번 보인다.
+
+     막대를 이름 옆에 세우지 않고 칩 바탕을 아래에서부터 채운다. 옆에 세우면
+     폰에서 그 몇 px 때문에 이름이 잘렸다 — 이름이 화면의 주인공인데 게이지가
+     그걸 깎아먹으면 안 된다. 채우는 층은 이름 "뒤"에 깔리므로(z-index 아래)
+     글자는 조금도 흐려지지 않는다.
+
+     세로로 채우는 이유: 칩 높이는 어디서나 같지만 폭은 이름 길이를 따라
+     달라진다. 가로로 채우면 같은 파워라도 이름이 긴 사람의 막대가 더 길어
+     보여서 비교가 안 된다. 높이는 그 문제가 없다. */
   const showPw = ctx==='pool' || ctx.startsWith('queue:');
-  const pw = showPw ? `<div class="chip-pw" style="--pw:${Math.min(1,powerOf(a)/powerMax).toFixed(3)}"><i></i></div>` : '';
-  e.innerHTML=`<div class="chip-nm${g}">${esc(shownName(a.name))}${a.guest?'<span class="gst">G</span>':''}</div>
-    ${pw}
+  const pw = showPw ? `<div class="chip-pw" style="--pw:${Math.min(1,powerOf(a)/powerMax).toFixed(3)}"></div>` : '';
+  e.innerHTML=`${pw}
+    <div class="chip-nm${g}">${esc(shownName(a.name))}${a.guest?'<span class="gst">G</span>':''}</div>
     <div class="chip-badge ${a.games===0?'zero':''}">${a.games}G</div>
     ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${w}분</div>`:''}`;
   if(sel===id) e.classList.add('sel');
