@@ -170,8 +170,38 @@ const Gate = (() => {
      다르다. 소유자 비밀번호를 따로 두는 것이 이 역할 구분의 전부다 — 같은
      비밀번호를 쓰면 화면만 다르고 권한은 같아서, 구분하는 척이 된다. */
   const ROLE_TITLE = { admin:'운영자', owner:'소유자' };
+
+  /* 비밀번호 시도 제한은 Secret이 센다(비밀번호를 묻는 곳이 세 군데라
+     화면마다 세면 한 군데가 우회로가 된다). 여기서는 잠긴 동안 남은 시간을
+     보여 주기만 한다. 무엇을 막고 못 막는지는 secret.js에 적어 뒀다. */
+  function screenPinLocked(kind){
+    const label = ROLE_TITLE[kind];
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">잠시 후 다시 시도해 주세요</div>
+        <div class="gate-sub">${label} 비밀번호를 ${Secret.MAX_TRY}번 틀렸습니다.</div>
+        <div class="gate-mask" id="pinLeft">—</div>
+        <div class="hint" style="text-align:center;line-height:1.7">
+          이 기기에서 ${label} 입장이 잠겼습니다.<br>
+          비밀번호를 잊으셨다면 소유자에게 문의하세요.</div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="gBack" style="width:100%">뒤로</button></div>
+      </div>`);
+    const tick=()=>{
+      const e=$('#pinLeft');
+      if(!e){ clearInterval(t); return; }            // 다른 화면으로 넘어갔다
+      const ms=Secret.lockLeft(kind);
+      if(ms<=0){ clearInterval(t); screenAdmin(kind); return; }
+      const t2=Math.ceil(ms/1000);
+      e.textContent=`${Math.floor(t2/60)}:${String(t2%60).padStart(2,'0')}`;
+    };
+    const t=setInterval(tick,500); tick();
+    $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(t); screenHome(); };
+  }
+
   async function screenAdmin(kind='admin'){
     const label = ROLE_TITLE[kind];
+    if(Secret.lockLeft(kind) > 0) return screenPinLocked(kind);
     open(`<div class="gate-card"><div class="gate-title">${label} 입장</div>
       <div class="gate-sub">확인 중...</div></div>`);
     const st = await Secret.state(kind);
@@ -197,6 +227,8 @@ const Gate = (() => {
         <input type="password" id="gPin" maxlength="64" autocomplete="off"
                style="width:100%;height:56px;font-size:22px;text-align:center">
         <div id="gErr" class="gate-err"></div>
+        <div class="gate-tries">남은 시도 <b id="pinTries">${Secret.triesLeft(kind)}</b>번 ·
+          ${Secret.MAX_TRY}번 틀리면 이 기기에서 잠깁니다</div>
         <div class="row" style="gap:8px;margin-top:14px">
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
           <button class="btn primary" id="gOk" style="flex:2">입장</button>
@@ -205,6 +237,7 @@ const Gate = (() => {
     const inp=$('#gPin'); setTimeout(()=>inp&&inp.focus(),60);
     const go=async()=>{
       if($('#gOk').disabled) return;
+      if(Secret.lockLeft(kind) > 0) return screenPinLocked(kind);
       $('#gOk').disabled=true; $('#gErr').textContent='확인 중...';
       const res=await Auth.loginAs(kind, inp.value);
       $('#gOk').disabled=false;
@@ -214,6 +247,8 @@ const Gate = (() => {
         return;
       }
       Sound.play('error');
+      if(res.reason === 'locked') return screenPinLocked(kind);
+      const t=$('#pinTries'); if(t) t.textContent = Secret.triesLeft(kind);
       $('#gErr').textContent = ADMIN_ERR[res.reason] || '확인하지 못했습니다';
       inp.value=''; inp.focus();
     };
