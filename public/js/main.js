@@ -12,6 +12,8 @@
   const rSet = await Store.getSafe(K('settings'), {strict:true});
   const rMem = await Store.getSafe(K('members'),  {strict:true});
   const rSes = await Store.getSafe(K('session:'+S.date));
+  // 가입 요청은 없는 것이 정상(아직 아무도 안 냈다)이라 strict를 걸지 않는다.
+  S.joinRequests = (await Store.getSafe(K('joinRequests'))).value || [];
   const failed = [!rSet.ok&&'설정', !rMem.ok&&'회원 명단', !rSes.ok&&'오늘 세션'].filter(Boolean);
 
   const st=rSet.value;
@@ -68,11 +70,28 @@
 
   Sound.set(S.settings.sound !== false);
   const restored = await Auth.restore();
+  // 내가 낸 가입 요청이 그새 승인됐는지 먼저 본다(승인됐다면 회원으로 들어간다).
+  const joined = checkJoinApproved();
   applyRole();
   render();
-  if(!restored) Gate.start();
+  if(!restored && !joined) Gate.start();
   else if(Auth.isAdmin && !S.members.length){ show('mem');
     setTimeout(()=>toast('회원을 먼저 등록하세요 — CSV 일괄등록이 빠릅니다'),500); }
+
+  /* 승인을 기다리는 기기는 회원 문서를 지켜본다. 운영자가 승인하는 순간
+     화면에서 바로 회원으로 바뀐다 — "승인했으니 새로고침하세요"라고
+     말해 줄 필요가 없게. 운영자 쪽에서는 새 요청이 오면 버튼에 숫자가 붙는다. */
+  const unsubMem = Store.subscribe(K('members'), remote=>{
+    if(!Array.isArray(remote)) return;
+    S.members = remote;
+    setMembersBaseline(S.members);
+    if(checkJoinApproved()) render();
+  });
+  const unsubJoin = Store.subscribe(K('joinRequests'), remote=>{
+    S.joinRequests = Array.isArray(remote) ? remote : [];
+    if($('#scr-mem').classList.contains('on')) renderMem(); else renderJoinBtn();
+  });
+  window.addEventListener('beforeunload', ()=>{ unsubMem&&unsubMem(); unsubJoin&&unsubJoin(); });
 
   // 브라우저는 첫 사용자 조작 전에는 소리를 못 내게 막는다. 아무 터치에서 깨운다.
   ['pointerdown','keydown'].forEach(ev=>

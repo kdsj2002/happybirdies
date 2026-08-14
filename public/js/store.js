@@ -6,7 +6,31 @@
      확장할 때 CLUB 값만 분기하면 데이터가 섞이지 않는다.
    ===================================================================== */
 
-const CLUB = 'default';                 // 확장 지점: 클럽 식별자
+/* ── 클럽 식별자 — URL 경로에서 뽑는다 ──────────────────────────────
+   여러 동호회가 한 배포본을 나눠 쓰기 위한 갈림길이다.
+
+     /            → 'default'        (지금까지 쓰던 그 클럽. 주소가 안 바뀐다)
+     /hanul/      → 'hanul'
+     /hanul/...   → 'hanul'
+
+   Firestore 경로 clubs/{CLUB}/... 와 로컬 저장 키 bmt:{CLUB}:... 가 통째로
+   갈라지므로 데이터가 섞이지 않는다. 보안 규칙도 clubs/{club} 와일드카드라
+   그대로 적용된다.
+
+   호스팅에서 /{clubId}/** 를 index.html로 rewrite해 줘야 새로고침이 깨지지
+   않는다(firebase.json). 자세한 설계는 docs/multi-club.md 참고.
+
+   허용 문자를 좁게 잡는 이유: 경로 조각이 그대로 Firestore 문서 ID가 되므로
+   '..' 이나 슬래시, 긴 문자열이 들어오면 안 된다. 규격을 벗어나면 default로
+   떨어뜨린다 — 낯선 주소로 들어온 사람이 빈 클럽을 새로 만들지 않게. */
+const CLUB = (() => {
+  try {
+    const seg = decodeURIComponent((location.pathname || '/').split('/')[1] || '');
+    // manual.html 등 실제 파일 이름은 클럽이 아니다.
+    if (!seg || seg.includes('.')) return 'default';
+    return /^[a-z0-9][a-z0-9-]{1,30}$/.test(seg) ? seg : 'default';
+  } catch { return 'default'; }
+})();
 // 구형 태블릿 브라우저에는 structuredClone이 없다. 저장 데이터는 순수 JSON이라
 // JSON 복사로 충분하다.
 const clone = o => (typeof structuredClone==='function') ? structuredClone(o) : JSON.parse(JSON.stringify(o));

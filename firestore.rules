@@ -8,13 +8,39 @@ rules_version = '2';
    강하게 조인다 — 경로·문서 이름 화이트리스트, 저장 형식과 크기 검증,
    삭제 전면 금지, 그리고 회원 명단이 통째로 비워지는 쓰기 차단.
 
-   이 규칙으로 막히지 않는 것(알고 쓸 것):
-     - 회원 명단 읽기. 익명 로그인을 켜 둔 이상 규칙으로는 막을 수 없다.
-       명단 프라이버시가 필요하면 실제 로그인(Google 등) + 역할 문서로
-       가야 하고, 그때 settings의 adminPin도 빼야 한다.
-     - 운영자/회원 구분. 같은 이유다.
-   config 파일을 복사해 스크립트로 두드리는 경로는 App Check(콘솔에서
-   적용)로 막는다. 규칙 문법이 아니라 콘솔 설정이다.
+   ── 운영자 비밀번호를 어떻게 숨기는가 ─────────────────────────────
+   예전에는 settings 문서 안에 adminPin이 평문으로 들어 있었다. settings는
+   누구나 읽을 수 있으므로 비밀번호가 아니라 공지사항이었다.
+
+   이제는 세 조각으로 나눈다.
+
+     kv/adminAuth      { salt, iter }   ← 읽기 허용. salt는 비밀이 아니다.
+     secret/adminPin   { hash }         ← 읽기 금지. 아무도 못 가져간다.
+     probe/{랜덤}      { hash }         ← 읽기 금지. 규칙이 비교만 해 준다.
+
+   확인 절차는 "읽어서 비교"가 아니라 "써 보고 되는지 본다"이다.
+   앱이 입력한 비밀번호로 PBKDF2 해시를 만들어 probe 문서 생성을 시도하면,
+   규칙이 secret/adminPin의 hash와 대조해 같을 때만 허용한다.
+     · 생성 성공      → 비밀번호가 맞다
+     · permission-denied → 틀렸다
+   비밀번호도 해시도 클라이언트로 내려가지 않는다. 네트워크를 뜯어봐도,
+   config 파일을 복사해 스크립트를 돌려도 마찬가지다. 얻을 수 있는 것은
+   "맞다/틀리다" 한 비트뿐이다.
+
+   ── 최초 설정과 초기화 ──────────────────────────────────────────
+   secret/adminPin은 kv/adminAuth가 "없을 때만" 만들 수 있다. 그래서
+     · DB가 비어 있으면(최초 접속) 앱이 최초 비밀번호를 받아 둘을 함께 만든다.
+     · 한 번 설정되면 앱에서는 절대 못 바꾼다(덮어쓰기·삭제 모두 금지).
+     · 초기화는 콘솔에서 kv/adminAuth 문서 하나만 지우면 된다. 그 순간
+       다시 "미설정" 상태가 되어 앱이 새 비밀번호를 받는다.
+
+   ⚠ 알고 쓸 것
+     · 지운 직후~새로 설정하기 전까지는 앱을 먼저 연 사람이 비밀번호를
+       차지한다. 지웠으면 곧바로 본인이 설정할 것.
+     · 온라인 무차별 대입(초당 수십 번 probe를 두드리는 것)은 규칙으로
+       막지 못한다. 콘솔에서 App Check를 켜고, 4자리 숫자 말고 길게 쓸 것.
+     · 회원 명단 읽기는 여전히 막지 못한다. 익명 로그인을 켜 둔 이상
+       규칙으로는 안 된다. 명단 프라이버시가 필요하면 실제 로그인이 필요하다.
 
    ⚠ 이 파일을 고쳐도 그것만으로는 적용되지 않는다. 호스팅 워크플로는
       호스팅만 올린다. 규칙은 따로 배포해야 한다:
@@ -23,12 +49,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 앱이 쓰는 경로는 여기 하나뿐이다. 나머지 경로는 전부 막힌다.
+    function signedIn() { return request.auth != null; }
+
+    function adminAuthPath(club) {
+      return /databases/$(database)/documents/clubs/$(club)/kv/adminAuth;
+    }
+    function adminPinPath(club) {
+      return /databases/$(database)/documents/clubs/$(club)/secret/adminPin;
+    }
+
+    // ── 평범한 앱 데이터 ────────────────────────────────────────────
     match /clubs/{club}/kv/{docId} {
 
       // 앱이 실제로 만드는 문서 이름만 허용한다.
       function knownDoc() {
-        return docId in ['settings', 'members', 'sessions', 'adminLeases']
+        return docId in ['settings', 'members', 'sessions', 'adminLeases',
+                         'adminAuth', 'joinRequests']
             || docId.matches('session:[0-9]{4}-[0-9]{2}-[0-9]{2}');
       }
 
@@ -54,11 +90,53 @@ service cloud.firestore {
                  && resource.data.v.size() > 100);
       }
 
-      allow read:   if request.auth != null && knownDoc();
-      allow create: if request.auth != null && knownDoc() && validShape();
-      allow update: if request.auth != null && knownDoc() && validShape()
-                    && notWipingMembers();
+      /* adminAuth(비밀번호의 salt)는 최초 설정 때 한 번만 만들어진다.
+         앱에서 고치거나 지울 수 없다 — 그래야 남이 salt를 갈아끼워
+         비밀번호를 무력화하는 짓을 못 한다. 초기화는 콘솔에서만. */
+      function adminAuthOk() {
+        return docId != 'adminAuth' || !exists(adminAuthPath(club));
+      }
+
+      allow read:   if signedIn() && knownDoc();
+      allow create: if signedIn() && knownDoc() && validShape() && adminAuthOk();
+      allow update: if signedIn() && knownDoc() && validShape()
+                    && notWipingMembers() && adminAuthOk();
       allow delete: if false;      // 앱은 어떤 문서도 지우지 않는다
+    }
+
+    // ── 비밀번호 해시 — 읽기 금지 ───────────────────────────────────
+    match /clubs/{club}/secret/{docId} {
+      allow read: if false;                    // 예외 없다. 아무도 못 읽는다.
+
+      /* kv/adminAuth가 없을 때(=미설정)만 쓸 수 있다. 설정된 뒤에는
+         만들 수도, 덮어쓸 수도 없다.
+
+         update까지 같은 조건으로 허용하는 것이 중요하다. 초기화는 콘솔에서
+         kv/adminAuth만 지우는 방식인데, 그때 secret/adminPin 문서는 그대로
+         남아 있다. 새 비밀번호를 쓰는 것은 create가 아니라 update다.
+         update를 막아 두면 초기화한 순간 아무도 다시 설정할 수 없게 되어
+         영영 로그인 불가가 된다 — 규칙 테스트가 바로 이걸 잡아냈다. */
+      allow create, update: if signedIn()
+                    && docId == 'adminPin'
+                    && !exists(adminAuthPath(club))
+                    && request.resource.data.keys().hasOnly(['hash'])
+                    && request.resource.data.hash is string
+                    && request.resource.data.hash.size() == 64;   // SHA-256 hex
+      allow delete: if false;
+    }
+
+    // ── 비밀번호 확인용 임시 문서 ───────────────────────────────────
+    // 해시가 맞을 때만 생성이 허용된다. 앱은 이 성공/실패로만 판정한다.
+    // 읽을 수는 없으므로 여기에 쓴 해시가 다시 새어 나가지도 않는다.
+    match /clubs/{club}/probe/{probeId} {
+      allow read: if false;
+      allow create: if signedIn()
+                    && exists(adminPinPath(club))
+                    && request.resource.data.keys().hasOnly(['hash'])
+                    && request.resource.data.hash is string
+                    && request.resource.data.hash == get(adminPinPath(club)).data.hash;
+      allow update: if false;
+      allow delete: if signedIn();   // 확인이 끝나면 앱이 스스로 치운다
     }
   }
 }
