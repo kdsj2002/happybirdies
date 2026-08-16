@@ -117,11 +117,33 @@ const Auth = (() => {
     }catch{}
   }
 
+  /* 하트비트는 화면이 보이는 동안만 돈다.
+
+     예전에는 운영자로 입장한 기기가 밤새 20초마다 Firestore 트랜잭션을
+     돌렸다. 열 시간이면 읽기·쓰기 각각 1,800번이고, 그동안 무선이 계속
+     깨어 있다 — 태블릿 배터리가 밤새 닳던 원인 중 하나다.
+
+     자리를 잃는 것은 오히려 맞는 동작이다. 화면이 꺼진 태블릿은 실제로
+     운영하고 있지 않으므로, 60초(LEASE_TTL)가 지나 다른 사람이 그 자리를
+     가져가는 편이 옳다. 돌아오면 곧바로 한 번 뛰어 자리를 되찾는다.
+     (되찾을 때 정원을 다시 세지는 않는다. 이 앱의 정원은 2명이고 동호회
+      운영자가 그보다 많이 몰릴 일은 사실상 없어서, 복잡도를 늘리지 않았다.) */
+  let beatVisHooked=false;
   function startBeat(){
     stopBeat();
-    beatTimer = setInterval(beat, BEAT_MS);
+    if(document.visibilityState==='visible') beatTimer = setInterval(beat, BEAT_MS);
     window.addEventListener('pagehide', releaseAdmin);
     window.addEventListener('beforeunload', releaseAdmin);
+    if(!beatVisHooked){
+      beatVisHooked=true;
+      document.addEventListener('visibilitychange', ()=>{
+        // 운영자로 들어와 있을 때만 관여한다. 회원·뷰어에는 하트비트가 없다.
+        if(role!=='admin' && role!=='owner') return;
+        if(document.visibilityState==='visible'){
+          if(!beatTimer){ beat(); beatTimer=setInterval(beat, BEAT_MS); }
+        }else if(beatTimer){ clearInterval(beatTimer); beatTimer=null; }
+      });
+    }
   }
   function stopBeat(){ if(beatTimer){ clearInterval(beatTimer); beatTimer=null; } }
 

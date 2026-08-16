@@ -295,5 +295,60 @@ function render(){
   // 출석자가 바뀔 때마다(=render 때마다) 기준을 다시 잰다.
   powerMax = Math.max(1, ...Object.values(S.att).map(powerOf));
   renderTop(); renderCourts(); renderQueues(); renderPool();
+  syncIdle();          // 상태가 바뀌었으니 타이머·화면잠금도 다시 맞춘다
 }
-setInterval(()=>{ if($('#scr-board').classList.contains('on')) tickCourts(); },1000);
+
+/* =====================================================================
+   놀고 있을 때는 아무것도 하지 않는다
+
+   빈 대진판을 띄워 둔 아이패드가 밤새 배터리를 다 썼다. 원인이 셋이었다.
+     1. 화면 꺼짐 방지(wake lock)를 켠 뒤 푸는 코드가 없었다. 경기가 있든
+        없든 앱을 열기만 하면 화면이 영영 안 꺼졌다.
+     2. 1초 타이머가 진행 중인 경기가 하나도 없어도 계속 깨어났다.
+     3. 운영자로 두면 20초마다 Firestore 트랜잭션을 돌았다(auth.js).
+
+   이제 "지금 실제로 필요한가"를 한 곳에서 판단해 셋을 함께 켜고 끈다.
+   판단 기준은 아래 want* 함수 세 개뿐이라, 나중에 조건을 바꿀 때도
+   여기만 보면 된다.
+   ===================================================================== */
+
+/* 화면을 켜 둬야 하는가 — 출석자가 있는 동안만. 세션을 마감하면(출석자 0)
+   태블릿은 알아서 잠들어야 한다. 경기 사이사이 쉬는 시간에도 운영자는
+   화면을 봐야 하므로 "진행 중인 경기"가 아니라 "출석자"를 기준으로 둔다. */
+const wantWake = () => document.visibilityState==='visible'
+                    && Object.keys(S.att).length > 0;
+/* 1초 타이머가 필요한가 — 대진판이 보이고, 시간이 흐르는 코트가 있을 때만.
+   타이머가 하는 일은 경과 시간 숫자와 게이지 색을 바꾸는 것뿐이다. */
+const wantTick = () => document.visibilityState==='visible'
+                    && !!($('#scr-board') && $('#scr-board').classList.contains('on'))
+                    && S.courts.some(c=>c.status==='PLAYING');
+
+let tickTimer=null, wakeSentinel=null;
+
+async function syncWake(){
+  if(!('wakeLock' in navigator)) return;
+  const want = wantWake();
+  try{
+    if(want && !wakeSentinel){
+      wakeSentinel = await navigator.wakeLock.request('screen');
+      /* 브라우저가 스스로 놓는 경우가 있다(탭 전환·기기 잠금). 그때 참조를
+         비워 두지 않으면 다음에 다시 요청하지 못하고, 예전 코드처럼 놓지도
+         않은 잠금이 쌓인다. */
+      wakeSentinel.addEventListener('release', ()=>{ wakeSentinel=null; });
+    }else if(!want && wakeSentinel){
+      const s=wakeSentinel; wakeSentinel=null;
+      await s.release();
+    }
+  }catch{ wakeSentinel=null; }   // 요청 실패는 조용히 넘긴다(기능이 없는 기기 등)
+}
+
+function syncIdle(){
+  const want = wantTick();
+  if(want && !tickTimer)      tickTimer=setInterval(tickCourts,1000);
+  else if(!want && tickTimer){ clearInterval(tickTimer); tickTimer=null; }
+  syncWake();
+}
+
+/* 화면을 벗어나면 곧바로 전부 멈춘다. 돌아오면 다시 맞춘다.
+   구독과 운영자 하트비트도 같은 신호를 쓴다(main.js·auth.js). */
+document.addEventListener('visibilitychange', syncIdle);

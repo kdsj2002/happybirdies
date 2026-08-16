@@ -12,6 +12,8 @@ function show(name){
   if(name==='hist') renderHist();
   if(name==='set') renderSet();
   if(name==='help') renderHelp();
+  // 대진판을 벗어나면 1초 타이머가 필요 없다. 판단은 syncIdle이 한다.
+  syncIdle();
 }
 
 /* ── 도움말 ─────────────────────────────────────────────────────
