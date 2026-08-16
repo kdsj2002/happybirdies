@@ -109,35 +109,21 @@
   /* 승인을 기다리는 기기는 회원 문서를 지켜본다. 운영자가 승인하는 순간
      화면에서 바로 회원으로 바뀐다 — "승인했으니 새로고침하세요"라고
      말해 줄 필요가 없게. 운영자 쪽에서는 새 요청이 오면 버튼에 숫자가 붙는다. */
-  /* ── 실시간 구독은 화면이 보이는 동안만 ────────────────────────
-     구독 셋은 Firestore와 지속 연결을 유지한다. 밤새 켜 둔 태블릿에서는
-     아무도 안 보는 화면을 위해 무선을 계속 깨워 두는 셈이라, 화면을
-     벗어나면 떼고 돌아오면 다시 붙인다.
-
-     떼었다 붙여도 데이터가 새지 않는다 — onSnapshot은 붙는 즉시 현재
-     서버 상태로 한 번 불리므로, 자는 동안 바뀐 것이 그때 따라온다.
-
-     구독을 만드는 함수만 모아 두고 실제 해제 함수는 subs에 담는다. */
-  const subFactories = [
-    () => Store.subscribe(K('members'), remote=>{
-      if(!Array.isArray(remote)) return;
-      S.members = remote;
-      setMembersBaseline(S.members);
-      if(checkJoinApproved()) render();
-    }),
-    () => Store.subscribe(K('joinRequests'), remote=>{
-      S.joinRequests = Array.isArray(remote) ? remote : [];
-      if($('#scr-mem').classList.contains('on')) renderMem(); else renderJoinBtn();
-    })
-  ];
-  let subs = [];
-  function attachSubs(){ if(!subs.length) subs = subFactories.map(f=>f()); }
-  function detachSubs(){ subs.forEach(u=>{ try{ u&&u(); }catch{} }); subs=[]; }
-  attachSubs();
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState==='visible') attachSubs(); else detachSubs();
+  /* 실시간 구독은 화면을 벗어나도 붙여 둔다.
+     떼면 밤새 무선을 덜 깨우지만, 깨어난 직후 서버 스냅샷이 도착하기 전에
+     조작하면 낡은 상태를 덮어쓸 수 있다. 배터리 이득보다 그 위험이 크다고
+     보고 그대로 뒀다(화면잠금·타이머·하트비트를 끈 것으로 충분하다). */
+  const unsubMem = Store.subscribe(K('members'), remote=>{
+    if(!Array.isArray(remote)) return;
+    S.members = remote;
+    setMembersBaseline(S.members);
+    if(checkJoinApproved()) render();
   });
-  window.addEventListener('beforeunload', detachSubs);
+  const unsubJoin = Store.subscribe(K('joinRequests'), remote=>{
+    S.joinRequests = Array.isArray(remote) ? remote : [];
+    if($('#scr-mem').classList.contains('on')) renderMem(); else renderJoinBtn();
+  });
+  window.addEventListener('beforeunload', ()=>{ unsubMem&&unsubMem(); unsubJoin&&unsubJoin(); });
 
   // 브라우저는 첫 사용자 조작 전에는 소리를 못 내게 막는다. 아무 터치에서 깨운다.
   ['pointerdown','keydown'].forEach(ev=>
@@ -153,8 +139,7 @@
      내가 방금 저장한 직후의 에코는 짧은 시간창으로 걸러 깜빡임을 막는다. */
   let lastLocalSave=0;
   window.__markLocalSave = ()=>{ lastLocalSave=now(); };
-  // 이 구독도 위의 붙였다 떼는 목록에 넣는다(화면을 벗어나면 함께 떨어진다).
-  subFactories.push(() => Store.subscribe(K('session:'+S.date), remote=>{
+  const unsub = Store.subscribe(K('session:'+S.date), remote=>{
     const prevPlaying = myPlayingCourt();
     if(now()-lastLocalSave < 1500) return;              // 내가 방금 쓴 것
     if(!remote || JSON.stringify(remote.queues)===JSON.stringify(S.queues) &&
@@ -166,8 +151,8 @@
     const nowPlaying = myPlayingCourt();
     if(nowPlaying && !prevPlaying) announceMyMatch(nowPlaying);
     else toast('다른 기기에서 변경되어 화면을 갱신했습니다');
-  }));
-  detachSubs(); attachSubs();     // 방금 늘어난 목록으로 다시 붙인다
+  });
+  window.addEventListener('beforeunload', ()=>unsub&&unsub());
 
   /* 화면 꺼짐 방지는 ui.js의 syncWake가 맡는다 — 출석자가 있는 동안만 걸고,
      세션이 끝나면 놓는다. 예전에는 여기서 조건 없이 걸고 푸는 코드가 없어,
