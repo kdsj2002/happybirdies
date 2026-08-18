@@ -47,6 +47,14 @@ body{
   font-size:16px;line-height:1.4;
   user-select:none;-webkit-user-select:none;
   overscroll-behavior:none;
+  /* 아이패드에서 더블탭하면 화면이 확대되던 것을 막는다.
+     <meta viewport>의 user-scalable=no 는 iOS 10부터 사파리가 무시한다.
+     touch-action 은 무시하지 않고, 자식에게도 교집합으로 적용되므로
+     여기 한 줄이면 앱 전체에서 더블탭 확대가 사라진다.
+     manipulation 은 스크롤과 두 손가락 확대는 그대로 두고 더블탭 확대만
+     끈다 — 기록·설정 화면을 손가락으로 키워 보는 길은 막지 않는다.
+     더블탭은 이 앱에서 "다음 단계로 보내기"라는 진짜 조작이라 특히 걸린다. */
+  touch-action:manipulation;
 }
 button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .num{font-variant-numeric:tabular-nums;letter-spacing:.02em}

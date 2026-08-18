@@ -36,10 +36,14 @@ function syncPlayingMatches(){
     m.A=[...c.teams.A]; m.B=[...c.teams.B];
     m.An=m.A.map(nameOf); m.Bn=m.B.map(nameOf);
     m.type=c.matchType;
+    /* 진행 중인 코트에 나중에 들어온 사람(교체 투입)은 addTo에서 FILLING으로
+       들어온다. 코트는 이미 PLAYING인데 사람만 FILLING으로 남으면 상태가
+       어긋나므로 여기서 맞춰 준다. */
+    c.members.forEach(id=>{ if(A(id)) A(id).state='PLAYING'; });
   });
 }
-/* 경기 중인 코트에서 사람이 빠지면 그 경기는 성립하지 않는다.
-   아직 안 끝난 기록을 지우고 코트를 채우는 중 상태로 되돌린다.
+/* 경기를 없던 것으로 되돌린다. 팀을 통째로 다른 곳으로 옮겼을 때, 그리고
+   코트에서 마지막 한 명까지 내려와 닫아 줄 사람이 없을 때 쓴다.
    (끝난 경기 기록은 절대 건드리지 않는다.) */
 function abortMatch(c){
   if(c.status!=='PLAYING') return;
@@ -510,11 +514,44 @@ function locate(id){
   for(const q of S.queues) if(q.members.includes(id)) return {kind:'queue',obj:q};
   return {kind:'pool',obj:null};
 }
-function removeFrom(id){
+/* 한 판으로 쳐 주는 최소 시간. 이 아래면 잘못 올렸다 내린 것으로 본다. */
+const MIN_PLAY_MS = 60000;
+
+/* 진행 중인 코트에서 한 명이 내려올 때 게임 수를 매겨 준다.
+
+   예전에는 여기서 abortMatch를 불러 경기를 통째로 없앴다. 그래서 20분을
+   친 코트에서 한 명만 빼도 넷 다 게임 수를 못 받고, 기록에서도 그 경기가
+   사라졌다. 게다가 코트가 FILLING으로 돌아가 다음 사람이 채워지는 순간
+   새 경기가 시작되면서 남은 셋의 시간이 0부터 다시 갔다.
+
+   지금은 이렇게 본다 — 내려온 사람은 그만큼 쳤으니 한 판으로 치고,
+   코트에 남은 사람들의 경기는 계속 돌아간다(그들의 시간도 이어진다).
+   나중에 그 경기가 끝나면 남은 사람들은 endCourt에서 각자 받는다.
+
+   1분을 못 채웠으면 세지 않는다. 자리를 잘못 잡아 올렸다 내리는 일이
+   흔한데 그것까지 한 판으로 세면 게임 수가 금방 엉킨다. */
+function creditLeaver(court, id){
+  if(!court || court.status!=='PLAYING' || !court.startedAt) return false;
+  if(now() - court.startedAt < MIN_PLAY_MS) return false;
+  const a=A(id); if(!a) return false;
+  a.games++; a.lastEnd=now();
+  return true;
+}
+
+/* opts.credit — 진행 중인 코트에서 내려올 때 게임 수를 매길지.
+   기본은 매긴다. 다른 코트로 자리를 옮기는 것(=아직 안 끝났다)만 끈다. */
+function removeFrom(id, opts={}){
   const L=locate(id);
   if(L.kind==='pool') return;
   const o=L.obj;
-  if(L.kind==='court') abortMatch(o);   // 진행 중이었다면 그 경기는 무효
+
+  if(L.kind==='court'){
+    if(opts.credit!==false) creditLeaver(o, id);
+    /* 코트에 아무도 안 남으면 그 경기는 닫을 사람이 없다. 열린 기록을
+       그대로 두면 기록 화면에 끝나지 않은 경기로 영영 남으므로 지운다.
+       (내려온 사람들은 위에서 이미 각자 받았다.) */
+    if(o.members.length<=1) abortMatch(o);
+  }
 
   o.members=o.members.filter(x=>x!==id);
   o.teams.A=o.teams.A.filter(x=>x!==id); o.teams.B=o.teams.B.filter(x=>x!==id);
@@ -578,7 +615,10 @@ function moveTo(id, target){
     if(occ) return swap(id,occ);
     toast('자리가 가득 찼습니다'); return;
   }
-  tx(()=>{ removeFrom(id); addTo(id,target); });
+  /* 대기열·대기 인원으로 내리면 한 판 친 것으로 본다(1분 이상일 때).
+     다른 코트로 옮기는 것은 아직 끝난 게 아니므로 세지 않는다 —
+     "다음 단계로 가면 종료, 옆으로 옮기면 무효"라는 이 앱의 원칙 그대로다. */
+  tx(()=>{ removeFrom(id, { credit: kind!=='court' }); addTo(id,target); });
   Sound.play('move');
 }
 function occupantAt(target){
