@@ -145,6 +145,50 @@ async function bulkOverwriteMembers(nextList, opt={}){
   const cur = r.value || [];
   const d   = diffMembers(cur, next);
 
+  /* ── 크게 줄어드는 교체는 소유자 "계정"이 있어야 한다 ──────────────
+     보안 규칙이 명단을 10% 넘게 줄이는 쓰기를 소유자 계정에게만 허용한다.
+     비밀번호는 규칙이 확인할 수 없어서(모두가 똑같은 익명 계정이다) 여기서
+     통과시켜도 서버가 거부한다.
+
+     그런데 Store.set은 저장 실패를 console.warn으로만 남기고 삼킨다.
+     그대로 두면 "덮어썼습니다"라고 알린 뒤 클라우드에는 아무것도 안 올라가고,
+     이 기기만 다른 명단을 들고 있게 된다 — 조용히 갈라지는 것이 거부당하는
+     것보다 훨씬 나쁘다. 그래서 시작 전에 미리 막는다.
+
+     기준을 규칙(10%)보다 엄격한 8%로 잡은 이유: 규칙은 저장된 문자열
+     길이를, 여기서는 자바스크립트 문자열 길이를 센다. 둘이 미세하게
+     다를 수 있으므로 앱이 조금 더 보수적이어야 "앱은 통과시켰는데 서버가
+     거부"하는 틈이 생기지 않는다. */
+  const curSize = JSON.stringify(cur).length;
+  const bigShrink = curSize > 0 && JSON.stringify(next).length < curSize * 0.92;
+  if(bigShrink && Store.mode==='firebase'){
+    const who = await Account.roleIn(CLUB);
+    if(!who.ok || who.role !== 'owner'){
+      Sound.play('error');
+      const acc = Account.current();
+      openModal(`<h3>소유자 계정이 필요합니다</h3>
+        <div class="sub">${esc(opt.source||'회원 명단 덮어쓰기')}</div>
+        <div class="hint" style="line-height:1.8">
+          회원이 <b style="color:var(--cork)">${d.from}명 → ${d.to}명</b>으로 크게 줄어드는
+          교체입니다. 이런 조작은 서버가 <b>소유자 계정</b>에게만 허용합니다.<br><br>
+          ${!who.ok
+            ? '지금은 역할을 확인하지 못했습니다 — 연결을 확인하고 다시 시도해 주세요.'
+            : acc
+              ? `지금 로그인된 계정(<b>${esc(acc.email||acc.name)}</b>)은 이 동호회의 소유자가 아닙니다.`
+              : '지금은 계정으로 로그인되어 있지 않습니다. 상단 <b>입장하기</b> → 소유자 → '
+                + '<b>계정으로 로그인</b>으로 들어온 뒤 다시 시도해 주세요.'}
+          <br><br>
+          <b style="color:var(--text)">소유자 비밀번호만으로는 되지 않습니다.</b>
+          비밀번호는 앱 안에서만 확인되고, 서버는 그것을 볼 수 없기 때문입니다.
+        </div>
+        <div class="row end">
+          <button class="btn" id="bulkBackup">백업 내려받기</button>
+          <button class="btn primary" onclick="closeModal()">확인</button></div>`);
+      const b=$('#bulkBackup'); if(b) b.onclick=()=>exportBackup();
+      return;
+    }
+  }
+
   // 2) 결과 명기
   const names = arr => arr.slice(0,8).map(m=>esc(m.name)).join(', ')
                      + (arr.length>8 ? ` 외 ${arr.length-8}명` : '');

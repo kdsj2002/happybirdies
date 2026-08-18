@@ -109,6 +109,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /* 지금 요청한 사람의 역할. exists()·get()은 문서 읽기 한 번씩을 쓰므로
+       꼭 필요한 자리에서만 부른다(아래 membersShrinkOk가 &&로 단락평가되어,
+       평범한 쓰기에서는 아예 호출되지 않는다). */
+    function roleDoc(club) {
+      return /databases/$(database)/documents/clubs/$(club)/roles/$(request.auth.uid);
+    }
+    function isOwner(club) {
+      return request.auth != null
+          && exists(roleDoc(club))
+          && get(roleDoc(club)).data.role == 'owner';
+    }
+
     /* ── 전체 동호회 정원 ───────────────────────────────────────────
        캡차가 준비되기 전까지는 "전체 몇 개까지"가 남용 방지 장치다.
          registry/clubs = { count, limit }
@@ -152,6 +164,31 @@ service cloud.firestore {
                  && resource.data.v.size() > 100);
       }
 
+      /* ── 명단이 줄어드는 쓰기는 소유자 계정만 ──────────────────────
+         지금까지 이 앱에서 가장 파괴적인 조작(명단 통째 교체)은 소유자
+         비밀번호로 막았다. 그런데 그 잠금은 앱 안에서만 유효했다 —
+         규칙 입장에서는 모두가 똑같은 익명 계정이라, 앱을 거치지 않고
+         Firestore를 직접 두드리면 비밀번호를 몰라도 그냥 통과했다.
+         이제 소유자는 실제 계정이므로 규칙이 진짜로 구분할 수 있다.
+
+         "줄어드는 쓰기"로 판정하는 이유: 규칙은 JSON 문자열 하나만 볼 수
+         있어서 "통째 교체"인지 "한 명 수정"인지 구분할 방법이 없다. 대신
+         결과가 파괴적인지는 크기로 알 수 있다. 10% 넘게 줄어드는 쓰기가
+         곧 사람이 사라지는 쓰기다.
+
+         평범한 조작은 걸리지 않는다 — 회원 50명(약 4,000자)에서 한 명을
+         지우면 98%라 통과하고, 여섯 명을 하나씩 지우면 저장이 여섯 번
+         나뉘어 각각 98%씩이라 역시 통과한다. 한 번의 쓰기로 10% 넘게
+         날아가는 경우, 즉 복원·CSV 교체·스크립트만 걸린다.
+
+         출석 체크인은 lastSeen만 바꾸므로 크기가 거의 그대로다. 회원 본인이
+         출석하는 길을 막지 않는 것이 이 방식을 고른 이유이기도 하다. */
+      function membersShrinkOk() {
+        return docId != 'members'
+            || request.resource.data.v.size() >= resource.data.v.size() * 9 / 10
+            || isOwner(club);
+      }
+
       /* salt 문서(adminAuth·ownerAuth)는 최초 설정 때 한 번만 만들어진다.
          앱에서 고치거나 지울 수 없다 — 그래야 남이 salt를 갈아끼워
          비밀번호를 무력화하는 짓을 못 한다. 초기화는 콘솔에서만. */
@@ -164,7 +201,7 @@ service cloud.firestore {
       allow create: if signedIn() && registered(club) && knownDoc()
                     && validShape() && saltDocOk();
       allow update: if signedIn() && registered(club) && knownDoc() && validShape()
-                    && notWipingMembers() && saltDocOk();
+                    && notWipingMembers() && membersShrinkOk() && saltDocOk();
       allow delete: if false;      // 앱은 어떤 문서도 지우지 않는다
     }
 
