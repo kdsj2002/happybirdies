@@ -233,7 +233,11 @@ const Gate = (() => {
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
           <button class="btn primary" id="gOk" style="flex:2">입장</button>
         </div>
+        <div class="hint" style="margin-top:14px;text-align:center">
+          <a href="#" id="gAcct">계정으로 로그인 →</a>
+        </div>
       </div>`);
+    $('#gAcct').onclick=(e)=>{ e.preventDefault(); Sound.play('tap'); screenAccount(); };
     const inp=$('#gPin'); setTimeout(()=>inp&&inp.focus(),60);
     const go=async()=>{
       if($('#gOk').disabled) return;
@@ -254,6 +258,90 @@ const Gate = (() => {
     };
     $('#gOk').onclick=go;
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+    $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
+  }
+
+  /* ── 계정으로 입장 (소유자·운영자) ──────────────────────────────
+     비밀번호가 아니라 실제 계정으로 들어온다. 역할은 서버의 roles 문서가
+     정하므로, 어느 버튼으로 왔든 서버가 준 역할을 그대로 쓴다.
+
+     비밀번호 경로를 없애지 않고 나란히 둔 이유는 account.js 머리말에 적었다 —
+     roles 문서가 아직 없는 동호회의 운영자가 잠기면 안 된다. */
+  async function screenAccount(){
+    // 이미 로그인돼 있으면 비밀번호를 다시 묻지 않는다.
+    if(Account.current()) return accountEnter();
+
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">계정으로 로그인</div>
+        <div class="gate-sub">이 동호회의 소유자·운영자로 등록된 계정만 들어올 수 있습니다.
+          회원·게스트는 계정이 필요 없습니다.</div>
+        <label class="fl">이메일
+          <input type="email" id="aEm" autocomplete="username" autocapitalize="off"
+                 autocorrect="off" spellcheck="false"></label>
+        <label class="fl" style="margin-top:10px">비밀번호
+          <input type="password" id="aPw" autocomplete="current-password"></label>
+        <div id="gErr" class="gate-err"></div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gBack" style="flex:1">뒤로</button>
+          <button class="btn primary" id="aOk" style="flex:2">로그인</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="aGoogle" style="width:100%">Google 계정으로 로그인</button>
+        </div>
+      </div>`);
+    setTimeout(()=>{ const f=$('#aEm'); f&&f.focus(); },60);
+
+    const run = async (fn, btn) => {
+      const b=$(btn); if(b.disabled) return;
+      b.disabled=true; $('#gErr').textContent='로그인 중...';
+      const r=await fn();
+      b.disabled=false;
+      if(!r.ok){ Sound.play('error'); $('#gErr').textContent=r.error; return; }
+      accountEnter();
+    };
+    $('#aOk').onclick=()=>run(()=>Account.signInEmail($('#aEm').value,$('#aPw').value),'#aOk');
+    $('#aGoogle').onclick=()=>run(()=>Account.signInGoogle(),'#aGoogle');
+    $('#aPw').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#aOk').click(); });
+    $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
+  }
+
+  /* 로그인은 됐다. 이 동호회에서 무슨 역할인지 서버에 묻고 들여보낸다. */
+  async function accountEnter(){
+    const acc=Account.current();
+    open(`<div class="gate-card"><div class="gate-title">확인 중</div>
+      <div class="gate-sub">${esc(acc?acc.email||acc.name:'')}</div></div>`);
+    const res=await Auth.loginWithAccount();
+    if(res.ok){
+      Sound.play('confirm'); close(); enter();
+      toast(`${Auth.roleLabel()}로 입장했습니다`);
+      if(res.offline) toast('클라우드 미연결 — 동시 접속 제한은 적용되지 않습니다');
+      return;
+    }
+    Sound.play('error');
+    /* 권한이 없는 것과 확인을 못 한 것을 구분해 말한다. 뭉뚱그리면
+       와이파이가 나쁜 날 멀쩡한 운영자가 자기 계정을 의심하게 된다. */
+    const msg = res.reason==='norole'
+        ? `이 계정(${esc(acc?acc.email:'')})은 이 동호회의 운영자로 등록되어 있지 않습니다.
+           소유자에게 등록을 요청하세요.`
+      : res.reason==='offline'
+        ? '역할을 확인하지 못했습니다 — 연결을 확인하고 다시 시도해 주세요'
+      : res.reason==='full'
+        ? '운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.'
+        : '입장하지 못했습니다';
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">입장할 수 없습니다</div>
+        <div class="gate-sub">${msg}</div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gOut" style="flex:1">로그아웃</button>
+          <button class="btn primary" id="gRetry" style="flex:2">다시 시도</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="gBack" style="width:100%">처음으로</button></div>
+      </div>`);
+    $('#gRetry').onclick=()=>{ Sound.play('tap'); accountEnter(); };
+    $('#gOut').onclick=async()=>{ Sound.play('tap'); await Account.signOut(); screenAccount(); };
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
   }
 

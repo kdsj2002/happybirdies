@@ -75,7 +75,11 @@ async function boot(){
     const V='10.14.1';
     const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
     const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-    const { getAuth, signInAnonymously, onAuthStateChanged } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
+    /* 인증 모듈은 통째로 들고 간다. 익명 로그인 말고도 소유자·운영자가
+       실제 계정으로 들어오는 길이 생겨서(js/account.js), 거기서
+       signInWithEmailAndPassword·GoogleAuthProvider 등이 필요하다. */
+    const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
+    const { getAuth, signInAnonymously, onAuthStateChanged } = A;
 
     const app = initializeApp(cfg);
     let db;
@@ -102,7 +106,8 @@ async function boot(){
     }
     const authError = authErr ? String(authErr.code || authErr.message || authErr) : null;
 
-    window.__fb = { ready:true, authFailed, authError, app, db, auth, source, ...F };
+    // authFns는 따로 담는다. ...F(Firestore)와 이름이 섞이지 않게.
+    window.__fb = { ready:true, authFailed, authError, app, db, auth, authFns:A, source, ...F };
     window.dispatchEvent(new CustomEvent('fb-ready',{detail:{ready:true, authFailed, source}}));
   }catch(err){
     console.warn('Firebase 초기화 실패, 로컬 저장소로 폴백', err);

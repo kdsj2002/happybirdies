@@ -195,6 +195,28 @@ const Auth = (() => {
     },
     async loginAdmin(pin){ return this.loginAs('admin', pin); },
     async loginOwner(pin){ return this.loginAs('owner', pin); },
+
+    /* ── 실제 계정으로 입장 ──────────────────────────────────────
+       비밀번호가 아니라 로그인된 계정의 역할 문서가 판단한다. 어느 버튼으로
+       들어왔든 서버가 정한 역할을 그대로 쓴다 — 소유자가 "운영자"를 눌렀다고
+       권한을 깎을 이유가 없고, 반대는 애초에 서버가 허락하지 않는다.
+
+       reason:
+         noaccount 로그인된 계정이 없다
+         norole    이 동호회에 등록되지 않은 계정이다
+         offline   역할을 확인하지 못했다(통신). 권한 없음과 구분한다.
+         full      운영자 자리가 찼다 */
+    async loginWithAccount(){
+      if(!Account.current()) return { ok:false, reason:'noaccount' };
+      const r = await Account.roleIn(CLUB);
+      if(!r.ok)   return { ok:false, reason:'offline' };
+      if(!r.role) return { ok:false, reason:'norole' };
+      const res = await claimAdmin();
+      if(!res.ok) return { ok:false, reason:'full' };
+      role = r.role; memberId = null;
+      ls.set(ROLE_KEY, role); startBeat();
+      return { ok:true, role:r.role, offline:res.offline };
+    },
     loginMember(id){
       role='member'; memberId=id;
       ls.set(ROLE_KEY,'member'); ls.set(MEMBER_KEY,id);
@@ -205,6 +227,9 @@ const Auth = (() => {
     },
     async logout(){
       if(role==='admin' || role==='owner'){ stopBeat(); await releaseAdmin(); }
+      /* 계정으로 들어왔다면 계정도 함께 나간다. 안 그러면 "다시 입장하기"를
+         눌러도 계정이 살아 있어서 아무나 그 자리에서 운영자로 되돌아간다. */
+      if(typeof Account!=='undefined' && Account.current()) await Account.signOut();
       role='viewer'; memberId=null;
       ls.del(ROLE_KEY); ls.del(MEMBER_KEY);
     },
