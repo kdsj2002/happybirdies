@@ -145,9 +145,9 @@ const Gate = (() => {
         <div class="gate-title">${esc(S.settings.clubName || '대진판')}</div>
         <div class="gate-sub">어떻게 입장하시겠어요?</div>
         <button class="gate-btn" data-go="owner">
-          <b>소유자</b><span>이 동호회의 주인입니다 · 소유자 비밀번호 필요</span></button>
+          <b>소유자</b><span>이 동호회의 주인입니다 · 계정으로 로그인</span></button>
         <button class="gate-btn" data-go="admin">
-          <b>운영자</b><span>대진 배정과 설정을 관리합니다 · 관리 비밀번호 필요</span></button>
+          <b>운영자</b><span>대진 배정과 설정을 관리합니다 · 운영자 비밀번호 필요</span></button>
         <button class="gate-btn" data-go="member">
           <b>회원</b><span>내 경기 알림을 받습니다 · 코트 수동 배정은 제한됩니다</span></button>
         <button class="gate-btn" data-go="guest">
@@ -157,32 +157,23 @@ const Gate = (() => {
       Sound.unlock(); Sound.play('tap');
       const g=b.dataset.go;
       if(g==='admin') screenAdmin();
-      else if(g==='owner') screenAdmin('owner');
+      else if(g==='owner') screenAccount();   // 소유자는 계정으로만 들어온다
       else if(g==='member') screenMember();
       else screenGuest();
     });
   }
 
-  /* 운영자 입장. 비밀번호가 아직 없으면(새 DB·초기화 직후) 설정 화면으로
-     넘긴다. 그 판정은 서버가 한다 — 오프라인 캐시가 "없다"고 답한 것은
-     믿지 않는다(Secret.state가 'unknown'을 돌려준다). */
-  /* kind: 'admin' | 'owner'. 저장 구조도 화면도 같고 어느 비밀번호를 쓰느냐만
-     다르다. 소유자 비밀번호를 따로 두는 것이 이 역할 구분의 전부다 — 같은
-     비밀번호를 쓰면 화면만 다르고 권한은 같아서, 구분하는 척이 된다. */
-  const ROLE_TITLE = { admin:'운영자', owner:'소유자' };
-
-  /* 비밀번호 시도 제한은 Secret이 센다(비밀번호를 묻는 곳이 세 군데라
+  /* 비밀번호 시도 제한은 Secret이 센다(비밀번호를 묻는 곳이 두 군데라
      화면마다 세면 한 군데가 우회로가 된다). 여기서는 잠긴 동안 남은 시간을
      보여 주기만 한다. 무엇을 막고 못 막는지는 secret.js에 적어 뒀다. */
-  function screenPinLocked(kind){
-    const label = ROLE_TITLE[kind];
+  function screenPinLocked(){
     open(`
       <div class="gate-card">
         <div class="gate-title">잠시 후 다시 시도해 주세요</div>
-        <div class="gate-sub">${label} 비밀번호를 ${Secret.MAX_TRY}번 틀렸습니다.</div>
+        <div class="gate-sub">운영자 비밀번호를 ${Secret.MAX_TRY}번 틀렸습니다.</div>
         <div class="gate-mask" id="pinLeft">—</div>
         <div class="hint" style="text-align:center;line-height:1.7">
-          이 기기에서 ${label} 입장이 잠겼습니다.<br>
+          이 기기에서 운영자 입장이 잠겼습니다.<br>
           비밀번호를 잊으셨다면 소유자에게 문의하세요.</div>
         <div class="row" style="margin-top:14px">
           <button class="btn" id="gBack" style="width:100%">뒤로</button></div>
@@ -190,8 +181,8 @@ const Gate = (() => {
     const tick=()=>{
       const e=$('#pinLeft');
       if(!e){ clearInterval(t); return; }            // 다른 화면으로 넘어갔다
-      const ms=Secret.lockLeft(kind);
-      if(ms<=0){ clearInterval(t); screenAdmin(kind); return; }
+      const ms=Secret.lockLeft();
+      if(ms<=0){ clearInterval(t); screenAdmin(); return; }
       const t2=Math.ceil(ms/1000);
       e.textContent=`${Math.floor(t2/60)}:${String(t2%60).padStart(2,'0')}`;
     };
@@ -199,51 +190,75 @@ const Gate = (() => {
     $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(t); screenHome(); };
   }
 
-  async function screenAdmin(kind='admin'){
-    const label = ROLE_TITLE[kind];
-    if(Secret.lockLeft(kind) > 0) return screenPinLocked(kind);
-    open(`<div class="gate-card"><div class="gate-title">${label} 입장</div>
+  /* ── 운영자 입장 ────────────────────────────────────────────────
+     아이디는 동호회 이름으로 고정이라 입력받지 않고 보여 주기만 한다.
+     동호회마다 비밀번호가 따로이므로 아이디가 실제로 고르는 값이 아니다 —
+     칸을 만들어 두면 뭘 넣어야 하나 망설이게만 한다.
+
+     비밀번호는 소유자가 정한다(설정 → 운영자 비밀번호). 예전에는 "비어
+     있으면 먼저 여는 사람이 임자"였는데, 그건 새로 배포한 날 지나가던
+     사람이 운영자 자리를 차지할 수 있다는 뜻이었다. 이제 아직 정해지지
+     않았으면 소유자에게 요청하라고 안내하고 끝낸다. */
+  async function screenAdmin(){
+    if(Secret.lockLeft() > 0) return screenPinLocked();
+    open(`<div class="gate-card"><div class="gate-title">운영자 입장</div>
       <div class="gate-sub">확인 중...</div></div>`);
-    const st = await Secret.state(kind);
-    if(st==='unset') return screenSetPin(kind);
+    const st = await Secret.state();
+
+    if(st==='unset'){
+      open(`<div class="gate-card">
+        <div class="gate-title">아직 비밀번호가 없습니다</div>
+        <div class="gate-sub">이 동호회의 운영자 비밀번호가 아직 정해지지 않았습니다.
+          소유자가 <b>설정 → 운영자 비밀번호</b>에서 정해 주면 그 비밀번호로 들어올 수 있습니다.</div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gBack" style="flex:1">뒤로</button>
+          <button class="btn primary" id="gAcct" style="flex:2">소유자 계정으로 로그인</button>
+        </div></div>`);
+      $('#gAcct').onclick=()=>{ Sound.play('tap'); screenAccount(); };
+      $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
+      return;
+    }
     if(st==='unknown'){
       open(`<div class="gate-card">
         <div class="gate-title">연결을 확인해 주세요</div>
-        <div class="gate-sub">${label} 확인은 클라우드에 물어봅니다. 지금은 연결되지 않아
-          비밀번호를 확인할 수 없습니다. 이미 이 기기로 운영자 입장을 한 적이 있다면
+        <div class="gate-sub">비밀번호 확인은 클라우드에 물어봅니다. 지금은 연결되지 않아
+          확인할 수 없습니다. 이미 이 기기로 운영자 입장을 한 적이 있다면
           그대로 유지되니, 연결이 돌아온 뒤 다시 시도하세요.</div>
         <div class="row" style="gap:8px;margin-top:14px">
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
           <button class="btn primary" id="gRetry" style="flex:2">다시 확인</button></div></div>`);
       $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
-      $('#gRetry').onclick=()=>{ Sound.play('tap'); screenAdmin(kind); };
+      $('#gRetry').onclick=()=>{ Sound.play('tap'); screenAdmin(); };
       return;
     }
+
     open(`
       <div class="gate-card">
-        <div class="gate-title">${label} 입장</div>
-        <div class="gate-sub">${kind==='owner'?'소유자':'관리'} 비밀번호를 입력하세요.
-          운영자 자리는 동시 2명까지입니다.</div>
-        <input type="password" id="gPin" maxlength="64" autocomplete="off"
-               style="width:100%;height:56px;font-size:22px;text-align:center">
+        <div class="gate-title">운영자 입장</div>
+        <div class="gate-sub">운영자 자리는 동시 2명까지입니다.</div>
+        <label class="fl">아이디
+          <input type="text" id="gId" value="${esc(CLUB)}" readonly
+                 style="background:var(--line-soft);color:var(--muted)"></label>
+        <label class="fl" style="margin-top:10px">비밀번호
+          <input type="password" id="gPin" maxlength="64" autocomplete="current-password"></label>
         <div id="gErr" class="gate-err"></div>
-        <div class="gate-tries">남은 시도 <b id="pinTries">${Secret.triesLeft(kind)}</b>번 ·
+        <div class="gate-tries">남은 시도 <b id="pinTries">${Secret.triesLeft()}</b>번 ·
           ${Secret.MAX_TRY}번 틀리면 이 기기에서 잠깁니다</div>
         <div class="row" style="gap:8px;margin-top:14px">
           <button class="btn" id="gBack" style="flex:1">뒤로</button>
           <button class="btn primary" id="gOk" style="flex:2">입장</button>
         </div>
         <div class="hint" style="margin-top:14px;text-align:center">
-          <a href="#" id="gAcct">계정으로 로그인 →</a>
+          <a href="#" id="gAcct">소유자 계정으로 로그인 →</a>
         </div>
       </div>`);
     $('#gAcct').onclick=(e)=>{ e.preventDefault(); Sound.play('tap'); screenAccount(); };
     const inp=$('#gPin'); setTimeout(()=>inp&&inp.focus(),60);
     const go=async()=>{
       if($('#gOk').disabled) return;
-      if(Secret.lockLeft(kind) > 0) return screenPinLocked(kind);
+      if(Secret.lockLeft() > 0) return screenPinLocked();
       $('#gOk').disabled=true; $('#gErr').textContent='확인 중...';
-      const res=await Auth.loginAs(kind, inp.value);
+      const res=await Auth.loginAdmin(inp.value);
       $('#gOk').disabled=false;
       if(res.ok){
         Sound.play('confirm'); close(); enter();
@@ -251,8 +266,8 @@ const Gate = (() => {
         return;
       }
       Sound.play('error');
-      if(res.reason === 'locked') return screenPinLocked(kind);
-      const t=$('#pinTries'); if(t) t.textContent = Secret.triesLeft(kind);
+      if(res.reason === 'locked') return screenPinLocked();
+      const t=$('#pinTries'); if(t) t.textContent = Secret.triesLeft();
       $('#gErr').textContent = ADMIN_ERR[res.reason] || '확인하지 못했습니다';
       inp.value=''; inp.focus();
     };
@@ -345,75 +360,12 @@ const Gate = (() => {
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
   }
 
-  /* ── 최초 운영자 비밀번호 설정 ──────────────────────────────────
-     DB가 비어 있거나(첫 배포) 콘솔에서 kv/adminAuth를 지운 직후에 뜬다.
+  /* 최초 운영자 비밀번호 설정 화면은 없앴다.
+     예전에는 kv/adminAuth가 비어 있으면 여기서 아무나 비밀번호를 정할 수
+     있었다 — 새로 배포한 날 지나가던 사람이 운영자 자리를 차지할 수
+     있다는 뜻이었다. 지금은 소유자가 설정 화면에서 정한다(screens.js).
+     소유자는 계정으로만 들어오므로 서버가 그 자격을 확인할 수 있다. */
 
-     이 화면이 떠 있는 동안은 먼저 여는 사람이 임자다. 그래서 예전
-     설정에 평문 PIN이 남아 있으면 그것부터 확인한다 — 새로 배포한
-     날 지나가던 사람이 운영자 자리를 차지하는 것을 막는 잠금이다.
-     (평문 PIN은 어차피 공개돼 있던 값이라 강한 잠금은 아니다.
-      그래서 설정을 마치는 즉시 settings에서 지운다.) */
-  function screenSetPin(kind='admin'){
-    const label = ROLE_TITLE[kind];
-    // 옛 평문 PIN 확인은 운영자 비밀번호를 처음 정할 때만 의미가 있다.
-    const legacy = (kind==='admin' && S.settings && S.settings.adminPin)
-                     ? String(S.settings.adminPin) : null;
-    open(`
-      <div class="gate-card wide">
-        <div class="gate-title">최초 ${label} 비밀번호 설정</div>
-        <div class="gate-sub">이 동호회에는 아직 ${label} 비밀번호가 없습니다.
-          지금 정하면 클라우드에 <b>되돌릴 수 없는 형태로만</b> 저장됩니다 —
-          앱도, 콘솔도, 누구도 원래 값을 다시 볼 수 없습니다.</div>
-        ${legacy?`<label class="fl">기존 비밀번호(확인용)
-          <input type="password" id="pOld" autocomplete="off"></label>
-          <div class="hint" style="margin:6px 0 12px">지금까지 쓰던 관리 비밀번호를 넣어 주세요.
-            엉뚱한 사람이 운영자 자리를 가져가는 것을 막기 위한 확인입니다.</div>`:''}
-        <label class="fl">새 비밀번호<input type="password" id="pNew" autocomplete="new-password"></label>
-        <label class="fl" style="margin-top:10px">한 번 더<input type="password" id="pNew2" autocomplete="new-password"></label>
-        <div class="hint" style="margin-top:10px;line-height:1.7">
-          네 자리 숫자는 쉽게 뚫립니다. <b>8자 이상</b>으로 정하고 어딘가에 적어 두세요.
-          잊어버리면 Firebase 콘솔에서
-          <span class="doc-k">clubs/${esc(CLUB)}/kv/${kind==='owner'?'ownerAuth':'adminAuth'}</span>
-          문서를 지워야 다시 정할 수 있습니다.
-          ${kind==='owner'?'<br><b>소유자 비밀번호는 운영자 비밀번호와 달라야 의미가 있습니다.</b> 대진을 돌리는 사람과 나눠 쓰지 마세요.':''}
-        </div>
-        <div id="gErr" class="gate-err"></div>
-        <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="pOk" style="flex:2">설정하고 입장</button>
-        </div>
-      </div>`);
-    setTimeout(()=>{ const f=$(legacy?'#pOld':'#pNew'); f&&f.focus(); },60);
-    $('#pOk').onclick=async()=>{
-      const err=$('#gErr');
-      if(legacy && $('#pOld').value !== legacy){
-        Sound.play('error'); return err.textContent='기존 비밀번호가 맞지 않습니다';
-      }
-      const a=$('#pNew').value, b=$('#pNew2').value;
-      if(a.length<8){ Sound.play('error'); return err.textContent='8자 이상으로 정해 주세요'; }
-      if(a!==b){ Sound.play('error'); return err.textContent='두 번 입력한 값이 다릅니다'; }
-      $('#pOk').disabled=true; err.textContent='설정 중...';
-      const r=await Secret.bootstrap(a, kind);
-      $('#pOk').disabled=false;
-      if(!r.ok){
-        Sound.play('error');
-        err.textContent = r.reason==='taken'
-          ? '방금 다른 기기에서 먼저 설정했습니다. 뒤로 가서 그 비밀번호로 입장하세요.'
-          : '설정하지 못했습니다 — 클라우드 연결과 보안 규칙 배포를 확인해 주세요';
-        return;
-      }
-      /* 평문 PIN은 더 이상 쓰지 않는다. 남겨 두면 공개된 settings 문서에
-         계속 실려 다니므로 여기서 지우고 저장한다. */
-      if(kind==='admin' && S.settings && S.settings.adminPin!=null){
-        delete S.settings.adminPin; settingsTrusted = true; save();
-      }
-      const res = await Auth.loginAs(kind, a);
-      Sound.play('confirm');
-      if(res.ok){ close(); enter(); toast(`${label} 비밀번호를 설정했습니다`); }
-      else { screenAdmin(kind); }
-    };
-    $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
-  }
 
   function screenMember(){
     if(lockLeftMs() > 0) return screenLocked();

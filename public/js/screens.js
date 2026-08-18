@@ -456,16 +456,16 @@ function renderSet(){
         <button class="btn sm" id="s_reload">지금 다시 불러오기</button>
         <div class="hint" style="margin-top:6px">화면의 회원·기록이 비어 보이면 저장하지 말고 이 버튼을 먼저 누르세요.
           클라우드(Firestore)에 있는 원본을 그대로 다시 읽어 옵니다.</div></div>
-      <div class="k">소유자 비밀번호</div><div>
-        <b id="ownerState" style="color:var(--muted)">확인 중...</b>
-        <div class="hint" style="margin-top:6px">소유자는 운영자가 하는 것을 전부 할 수 있고,
-          거기에 <b>회원 명단을 통째로 바꾸는 조작</b>이 더해집니다.
-          비밀번호가 운영자와 <b>달라야</b> 역할이 실제로 나뉩니다 — 같은 값을 쓰면
-          화면만 다르고 권한은 같습니다.<br>
-          아직 정하지 않았다면 설정 → 다시 입장하기 → <b>소유자</b>에서 정할 수 있습니다.</div></div>
+      <div class="k">운영자 비밀번호</div><div>
+        <b id="adminPwState" style="color:var(--muted)">확인 중...</b>
+        <div id="adminPwBox" style="margin-top:8px"></div>
+        <div class="hint" style="margin-top:6px">운영자는 아이디 <span class="doc-k">${esc(CLUB)}</span>와
+          이 비밀번호로 들어옵니다. <b>정하는 사람은 소유자입니다.</b><br>
+          운영자가 바뀌거나 비밀번호가 샜다고 생각되면 여기서 새로 정하세요 —
+          정하는 즉시 옛 비밀번호는 통하지 않습니다. 콘솔을 열 필요가 없습니다.</div></div>
       <div class="k">회원 명단 보호</div><div>
         <div class="hint">회원 명단을 통째로 바꾸는 조작(백업 복원 · CSV 일괄등록 · 클라우드에서 다시 불러오기)은
-          <b>소유자 비밀번호</b>를 받고 진행합니다. 확인 창에서 누가 사라지고 누가 생기는지,
+          <b>소유자 계정</b>으로 로그인해야 합니다. 확인 창에서 누가 사라지고 누가 생기는지,
           그 결과가 무엇인지 먼저 보여 줍니다.<br>
           비밀번호를 거치지 않은 채 회원이 사라지는 저장(명단을 못 불러와 화면이 빈 경우 등)은
           자동으로 차단되고 화면 위에 붉은 띠가 뜹니다. 그때는 아무것도 만지지 말고 새로고침하세요.<br>
@@ -559,14 +559,52 @@ function renderSet(){
     localStorage.removeItem(window.__fbConfigKey); setTimeout(()=>location.reload(),300);
   });
   $('#fb_recheck')?.addEventListener('click',()=>{ toast('다시 확인합니다...'); setTimeout(()=>location.reload(),300); });
-  /* 소유자 비밀번호가 정해져 있는지 보여 준다. 화면을 그린 뒤 비동기로 채운다. */
+  /* ── 운영자 비밀번호 — 소유자만 정할 수 있다 ────────────────────
+     화면을 그린 뒤 비동기로 채운다. 소유자가 아니면 상태만 보여 주고
+     입력칸은 내지 않는다. 내 봐야 서버가 거절하므로, 누를 수 있는 버튼을
+     보여 주고 실패시키는 것보다 아예 안 보여 주는 편이 정직하다. */
   (async()=>{
-    const el=$('#ownerState'); if(!el) return;
-    const st=await Secret.state('owner');
+    const el=$('#adminPwState'), box=$('#adminPwBox');
+    if(!el) return;
+    const st=await Secret.state();
     if(st==='set'){ el.textContent='설정됨'; el.style.color='var(--court)'; }
-    else if(st==='unset'){ el.textContent='아직 없음 — 관리 비밀번호로 대신 확인합니다';
+    else if(st==='unset'){ el.textContent='아직 없음 — 운영자가 들어올 수 없습니다';
                            el.style.color='var(--cork)'; }
-    else { el.textContent='확인하지 못했습니다(연결 확인)'; }
+    else { el.textContent='확인하지 못했습니다(연결 확인)'; return; }
+
+    if(!Auth.isOwner){
+      if(box) box.innerHTML='<div class="hint">바꾸려면 <b>소유자 계정</b>으로 로그인해야 합니다.</div>';
+      return;
+    }
+    box.innerHTML=`
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input type="password" id="s_apw"  placeholder="새 비밀번호(8자 이상)"
+               autocomplete="new-password" style="width:210px">
+        <input type="password" id="s_apw2" placeholder="한 번 더"
+               autocomplete="new-password" style="width:150px">
+        <button class="btn sm primary" id="s_apwSet">${st==='set'?'바꾸기':'설정'}</button>
+      </div>
+      <div id="s_apwErr" class="hint" style="margin-top:6px;color:var(--cork);min-height:18px"></div>`;
+    $('#s_apwSet').onclick=async()=>{
+      const err=$('#s_apwErr'), a=$('#s_apw').value, b=$('#s_apw2').value;
+      if(a.length<8){ Sound.play('error'); return err.textContent='8자 이상으로 정해 주세요'; }
+      if(a!==b){ Sound.play('error'); return err.textContent='두 번 입력한 값이 다릅니다'; }
+      const btn=$('#s_apwSet'); btn.disabled=true; err.textContent='설정 중...';
+      const r=await Secret.setAdminPassword(a);
+      btn.disabled=false;
+      if(!r.ok){
+        Sound.play('error');
+        err.textContent = r.reason==='denied'
+          ? '서버가 거절했습니다 — 소유자 계정으로 로그인했는지, 보안 규칙이 배포됐는지 확인해 주세요'
+          : '설정하지 못했습니다 — 연결을 확인해 주세요';
+        return;
+      }
+      Sound.play('confirm');
+      $('#s_apw').value=''; $('#s_apw2').value='';
+      err.style.color='var(--court)'; err.textContent='새 비밀번호가 적용됐습니다';
+      el.textContent='설정됨'; el.style.color='var(--court)';
+      toast('운영자 비밀번호를 설정했습니다');
+    };
   })();
   $('#s_pol').onchange=renderSetHint;
   function renderSetHint(){ $('#s_pol').parentElement.querySelector('.hint').textContent=POLICY.find(p=>p[0]===$('#s_pol').value)[2]; }

@@ -172,6 +172,15 @@ const Auth = (() => {
         ls.del(ROLE_KEY); ls.del(MEMBER_KEY); return false;
       }
       if(r === 'admin' || r === 'owner'){
+        /* 소유자는 계정으로만 된다. 이 기기에 'owner'가 저장돼 있어도
+           계정이 실제로 소유자인지 서버에 다시 물어본다 — 안 그러면
+           localStorage를 손댄 것만으로 소유자 화면이 열린다.
+           확인을 못 했으면(오프라인) 저장된 역할을 그대로 둔다. 실제
+           파괴적인 조작은 어차피 규칙이 서버에서 막는다. */
+        if(r === 'owner'){
+          const who = await Account.roleIn(CLUB);
+          if(who.ok && who.role !== 'owner'){ ls.del(ROLE_KEY); return false; }
+        }
         const res = await claimAdmin();
         if(res.ok){ role=r; startBeat(); return true; }
         ls.del(ROLE_KEY); return false;      // 정원이 찼으면 다시 고르게 한다
@@ -184,17 +193,20 @@ const Auth = (() => {
        앱 어디에도 비밀번호나 그 해시가 남지 않는다.
        소유자도 운영자 자리(동시 접속 2명)를 함께 차지한다. 실제로 대진을
        돌리는 사람이므로 정원 밖에 두면 제한이 무의미해진다. */
-    async loginAs(kind, pin){
-      const v = await Secret.verify(pin, kind==='owner'?'owner':'admin');
-      if(!v.ok) return { ok:false, reason:v.reason };   // 'wrong'|'offline'|'unset'
+    /* 운영자 입장 — 비밀번호 하나. 아이디는 동호회 이름으로 화면에
+       고정돼 있어서 입력받지 않는다(동호회마다 비밀번호가 따로다).
+
+       소유자는 이 길로 못 들어온다. 소유자 비밀번호는 없앴다 —
+       비밀번호는 규칙이 확인할 수 없어서, 그것으로 나눈 역할은 앱
+       화면에서만 유효했다. 소유자는 loginWithAccount()로만 들어온다. */
+    async loginAdmin(pin){
+      const v = await Secret.verify(pin);
+      if(!v.ok) return { ok:false, reason:v.reason };   // 'wrong'|'offline'|'unset'|'locked'
       const res = await claimAdmin();
       if(!res.ok) return { ok:false, reason:'full' };
-      role = (kind==='owner') ? 'owner' : 'admin';
-      memberId=null; ls.set(ROLE_KEY, role); startBeat();
+      role='admin'; memberId=null; ls.set(ROLE_KEY, role); startBeat();
       return { ok:true, offline:res.offline };
     },
-    async loginAdmin(pin){ return this.loginAs('admin', pin); },
-    async loginOwner(pin){ return this.loginAs('owner', pin); },
 
     /* ── 실제 계정으로 입장 ──────────────────────────────────────
        비밀번호가 아니라 로그인된 계정의 역할 문서가 판단한다. 어느 버튼으로

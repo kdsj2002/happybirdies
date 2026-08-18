@@ -250,8 +250,23 @@ async function bulkOverwriteMembers(nextList, opt={}){
       <span class="hint">되돌릴 수단은 이 백업 파일뿐입니다.</span>
     </div>`;
 
-  // 3) 소유자 비밀번호 확인
-  askPin('회원 명단 덮어쓰기', opt.source || '회원 명단 전체를 바꿉니다', async ()=>{
+  /* 3) 마지막 확인
+     예전에는 여기서 소유자 비밀번호를 받았다. 이제 그 비밀번호는 없다 —
+     소유자는 계정으로만 들어오므로, 이 화면에 닿았다는 것 자체가 이미
+     소유자 계정으로 로그인했다는 뜻이다(requirePerm('membersBulk') +
+     위의 서버 확인). 비밀번호를 한 번 더 묻는 것은 확인이 아니라 의식이다.
+
+     대신 무엇이 사라지는지 보여 주는 일은 그대로 둔다. 그게 진짜 확인이다. */
+  openModal(`<h3>회원 명단 덮어쓰기</h3>
+    <div class="sub">${esc(opt.source || '회원 명단 전체를 바꿉니다')}</div>
+    ${bodyHtml}
+    <div class="row end">
+      <button class="btn" id="bulkCancel">취소</button>
+      <button class="btn warn" id="bulkOk">덮어쓰기</button></div>`);
+  const bk=$('#pinBackup'); if(bk) bk.onclick=()=>exportBackup();
+  $('#bulkCancel').onclick=closeModal;
+  $('#bulkOk').onclick=async()=>{
+    closeModal();
     S.members = next;
     setMembersBaseline(next);        // 승인받은 내용이 새 기준선이 된다
     setSafeMode(false);
@@ -262,9 +277,7 @@ async function bulkOverwriteMembers(nextList, opt={}){
     Sound.play('confirm');
     toast(`회원 명단을 덮어썼습니다 (${d.from}명 → ${d.to}명)`);
     if(opt.after) opt.after();
-  }, { bodyHtml, okLabel:'덮어쓰기', kind:'owner', onReady(){
-    const b=$('#pinBackup'); if(b) b.onclick=()=>exportBackup();
-  }});
+  };
 }
 
 /* =====================================================================

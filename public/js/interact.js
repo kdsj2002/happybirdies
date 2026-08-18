@@ -205,7 +205,7 @@ const mmss = ms => { const t=Math.ceil(ms/1000); return `${Math.floor(t/60)}분 
 function askPin(title, desc, onOk, opts={}){
   openModal(`<h3>${esc(title)}</h3><div class="sub">${esc(desc)}</div>
     ${opts.bodyHtml||''}
-    <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 ${opts.kind==='owner'?'소유자':'관리'} 비밀번호를 입력하세요</div>
+    <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 운영자 비밀번호를 입력하세요</div>
     <!-- 네 자리 숫자 시절의 흔적(maxlength=8, 숫자 키패드)을 걷어냈다.
          그대로 두면 여덟 자를 넘는 비밀번호가 소리 없이 잘려서, 맞게 넣어도
          계속 "틀렸다"고 나온다. -->
@@ -225,16 +225,9 @@ function askPin(title, desc, onOk, opts={}){
   const submit=async()=>{
     const btn=$('#pinOk'); if(btn.disabled) return;
     btn.disabled=true; $('#pinErr').textContent='확인 중...';
-    const v = opts.kind==='owner' ? await Secret.verifyOwner(inp.value)
-                                  : await Secret.verify(inp.value);
+    const v = await Secret.verify(inp.value);
     btn.disabled=false;
-    if(v.ok){
-      closeModal();
-      /* 소유자 비밀번호를 아직 안 정한 동호회에서는 운영자 비밀번호로
-         대신 확인했다. 그 사실을 숨기지 않고 알려 준다. */
-      if(v.fallback) toast('소유자 비밀번호가 아직 없어 관리 비밀번호로 확인했습니다');
-      onOk(); return;
-    }
+    if(v.ok){ closeModal(); onOk(); return; }
     /* 시도 제한은 Secret이 센다(입장 화면과 같은 기록을 쓴다). 잠겼으면
        확인 버튼을 막고 남은 시간을 알려 준다 — 계속 누르게 두면 잠긴 줄
        모르고 "비밀번호가 틀렸나" 하며 애먼 비번을 의심한다. */

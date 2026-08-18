@@ -36,15 +36,24 @@
 const Secret = (() => {
   const ITER = 210000;              // PBKDF2 반복. 새로 설정할 때 쓰는 값.
 
-  /* ── 비밀번호는 두 종류다 ──────────────────────────────────────
-     admin(운영자)과 owner(소유자). 저장 구조는 완전히 같고 이름만 다르다.
-     소유자 비밀번호를 따로 두는 것이 핵심이다 — 같은 비밀번호로 두 역할을
-     나누면 화면만 다르고 실제로는 같은 권한이라, 구분하는 척하는 것이 된다.
-     비밀번호가 다르면 운영자 비밀번호만 아는 사람은 소유자 권한을 못 쓴다. */
-  const KINDS = { admin:{ auth:'adminAuth', pin:'adminPin' },
-                  owner:{ auth:'ownerAuth', pin:'ownerPin' } };
-  const K_ = k => KINDS[k] || KINDS.admin;
-  const LOCAL_KEY = (kind) => `bmt:${CLUB}:${K_(kind).auth}Local`;
+  /* ── 이제 비밀번호는 운영자 것 하나뿐이다 ────────────────────────
+     한동안 소유자 비밀번호(ownerAuth·ownerPin)를 따로 뒀지만 걷어냈다.
+     이유는 이 구조의 근본 한계다 — 비밀번호는 규칙이 확인할 수 없다.
+     모두가 똑같은 익명 계정이라, 앱을 거치지 않고 Firestore를 직접
+     두드리면 어떤 비밀번호를 아는지와 무관하게 그냥 통과했다. 즉 소유자
+     비밀번호는 "앱 화면에서만" 소유자를 가리는 장치였다.
+
+     지금 소유자는 실제 계정(account.js)으로만 들어온다. 그래서
+     Auth.role === 'owner' 는 곧 "소유자 계정으로 로그인했다"는 뜻이고,
+     규칙이 roles 문서로 그것을 확인한다.
+
+     운영자 비밀번호는 남는다. 체육관에서 태블릿을 넘겨받는 사람에게
+     계정을 만들라고 할 수는 없어서다. 대신 그 비밀번호를 정하는 사람이
+     바뀌었다 — 예전에는 "먼저 앱을 여는 사람이 임자"였고, 지금은
+     소유자가 설정한다(setAdminPassword). */
+  const KINDS = { admin:{ auth:'adminAuth', pin:'adminPin' } };
+  const K_ = () => KINDS.admin;
+  const LOCAL_KEY = () => `bmt:${CLUB}:adminAuthLocal`;
 
   const fb = () => (Store.mode === 'firebase' ? Store._fb : null);
   const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -66,16 +75,16 @@ const Secret = (() => {
      쓰지만 localStorage에 두므로 기기 주인이 열어 보면 보인다. 여기서는
      그게 한계다 — 서버가 없으면 "못 읽는 곳"이란 게 존재하지 않는다.
      Firebase에 붙이면 자동으로 위의 구조를 쓴다. */
-  const localRead  = (kind) => { try { return JSON.parse(localStorage.getItem(LOCAL_KEY(kind)) || 'null'); } catch { return null; } };
-  const localWrite = (kind, v) => { try { localStorage.setItem(LOCAL_KEY(kind), JSON.stringify(v)); } catch {} };
+  const localRead  = () => { try { return JSON.parse(localStorage.getItem(LOCAL_KEY()) || 'null'); } catch { return null; } };
+  const localWrite = (v) => { try { localStorage.setItem(LOCAL_KEY(), JSON.stringify(v)); } catch {} };
 
   /* 지금 비밀번호가 설정돼 있는지. salt 문서의 존재로 판정한다.
      반환: 'set' | 'unset' | 'unknown'(읽기 실패 — 판단하지 않는다) */
-  async function state(kind = 'admin') {
+  async function state() {
     const F = fb();
-    if (!F) return localRead(kind) ? 'set' : 'unset';
+    if (!F) return localRead() ? 'set' : 'unset';
     try {
-      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth));
+      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', 'adminAuth'));
       // 오프라인 캐시가 "없다"고 답한 것을 미설정으로 받아들이면,
       // 비행기 모드에서 최초 설정 화면이 떠 버린다. 캐시 답은 믿지 않는다.
       if (!snap.exists() && snap.metadata && snap.metadata.fromCache) return 'unknown';
@@ -86,27 +95,36 @@ const Secret = (() => {
     }
   }
 
-  /* 최초 설정. salt 문서와 해시 문서를 한 번에 만든다.
-     규칙이 "adminAuth가 없을 때만"을 강제하므로, 이미 설정돼 있으면
-     서버가 거절한다(둘이 동시에 눌러도 한쪽만 성공한다). */
-  async function bootstrap(password, kind = 'admin') {
+  /* ── 운영자 비밀번호 설정 ────────────────────────────────────────
+     salt 문서와 해시 문서를 한 번에 쓴다. 누가 이걸 할 수 있는지는 규칙이
+     정한다 — 아직 정해진 적이 없거나(최초), 소유자 계정이거나.
+
+     예전에는 "adminAuth가 없을 때만"이 전부였다. 그래서 새 동호회에서는
+     먼저 앱을 연 사람이 운영자 비밀번호를 차지했고, 한 번 정하면 콘솔에서
+     문서를 지우기 전에는 아무도 바꿀 수 없었다. 이제는 소유자가 언제든
+     다시 정할 수 있다 — 운영자가 바뀌거나 비밀번호가 샜을 때 콘솔을 열
+     필요가 없다.
+
+     reason:
+       denied  권한이 없다(소유자 계정이 아닌데 이미 설정돼 있음)
+       network 통신 실패 */
+  async function setAdminPassword(password) {
     if (!password) return { ok: false, reason: 'empty' };
     const salt = randHex(16);
     const hash = await digest(password, salt, ITER);
     const F = fb();
-    if (!F) { localWrite(kind, { salt, iter: ITER, hash }); clearFails(kind); return { ok: true, local: true }; }
+    if (!F) { localWrite({ salt, iter: ITER, hash }); clearFails(); return { ok: true, local: true }; }
     try {
       const batch = F.writeBatch(F.db);
-      batch.set(F.doc(F.db, 'clubs', CLUB, 'secret', K_(kind).pin), { hash });
-      batch.set(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth),
+      batch.set(F.doc(F.db, 'clubs', CLUB, 'secret', 'adminPin'), { hash });
+      batch.set(F.doc(F.db, 'clubs', CLUB, 'kv', 'adminAuth'),
                 { v: JSON.stringify({ salt, iter: ITER }), updatedAt: new Date() });
       await batch.commit();
-      clearFails(kind);        // 새로 정한 비밀번호에 옛 실패 기록을 물려주지 않는다
+      clearFails();            // 새로 정한 비밀번호에 옛 실패 기록을 물려주지 않는다
       return { ok: true };
     } catch (e) {
-      // 이미 누가 설정했거나(taken), 규칙이 아직 배포되지 않았거나(rules).
       const denied = String(e && e.code) === 'permission-denied';
-      return { ok: false, reason: denied ? 'taken' : 'network', error: String(e) };
+      return { ok: false, reason: denied ? 'denied' : 'network', error: String(e) };
     }
   }
 
@@ -130,13 +148,13 @@ const Secret = (() => {
      ─────────────────────────────────────────────────────────── */
   const MAX_TRY = 5;
   const STEPS   = [60000, 120000, 240000, 480000, 960000, 1800000];
-  const lockKey   = kind => `bmt:${CLUB}:pinGate:${K_(kind).auth}`;
-  const lockRead  = kind => { try { return JSON.parse(localStorage.getItem(lockKey(kind)) || '{}') || {}; } catch { return {}; } };
-  const lockWrite = (kind, s) => { try { localStorage.setItem(lockKey(kind), JSON.stringify(s)); } catch {} };
-  const lockLeft  = (kind = 'admin') => { const s = lockRead(kind); return (s.until && s.until > Date.now()) ? s.until - Date.now() : 0; };
-  const triesLeft = (kind = 'admin') => Math.max(0, MAX_TRY - (lockRead(kind).fails || 0));
-  function noteFail(kind) {
-    const s = lockRead(kind);
+  const lockKey   = () => `bmt:${CLUB}:pinGate:adminAuth`;
+  const lockRead  = () => { try { return JSON.parse(localStorage.getItem(lockKey()) || '{}') || {}; } catch { return {}; } };
+  const lockWrite = (s) => { try { localStorage.setItem(lockKey(), JSON.stringify(s)); } catch {} };
+  const lockLeft  = () => { const s = lockRead(); return (s.until && s.until > Date.now()) ? s.until - Date.now() : 0; };
+  const triesLeft = () => Math.max(0, MAX_TRY - (lockRead().fails || 0));
+  function noteFail() {
+    const s = lockRead();
     s.fails = (s.fails || 0) + 1;
     if (s.fails >= MAX_TRY) {
       const n = s.level || 0;                       // 몇 번째 잠금인지
@@ -144,39 +162,39 @@ const Secret = (() => {
       s.level = Math.min(n + 1, STEPS.length);
       s.until = Date.now() + STEPS[Math.min(n, STEPS.length - 1)];
     }
-    lockWrite(kind, s);
+    lockWrite(s);
   }
-  const clearFails = kind => lockWrite(kind, {});
+  const clearFails = () => lockWrite({});
 
   /* 확인. 맞으면 {ok:true}. 서버까지 못 갔으면 reason:'offline'.
      비밀번호가 틀린 것과 통신이 안 되는 것을 반드시 구분해야 한다 —
      둘을 뭉뚱그리면 오프라인일 때 "비밀번호가 틀렸다"고 거짓말을 한다.
      잠겨 있으면 reason:'locked'와 남은 시간을 함께 돌려준다. */
-  async function verify(password, kind = 'admin') {
-    const wait = lockLeft(kind);
+  async function verify(password) {
+    const wait = lockLeft();
     if (wait > 0) return { ok: false, reason: 'locked', ms: wait };
     // 빈 입력은 시도로 세지 않는다. 엔터를 잘못 눌러 잠기면 억울하다.
     if (!password) return { ok: false, reason: 'wrong' };
 
-    const r = await check(password, kind);
-    if (r.ok) { clearFails(kind); return r; }
+    const r = await check(password);
+    if (r.ok) { clearFails(); return r; }
     /* 틀린 것만 센다. 통신이 안 되거나(offline) 아직 설정되지 않은 것은
        시도가 아니다 — 그것까지 세면 지하 체육관에서 와이파이가 오락가락할
        때 멀쩡한 운영자가 잠겨 버린다. */
     if (r.reason === 'wrong') {
-      noteFail(kind);
-      const ms = lockLeft(kind);
+      noteFail();
+      const ms = lockLeft();
       if (ms > 0) return { ok: false, reason: 'locked', ms };
     }
     return r;
   }
 
   /* 실제 대조. 시도 횟수는 위 verify가 센다. */
-  async function check(password, kind) {
+  async function check(password) {
     const F = fb();
 
     if (!F) {
-      const rec = localRead(kind);
+      const rec = localRead();
       if (!rec) return { ok: false, reason: 'unset' };
       const h = await digest(password, rec.salt, rec.iter || ITER);
       return h === rec.hash ? { ok: true, local: true } : { ok: false, reason: 'wrong' };
@@ -184,7 +202,7 @@ const Secret = (() => {
 
     let cfg;
     try {
-      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', K_(kind).auth));
+      const snap = await F.getDoc(F.doc(F.db, 'clubs', CLUB, 'kv', 'adminAuth'));
       if (!snap.exists()) return { ok: false, reason: 'unset' };
       cfg = JSON.parse(snap.data().v || '{}');
     } catch (e) {
@@ -196,7 +214,7 @@ const Secret = (() => {
     const ref = F.doc(F.db, 'clubs', CLUB, 'probe', randHex(12));
     try {
       // 트랜잭션이라 오프라인에서는 큐에 쌓이지 않고 실패한다.
-      await F.runTransaction(F.db, async tr => { tr.set(ref, { hash, kind }); });
+      await F.runTransaction(F.db, async tr => { tr.set(ref, { hash, kind: 'admin' }); });
     } catch (e) {
       if (String(e && e.code) === 'permission-denied') return { ok: false, reason: 'wrong' };
       return { ok: false, reason: 'offline', error: String(e) };
@@ -206,22 +224,9 @@ const Secret = (() => {
     return { ok: true };
   }
 
-  /* ── 소유자 확인 ────────────────────────────────────────────────
-     소유자 비밀번호가 아직 없는 동호회(이 구조 이전부터 쓰던 곳)에서는
-     운영자 비밀번호로 대신 확인한다. 안 그러면 소유자 전용으로 돌린
-     조작(복원·CSV 일괄등록 등)이 통째로 막혀 버린다.
-     대신 fallback 표시를 달아, 화면이 "소유자 비밀번호를 아직 안 정했다"고
-     알려 줄 수 있게 한다. */
-  async function verifyOwner(password) {
-    const st = await state('owner');
-    if (st === 'set')   return verify(password, 'owner');
-    if (st === 'unset') {
-      const r = await verify(password, 'admin');
-      return r.ok ? Object.assign({}, r, { fallback: true }) : r;
-    }
-    return { ok: false, reason: 'offline' };
-  }
-
-  return { state, verify, verifyOwner, bootstrap, ITER,
+  /* verifyOwner는 없앴다. 소유자는 이제 비밀번호가 아니라 계정으로만
+     들어온다(account.js). 소유자 확인이 필요한 자리는 Auth.role을 보면
+     되고, 그 값은 서버의 roles 문서가 정한 것이다. */
+  return { state, verify, setAdminPassword, ITER,
            lockLeft, triesLeft, clearFails, MAX_TRY };
 })();

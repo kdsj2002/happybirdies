@@ -51,20 +51,19 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
 
-    /* ── 비밀번호는 두 종류다 ───────────────────────────────────────
-       운영자(admin)와 소유자(owner). 저장 구조는 완전히 같고 이름만 다르다.
+    /* ── 비밀번호는 이제 운영자 것 하나뿐이다 ─────────────────────────
          kv/adminAuth  ↔ secret/adminPin
-         kv/ownerAuth  ↔ secret/ownerPin
-       소유자 비밀번호를 따로 두는 이유는 §운영자 비밀번호 주석 아래에 적었다. */
-    function authDocFor(kind) { return kind == 'owner' ? 'ownerAuth' : 'adminAuth'; }
-    function pinDocFor(kind)  { return kind == 'owner' ? 'ownerPin'  : 'adminPin';  }
-    function kindOfPin(pinDoc){ return pinDoc == 'ownerPin' ? 'owner' : 'admin'; }
 
-    function authPath(club, kind) {
-      return /databases/$(database)/documents/clubs/$(club)/kv/$(authDocFor(kind));
+       한동안 소유자 비밀번호(ownerAuth·ownerPin)를 따로 뒀지만 걷어냈다.
+       비밀번호는 규칙이 확인할 수 없다 — 모두가 똑같은 익명 계정이라,
+       앱을 거치지 않고 두드리면 어떤 비밀번호를 아는지와 무관하게 통과했다.
+       즉 소유자 비밀번호로 나눈 역할은 앱 화면에서만 유효했다.
+       소유자는 이제 실제 계정으로만 들어오고, roles 문서가 그것을 증명한다. */
+    function authPath(club) {
+      return /databases/$(database)/documents/clubs/$(club)/kv/adminAuth;
     }
-    function pinPath(club, kind) {
-      return /databases/$(database)/documents/clubs/$(club)/secret/$(pinDocFor(kind));
+    function pinPath(club) {
+      return /databases/$(database)/documents/clubs/$(club)/secret/adminPin;
     }
 
     /* ── 등록된 동호회만 ────────────────────────────────────────────
@@ -138,7 +137,7 @@ service cloud.firestore {
       // 앱이 실제로 만드는 문서 이름만 허용한다.
       function knownDoc() {
         return docId in ['settings', 'members', 'sessions', 'adminLeases',
-                         'adminAuth', 'ownerAuth', 'joinRequests']
+                         'adminAuth', 'joinRequests']
             || docId.matches('session:[0-9]{4}-[0-9]{2}-[0-9]{2}');
       }
 
@@ -189,12 +188,16 @@ service cloud.firestore {
             || isOwner(club);
       }
 
-      /* salt 문서(adminAuth·ownerAuth)는 최초 설정 때 한 번만 만들어진다.
-         앱에서 고치거나 지울 수 없다 — 그래야 남이 salt를 갈아끼워
-         비밀번호를 무력화하는 짓을 못 한다. 초기화는 콘솔에서만. */
+      /* salt 문서(adminAuth)는 비밀번호를 정할 때만 쓰인다. 아무나 갈아끼우면
+         남의 비밀번호를 무력화할 수 있으므로, 쓸 수 있는 경우를 둘로 못박는다.
+           · 아직 없을 때 (동호회를 막 열었을 때)
+           · 소유자 계정일 때 (운영자 비밀번호를 다시 정하는 경우)
+         예전에는 앞의 하나뿐이라, 한 번 정하고 나면 콘솔에서 문서를 지우기
+         전에는 아무도 바꿀 수 없었다. */
       function saltDocOk() {
-        return !(docId in ['adminAuth', 'ownerAuth'])
-            || !exists(/databases/$(database)/documents/clubs/$(club)/kv/$(docId));
+        return docId != 'adminAuth'
+            || !exists(/databases/$(database)/documents/clubs/$(club)/kv/adminAuth)
+            || isOwner(club);
       }
 
       allow read:   if signedIn() && registered(club) && knownDoc();
@@ -209,18 +212,20 @@ service cloud.firestore {
     match /clubs/{club}/secret/{docId} {
       allow read: if false;                    // 예외 없다. 아무도 못 읽는다.
 
-      /* kv/adminAuth가 없을 때(=미설정)만 쓸 수 있다. 설정된 뒤에는
-         만들 수도, 덮어쓸 수도 없다.
+      /* 운영자 비밀번호 해시. 쓸 수 있는 경우는 위 saltDocOk와 같은 둘이다 —
+         아직 정해진 적이 없거나, 소유자 계정이거나.
 
-         update까지 같은 조건으로 허용하는 것이 중요하다. 초기화는 콘솔에서
-         kv/adminAuth만 지우는 방식인데, 그때 secret/adminPin 문서는 그대로
-         남아 있다. 새 비밀번호를 쓰는 것은 create가 아니라 update다.
-         update를 막아 두면 초기화한 순간 아무도 다시 설정할 수 없게 되어
-         영영 로그인 불가가 된다 — 규칙 테스트가 바로 이걸 잡아냈다. */
+         update까지 허용하는 것이 중요하다. 콘솔에서 kv/adminAuth만 지워
+         초기화하면 secret/adminPin 문서는 그대로 남는다. 그때 새 비밀번호를
+         쓰는 것은 create가 아니라 update다. update를 막아 두면 초기화한
+         순간 아무도 다시 설정할 수 없게 되어 영영 로그인 불가가 된다 —
+         규칙 테스트가 바로 이걸 잡아냈다.
+
+         ownerPin은 없앴다. 소유자는 비밀번호가 아니라 계정으로 들어온다. */
       allow create, update: if signedIn()
                     && registered(club)
-                    && docId in ['adminPin', 'ownerPin']
-                    && !exists(authPath(club, kindOfPin(docId)))
+                    && docId == 'adminPin'
+                    && (!exists(authPath(club)) || isOwner(club))
                     && request.resource.data.keys().hasOnly(['hash'])
                     && request.resource.data.hash is string
                     && request.resource.data.hash.size() == 64;   // SHA-256 hex
@@ -235,11 +240,10 @@ service cloud.firestore {
       allow create: if signedIn()
                     && registered(club)
                     && request.resource.data.keys().hasOnly(['hash', 'kind'])
-                    && request.resource.data.kind in ['admin', 'owner']
+                    && request.resource.data.kind == 'admin'
                     && request.resource.data.hash is string
-                    && exists(pinPath(club, request.resource.data.kind))
-                    && request.resource.data.hash
-                       == get(pinPath(club, request.resource.data.kind)).data.hash;
+                    && exists(pinPath(club))
+                    && request.resource.data.hash == get(pinPath(club)).data.hash;
       allow update: if false;
       allow delete: if signedIn();   // 확인이 끝나면 앱이 스스로 치운다
     }
