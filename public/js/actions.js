@@ -298,6 +298,23 @@ function clearCourt(c){
   Object.assign(c,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
                    status:'EMPTY',startedAt:null,matchId:null});
 }
+/* 두 코트를 통째로 맞바꾼다.
+
+   사람만 옮기는 것이 아니라 경기 상태(시작 시각·기록 id)까지 함께 옮긴다.
+   두 팀이 코트를 바꿔 앉았을 뿐 각자의 경기는 그대로 이어지기 때문이다 —
+   여기서 시간이 0으로 돌아가면 20분 친 팀이 방금 시작한 것으로 보인다.
+
+   코트 번호(no)와 사용 여부(disabled)는 코트에 붙은 성질이라 두고 간다.
+   기록에 적힌 코트 번호는 사람을 따라가야 하므로 뒤에서 고쳐 준다. */
+function swapCourts(a, b){
+  ['members','teams','matchType','typeSource','status','startedAt','matchId']
+    .forEach(k=>{ const t=a[k]; a[k]=b[k]; b[k]=t; });
+  [a,b].forEach(c=>{
+    if(!c.matchId) return;
+    const m=S.matches.find(x=>x.id===c.matchId && !x.endedAt);
+    if(m) m.court=c.no;
+  });
+}
 function clearQueue(q){
   Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',
                    origin:'AUTO',notice:null});
@@ -400,6 +417,20 @@ function moveTeamTo(from, target){
   if(tk==='court'){
     const to=S.courts.find(c=>c.no===+tn);
     if(!to || to.disabled){ Sound.play('error'); toast('그 코트는 쓸 수 없습니다'); return; }
+
+    /* ── 코트 ↔ 코트 통째로 맞교체 ────────────────────────────────
+       양쪽 다 사람이 있으면 두 팀이 코트를 맞바꾼다. 경기 중이어도 된다 —
+       각자의 경기는 그대로 이어지고 시간·기록이 사람을 따라간다.
+       예전에는 여기서 "자리가 모자랍니다"(4+4>4)로 막혔다. 자리를 더
+       넣으려는 게 아니라 서로 바꾸려는 것인데 정원으로 잰 탓이다. */
+    if(fk==='court' && to.members.length && src.members.length){
+      [...src.members, ...to.members].forEach(flash);
+      tx(()=>{ swapCourts(src, to); });
+      Sound.play('move');
+      toast(`${src.no}코트 ↔ ${to.no}코트 맞바꿨습니다`);
+      return;
+    }
+
     if(to.members.length + src.members.length > 4){
       Sound.play('error'); toast(`${to.no}코트에 자리가 모자랍니다`); return;
     }
@@ -412,8 +443,8 @@ function moveTeamTo(from, target){
       Sound.play('move');
       return;
     }
-    if(to.members.length){ Sound.play('error'); toast(`${to.no}코트가 이미 차 있습니다`); return; }
-    // 코트 → 다른 코트: 끝난 게 아니므로 경기는 무효로 하고 옮긴다
+    // 여기 오면 목적지 코트는 비어 있다(사람이 있었으면 위에서 맞교체로 끝났다).
+    // 코트 → 빈 코트: 끝난 게 아니므로 경기는 무효로 하고 옮긴다
     src.members.forEach(flash);
     tx(()=>{
       abortMatch(src);
@@ -607,15 +638,26 @@ function moveTo(id, target){
   const [kind,key]=target.split(':');
   const deny = canMove(id, target);
   if(deny){ Sound.play('error'); toast(Auth.denyMsg(deny)); return; }
-  const from=locate(id);
   const dest = kind==='court'? S.courts.find(c=>c.no===+key) : kind==='queue'? S.queues.find(q=>q.index===+key):null;
-  if(dest && dest.members.includes(id)) return;
-  if(dest && dest.members.length>=4){
+  if(dest){
+    /* 사람 위에 놓았으면 그 사람과 맞바꾼다.
+
+       예전에는 이 판정 위에 "이미 그 통에 있으면 돌려보낸다"가 있었다.
+       그래서 같은 코트 안에서 넷을 서로 돌리는 것도, 같은 대기 슬롯 안에서
+       자리를 바꾸는 것도 아예 시작조차 못 했다 — 맞교체가 안 되던 원인이
+       바로 이 한 줄이다. 같은 통인지가 아니라 "놓인 자리에 사람이 있는지"로
+       판단해야 맞다. */
     const occ = occupantAt(target);
-    if(occ) return swap(id,occ);
-    /* 꽉 찬 코트의 빈 곳에 놓으면 누구와 바꿀지 알 수 없다. 막는 게 아니라
-       어디에 놓아야 하는지 알려 준다 — 사람 위에 놓으면 그 사람과 바뀐다. */
-    toast('그 코트는 4명이 다 찼습니다 — 바꿀 사람 위에 놓으세요'); return;
+    if(occ === id) return;                     // 제 자리에 도로 놓았다
+    if(occ) return swap(id, occ);              // 사람 위 = 맞교체
+    // 자리를 짚지 않고 제가 있는 통에 그냥 놓은 것은 아무 뜻이 없다
+    if(dest.members.includes(id) && !target.split(':')[2]) return;
+    if(!dest.members.includes(id) && dest.members.length>=4){
+      /* 꽉 찬 코트의 빈 곳에 놓으면 누구와 바꿀지 알 수 없다. 막는 게 아니라
+         어디에 놓아야 하는지 알려 준다 — 사람 위에 놓으면 그 사람과 바뀐다. */
+      Sound.play('error');
+      toast('그 코트는 4명이 다 찼습니다 — 바꿀 사람 위에 놓으세요'); return;
+    }
   }
   /* 대기열·대기 인원으로 내리면 한 판 친 것으로 본다(1분 이상일 때).
      다른 코트로 옮기는 것은 아직 끝난 게 아니므로 세지 않는다 —
