@@ -6,7 +6,25 @@
 (function(){
   let sx=0,sy=0,src=null,drag=false,srcEl=null,lastDrop=null,holdT=null;
   let team=null;                 // 팀째 끌 때의 출발지 키('court:1'·'queue:3'). 개인 드래그면 null
+  let touchMode=false;           // 손가락인가(마우스와 규칙이 다르다)
   const ghost=$('#ghost');
+
+  /* ── 끌기와 스크롤을 어떻게 가르는가 ──────────────────────────────
+     둘은 같은 "손가락을 대고 움직인다"이지만 시작이 다르다.
+       스크롤 : 손을 대자마자 곧바로 움직인다
+       끌기   : 잠깐 눌러 집은 다음에 움직인다
+     그래서 손가락일 때는 HOLD_MS 동안 MOVE_TOL 안에 머물러야 끌기로 본다.
+     그 전에 움직이면 끌기를 포기하고 브라우저에 넘긴다 — 스크롤이 된다.
+
+     예전에는 8px만 움직이면 곧바로 끌기가 시작됐다. 스크롤하려던 손이
+     전부 끌기로 잡혔다. 게다가 칩에 touch-action:none 이 걸려 있어서
+     칩 위에서 시작한 터치로는 화면을 아예 못 굴렸다(대기 인원 칸은
+     칩으로 빽빽해서 굴릴 여백이 거의 없다). 그 둘을 함께 고쳤다.
+
+     마우스는 이 규칙에서 뺀다. 마우스로 굴릴 때는 휠을 쓰지 끌지 않으므로
+     헷갈릴 일이 없고, 누르고 기다리게 하면 굼떠서 답답하다. */
+  const HOLD_MS  = 300;
+  const MOVE_TOL = 8;
 
   document.addEventListener('pointerdown',e=>{
     const c=e.target.closest('[data-chip]');
@@ -19,7 +37,8 @@
         if(L.kind==='court') return;
       }
       sx=e.clientX; sy=e.clientY; src=id; srcEl=c; team=null; drag=false;
-      holdT=setTimeout(()=>begin(e),160);
+      touchMode = e.pointerType !== 'mouse';
+      holdT=setTimeout(()=>begin(e), touchMode?HOLD_MS:160);
       return;
     }
     /* 팀 박스(코트 카드·대기 슬롯)를 통째로 끌기. 박스 안의 버튼·아이콘을
@@ -29,7 +48,8 @@
     if(e.target.closest('button,.ic,.mt')) return;
     if(!Auth.can('edit') || !Auth.can('courtAssign')) return;
     sx=e.clientX; sy=e.clientY; src=null; srcEl=s; team=s.dataset.team; drag=false;
-    holdT=setTimeout(()=>begin(e),160);
+    touchMode = e.pointerType !== 'mouse';
+    holdT=setTimeout(()=>begin(e), touchMode?HOLD_MS:160);
   });
   function begin(e){
     if(drag || (!src && team===null)) return;
@@ -50,6 +70,8 @@
       const g=chipEl(src,'ghost'); g.style.width='100%'; ghost.appendChild(g);
     }
     ghost.style.display='block'; move(e);
+    // 집혔다는 신호. 손가락은 화면을 가리므로 눈보다 손이 먼저 안다.
+    if(touchMode) Sound.buzz(18);
   }
   function move(e){
     ghost.style.left=(e.clientX-85)+'px'; ghost.style.top=(e.clientY-32)+'px';
@@ -61,9 +83,23 @@
   }
   document.addEventListener('pointermove',e=>{
     if(!src && team===null) return;
-    if(!drag && Math.hypot(e.clientX-sx,e.clientY-sy)>8){ clearTimeout(holdT); begin(e); }
-    if(drag){ e.preventDefault(); move(e); }
+    if(!drag){
+      if(Math.hypot(e.clientX-sx,e.clientY-sy) <= MOVE_TOL) return;
+      if(touchMode){
+        /* 누르자마자 움직였다 = 스크롤이다. 붙잡지 않고 놓아 준다.
+           preventDefault를 하지 않았으므로 브라우저가 그대로 굴린다. */
+        cleanup();
+        return;
+      }
+      clearTimeout(holdT); begin(e);          // 마우스는 움직이면 곧 끌기다
+    }
+    e.preventDefault(); move(e);
   },{passive:false});
+
+  /* 끌기가 시작된 뒤에는 화면이 따라 굴러가면 안 된다.
+     iOS에서는 pointermove의 preventDefault로 스크롤이 멈추지 않는다.
+     touchmove를 직접 막아야 한다(passive:false 필수). */
+  document.addEventListener('touchmove',e=>{ if(drag) e.preventDefault(); },{passive:false});
   document.addEventListener('pointerup',e=>{
     clearTimeout(holdT);
     if(!src && team===null) return;

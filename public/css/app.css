@@ -202,7 +202,11 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
   position:relative;display:flex;align-items:center;
   min-height:48px;padding:6px 30px 6px 10px;border-radius:9px;
   background:var(--surface2);border:1px solid var(--line);
-  cursor:grab;touch-action:none;overflow:hidden;
+  /* pan-y 여야 칩 위에서 시작한 터치로도 화면이 굴러간다. none이면 브라우저가
+     "여기는 내가 안 건드린다"로 알아듣고 스크롤을 아예 포기하는데, 대기 인원
+     칸은 칩으로 빽빽해서 굴릴 여백이 거의 없다. 끌기가 시작된 뒤의 스크롤은
+     interact.js가 touchmove를 막아 세운다. */
+  cursor:grab;touch-action:pan-y;overflow:hidden;
 }
 .court .chip{min-height:66px;padding:8px 34px 8px 12px}
 .chip.sel{border-color:var(--court);box-shadow:0 0 0 2px var(--court-soft)}
