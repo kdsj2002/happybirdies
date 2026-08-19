@@ -312,6 +312,14 @@ function renderHist(){
   const avg=done.length? done.reduce((s,m)=>s+(m.endedAt-m.startedAt),0)/done.length/60000 : 0;
   const men=all.filter(isM), wom=all.filter(isF);
   const mean=a=>a.length? (a.reduce((s,x)=>s+x.games,0)/a.length).toFixed(2):'—';
+  const scored=done.filter(m=>m.win).length;
+  /* 결과 칸. 운영자에게는 비어 있어도 누를 곳이 보여야 한다 — 안 그러면
+     "승패 없이 종료"한 판을 나중에 채워 넣을 길이 있다는 걸 알 수 없다. */
+  const canEditRes = Auth.can('edit');
+  const resCell = m => m.win
+    ? `<b style="color:var(--court)">${m.win}팀 승</b>`
+      + (m.sw!=null && m.sl!=null ? ` <span class="num" style="color:var(--muted)">${m.sw}:${m.sl}</span>` : '')
+    : `<span style="color:var(--muted2)">${canEditRes?'입력 ✎':'—'}</span>`;
   $('#histBody').innerHTML=`
     <div class="sec-h">${S.date} 세션 요약<span class="rule"></span></div>
     <div class="row" style="gap:26px;margin:14px 0 22px;font-size:15px">
@@ -320,29 +328,53 @@ function renderHist(){
       <div>남 평균 <b class="num" style="font-size:22px">${mean(men)}</b>게임</div>
       <div>여 평균 <b class="num" style="font-size:22px">${mean(wom)}</b>게임</div>
       <div>게임수 편차 <b class="num" style="font-size:22px">${all.length?Math.max(...all.map(a=>a.games))-Math.min(...all.map(a=>a.games)):0}</b></div>
+      <div>결과 입력 <b class="num" style="font-size:22px">${scored}</b><span style="color:var(--muted2)">/${done.length}</span></div>
     </div>
     <div class="row" style="gap:9px;margin-bottom:24px">
       ${['MD','WD','XD','MX','UNKNOWN'].filter(t=>byType[t]).map(t=>
         `<span class="mt ${t}" style="cursor:default;height:30px">${MT_LBL[t]} ${byType[t]}경기 · ${Math.round(100*byType[t]/done.length)}%</span>`).join('')||'<span class="hint">아직 종료된 경기가 없습니다.</span>'}
     </div>
     <div class="sec-h">개인별<span class="rule"></span></div>
-    <table><tr><th>이름</th><th>게임수</th><th>마지막 경기</th></tr>
-      ${all.map(a=>`<tr><td style="font-weight:700">${esc(a.name)}${a.guest?' <span style="color:var(--gold)">G</span>':''}</td>
+    <table><tr><th>이름</th><th>게임수</th><th>승-패</th><th>마지막 경기</th></tr>
+      ${all.map(a=>{ const r=recordOf(a.id); return `<tr><td style="font-weight:700">${esc(a.name)}${a.guest?' <span style="color:var(--gold)">G</span>':''}</td>
         <td class="num" style="font-weight:800;font-size:17px">${a.games}</td>
-        <td style="color:var(--muted)">${a.lastEnd?new Date(a.lastEnd).toTimeString().slice(0,5):'—'}</td></tr>`).join('')}
+        <td class="num" style="color:${r.w+r.l?'var(--text)':'var(--muted2)'}">${r.w+r.l?`${r.w}-${r.l}`:'—'}</td>
+        <td style="color:var(--muted)">${a.lastEnd?new Date(a.lastEnd).toTimeString().slice(0,5):'—'}</td></tr>`; }).join('')}
     </table>
     <div class="sec-h" style="margin-top:26px">경기 이력<span class="rule"></span></div>
-    <table><tr><th>#</th><th>코트</th><th>유형</th><th>A팀</th><th>B팀</th><th>시간</th></tr>
+    <table><tr><th>#</th><th>코트</th><th>유형</th><th>A팀</th><th>B팀</th><th>결과</th><th>시간</th></tr>
       ${done.slice().reverse().map((m,i)=>`<tr><td class="num">${done.length-i}</td><td>${m.court}</td>
         <td><span class="mt ${m.type||'UNKNOWN'}" style="cursor:default;height:22px">${MT_LBL[m.type||'UNKNOWN']}</span></td>
-        <td>${(m.An||m.A.map(id=>A(id)?.name||'?')).map(esc).join(' · ')}</td>
-        <td>${(m.Bn||m.B.map(id=>A(id)?.name||'?')).map(esc).join(' · ')}</td>
+        <td${m.win==='A'?' style="font-weight:800"':''}>${(m.An||m.A.map(id=>A(id)?.name||'?')).map(esc).join(' · ')}</td>
+        <td${m.win==='B'?' style="font-weight:800"':''}>${(m.Bn||m.B.map(id=>A(id)?.name||'?')).map(esc).join(' · ')}</td>
+        <td class="res-cell${canEditRes?' edit':''}"${canEditRes?` data-res="${esc(m.id)}"`:''}>${resCell(m)}</td>
         <td class="num" style="color:var(--muted)">${Math.round((m.endedAt-m.startedAt)/60000)}분</td></tr>`).join('')}
     </table>
+    ${done.length?`<div class="hint" style="margin-top:8px">${canEditRes
+        ? '결과 칸을 누르면 승패와 점수를 넣거나 고칠 수 있습니다. 점수는 <b>진 팀 점수</b>만 넣으면 됩니다.'
+        : '결과는 운영자가 넣습니다.'}</div>`:''}
     <div class="row" style="margin-top:24px;align-items:center;gap:14px">
       <button class="btn warn" id="btnClose">세션 마감 (전원 퇴장)</button>
       <span class="hint" id="autoCloseLbl"></span>
     </div>`;
+  /* 끝난 경기의 결과를 나중에 채워 넣거나 고친다. 종료할 때 "승패 없이"를
+     골랐거나, 점수를 나중에 들었을 때 쓴다. 같은 창(resultDialog)이다. */
+  $$('#histBody [data-res]').forEach(e=>e.onclick=()=>{
+    if(!requirePerm('edit')) return;
+    const m=S.matches.find(x=>x.id===e.dataset.res); if(!m) return;
+    Sound.play('tap');
+    resultDialog(m, {
+      title: `${m.court}코트 경기 결과`,
+      sub:   `${MT_LBL[m.type||'UNKNOWN']} · ${new Date(m.startedAt).toTimeString().slice(0,5)} 시작`
+             + ' — 나중에 다시 고칠 수 있습니다',
+      okLabel:'저장', noneLabel:'결과 지우기',
+      onSave(r){
+        tx(()=>applyResult(m,r),{auto:false});
+        renderHist();
+        toast(r.win ? `${m.court}코트 — ${resultLabel(m)}` : '결과를 지웠습니다');
+      }
+    });
+  });
   (function(){
     const lbl=$('#autoCloseLbl');
     if(!S.startedAt){
@@ -398,6 +430,7 @@ function renderSet(){
         <div class="k">자동 배치</div><div>${s.autoMode?'켜짐':'꺼짐'}</div>
         <div class="k">성별 정책</div><div>${esc(pol[1])}</div>
         <div class="k">경기 시간 경고</div><div>${s.matchWarnMinutes}분</div>
+        <div class="k">한 게임 점수</div><div>${s.winPoint||21}점</div>
         <div class="k">자동 마감</div><div>첫 경기 후 ${autoCloseHours()}시간</div>
         <div class="h">내 계정</div>
         <div class="k">현재 역할</div><div><b>${esc(Auth.roleLabel())}</b></div>
@@ -420,6 +453,9 @@ function renderSet(){
       <div class="k">풀 최소 확보 인원</div><div><input type="number" id="s_minpool" value="${s.minPool}" min="0" max="12" style="width:90px">
         <span class="hint">대기 슬롯을 끝까지 채우지 않고 이만큼은 대기 인원으로 남깁니다. 0으로 두면 방금 같이 친 4명이 그대로 다시 묶입니다</span></div>
       <div class="k">경기 시간 경고</div><div><input type="number" id="s_warn" value="${s.matchWarnMinutes}" min="5" max="60" style="width:90px"> 분 초과 시 코트가 붉게 표시</div>
+      <div class="k">한 게임 점수</div><div><input type="number" id="s_wp" value="${s.winPoint||21}" min="5" max="31" style="width:90px">
+        <span class="hint">결과를 넣을 때 <b>진 팀 점수</b>만 받고 이긴 팀 점수는 여기서 계산합니다
+          (${s.winPoint||21}점제 · 듀스는 2점 차 · 상한 ${(s.winPoint||21)+9}점)</span></div>
 
       <div class="h">자동화</div>
       <div class="k">자동 배치</div><div><label class="row"><input type="checkbox" id="s_auto" ${s.autoMode?'checked':''} style="width:20px;height:20px"> 켜기</label></div>
@@ -613,6 +649,7 @@ function renderSet(){
     const reset = nc!==s.courtCount || ns!==s.queueSlotCount;
     Object.assign(s,{clubName:$('#s_club').value.trim()||'대진판',courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
+      winPoint:Math.max(5,Math.min(31,+$('#s_wp').value||21)),
       autoPushToCourt:$('#s_push').checked,
       genderPolicy:$('#s_pol').value, oddRelaxThreshold:+$('#s_relax').value||2,
       minPool:Math.max(0,+$('#s_minpool').value||0),

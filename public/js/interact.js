@@ -310,6 +310,90 @@ function askPin(title, desc, onOk, opts={}){
 }
 $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal(); });
 
+/* ── 경기 결과 입력 ──────────────────────────────────────────────
+   경기를 마칠 때와 기록을 나중에 고칠 때가 같은 창을 쓴다. m은
+   {A,B,An,Bn,win,sw,sl} 모양이면 무엇이든 된다 — 진행 중인 코트든
+   끝난 기록이든.
+
+   점수는 "진 팀 점수"만 받는다. 21점제에서 이긴 쪽 점수는 진 쪽에서
+   나오기 때문이다(19점 이하면 21점, 듀스면 2점 차, 상한 30점). 두 칸을
+   다 받으면 21을 매번 손으로 넣게 되고, 그러다 20:15 같은 있을 수 없는
+   점수가 기록에 남는다. 실제 계산은 state.js의 winnerScore가 한다.
+
+   승패를 고르는 것도, 점수를 넣는 것도 강제하지 않는다. 점수를 물어보기
+   어려운 판이 많고, 강제하면 아무 값이나 넣고 넘기게 된다 — 그건 빈 칸보다
+   나쁘다. 빈 칸은 "모른다"지만 아무 값은 거짓이다.
+
+   opts.onSave(result) — result.win이 null이면 승패 없이.
+   ───────────────────────────────────────────────────────────── */
+function resultDialog(m, opts={}){
+  const target = S.settings.winPoint || 21;
+  const nameAt = (arr,names,i) => (names&&names[i]) || (A(arr[i])&&A(arr[i]).name) || '?';
+  const roster = s => ((m[s]||[]).map((_,i)=>esc(nameAt(m[s], m[s+'n'], i))).join(' · ')) || '—';
+  let win = (m.win==='A'||m.win==='B') ? m.win : null;
+
+  openModal(`<h3>${esc(opts.title||'경기 결과')}</h3>
+    <div class="sub">${esc(opts.sub||'')}</div>
+    ${['A','B'].map(s=>`
+      <div class="opt res" data-win="${s}">
+        <div class="res-tag">${s}팀</div>
+        <div class="t">${roster(s)}</div>
+        <span class="spacer"></span>
+        <div class="res-sc num" data-sc="${s}">–</div>
+      </div>`).join('')}
+    <div class="row" id="scRow" style="margin:12px 2px 0">
+      <span class="hint">진 팀 점수</span>
+      <input type="number" id="scIn" inputmode="numeric" min="0" max="${target+8}"
+             value="${m.sl==null?'':m.sl}" style="width:96px;text-align:center">
+      <span class="hint" id="scHint"></span>
+    </div>
+    <div class="row end">
+      <button class="btn" id="rsCancel">취소</button>
+      <button class="btn" id="rsNone">${esc(opts.noneLabel||'승패 없이')}</button>
+      <button class="btn primary" id="rsOk">${esc(opts.okLabel||'저장')}</button>
+    </div>`);
+
+  const scIn = $('#scIn');
+  const loseVal = () => {
+    const v = scIn.value.trim(); if(v==='') return null;
+    const n = Math.round(+v);
+    return isFinite(n) ? Math.max(0, Math.min(target+8, n)) : null;
+  };
+  function paint(){
+    $$('#modal .opt.res').forEach(e=>e.classList.toggle('on', e.dataset.win===win));
+    const lose = loseVal(), sw = win ? winnerScore(lose, target) : null;
+    ['A','B'].forEach(s=>{
+      const e = $(`#modal [data-sc="${s}"]`);
+      e.textContent = !win ? '–'
+                    : s===win ? (sw==null ? '승' : sw)
+                              : (lose==null ? '패' : lose);
+      e.classList.toggle('w', !!win && s===win);
+    });
+    scIn.disabled = !win;
+    $('#scRow').style.opacity = win ? '1' : '.45';
+    $('#rsOk').disabled = !win;
+    $('#scHint').textContent = !win ? '이긴 팀을 먼저 고르세요'
+                             : lose==null ? '비워 두면 승패만 기록합니다'
+                             : `${sw} : ${lose}`;
+  }
+  $$('#modal .opt.res').forEach(e=>e.onclick=()=>{
+    win = (win===e.dataset.win) ? null : e.dataset.win;   // 같은 팀을 다시 누르면 해제
+    Sound.play('tap'); paint();
+  });
+  scIn.addEventListener('input', paint);
+  // 상한을 넘겨 적었으면 손을 뗄 때 눈에 보이는 값도 맞춰 준다(30점 상한).
+  scIn.addEventListener('change', ()=>{ const l=loseVal(); scIn.value = l==null?'':l; paint(); });
+  $('#rsCancel').onclick = closeModal;
+  $('#rsNone').onclick = ()=>{ closeModal(); opts.onSave && opts.onSave({win:null,sw:null,sl:null}); };
+  $('#rsOk').onclick = ()=>{
+    if(!win) return;
+    const lose = loseVal();
+    closeModal();
+    opts.onSave && opts.onSave({ win, sw: winnerScore(lose, target), sl: lose });
+  };
+  paint();
+}
+
 function typeDialog(o,kind){
   if(o.members.length!==4){
     const opts=['MD','WD','XD','MX'];

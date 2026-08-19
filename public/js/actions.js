@@ -364,14 +364,43 @@ function returnCourtToQueue(c){
 function advanceCourtTeam(c){
   if(!c || !c.members.length) return false;
   if(c.status==='PLAYING'){
-    const ids=c.members.slice();
-    ids.forEach(flash);
-    tx(()=>endCourt(c,'POOL'),{auto:false});
-    Sound.play('end');
-    toast(`${c.no}코트 경기를 마쳤습니다`);
+    /* 여기가 경기가 끝나는 유일한 지점이다. 그래서 결과를 여기서 묻는다 —
+       방금 끝난 판을 가장 잘 아는 사람은 지금 코트 앞에 서 있는 운영자다.
+       나중에 기록 화면에서 채워 넣거나 고칠 수도 있지만, 그때는 이미
+       어느 코트가 몇 대 몇이었는지 기억에 의존해야 한다.
+
+       묻기만 하고 여기서 끝내지는 않는다. 실제 종료는 확인을 받은 뒤
+       finishCourt()가 한다 — 취소하면 경기는 그대로 이어진다. */
+    askMatchResult(c);
     return true;
   }
   return returnCourtToPool(c);
+}
+
+/* 결과 창에서 확인을 받은 뒤 실제로 경기를 마친다.
+   창이 떠 있는 동안에도 다른 기기가 판을 바꿀 수 있으므로, 코트를 번호로
+   다시 찾고 아직 경기 중인지 확인한 다음에 손을 댄다. */
+function finishCourt(no, result){
+  const c = S.courts.find(x=>x.no===no);
+  if(!c || c.status!=='PLAYING'){ toast('그 사이 경기가 바뀌어 종료하지 못했습니다'); return false; }
+  c.members.slice().forEach(flash);
+  tx(()=>endCourt(c,'POOL',result),{auto:false});
+  Sound.play('end');
+  toast(result && result.win ? `${no}코트 — ${resultLabel(result)}` : `${no}코트 경기를 마쳤습니다`);
+  return true;
+}
+
+/* 종료 직전에 뜨는 결과 입력 창. 창 자체는 interact.js의 resultDialog가
+   그린다(기록 화면에서 나중에 고칠 때도 같은 창을 쓴다). */
+function askMatchResult(c){
+  const mins = c.startedAt ? Math.round((now()-c.startedAt)/60000) : null;
+  resultDialog(
+    { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
+    { title: `${c.no}코트 경기 결과`,
+      sub:   `${MT_LBL[c.matchType||'UNKNOWN']}${mins!=null?` · ${mins}분`:''}`
+             + ' — 이긴 팀을 고르세요. 안 골라도 종료할 수 있습니다',
+      okLabel:'결과 남기고 종료', noneLabel:'승패 없이 종료',
+      onSave(r){ finishCourt(c.no, r); } });
 }
 
 /* 코트에 올라간 팀을 전부 대기 인원으로 흩는다(경기로 치지 않는다). */

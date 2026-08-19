@@ -1,11 +1,12 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.14v';
+const APP_VERSION = '2026.08.19a';
 
 const DEFAULTS = {
   clubName:'대진판',
   courtCount:3, queueSlotCount:7,
   autoMode:true, autoPushToCourt:true,   // 4명이 차면 무조건 시작하므로 별도 설정은 없앴다
   matchWarnMinutes:18,
+  winPoint:21,                // 한 게임의 점수. 결과 입력에서 이긴 팀 점수를 계산하는 기준
   genderPolicy:'FREE',
   considerAge:false,
   candidateK:10, repeatLookback:3, oddRelaxThreshold:2,
@@ -34,7 +35,7 @@ let S = {
   startedAt:null,    // 첫 경기가 시작된 시각. 여기서 12시간이 지나면 자동 마감한다.
   att:{},            // attendeeId -> {id,memberId,name,grade,gender,birthYear,guest,games,lastEnd,state}
   courts:[], queues:[],
-  matches:[],        // {id,court,type,typeSource,startedAt,endedAt,A:[],B:[]}
+  matches:[],        // 경기 기록. 한 건의 생김새는 아래 '경기 기록과 결과' 참고
   hist:[],           // 최근 경기 참가자 id 배열 (중복 회피용)
   /* 게스트가 낸 회원 가입 요청. 운영자가 승인해야 members로 넘어간다.
      {id,name,gender,birthYear,grade,at} — 승인/거절하면 목록에서 빠진다. */
@@ -127,6 +128,80 @@ function ageFactor(birthYear){
 }
 const genderFactor = gender => gender==='M' ? 1.05 : gender==='F' ? 0.95 : 1;
 const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gender);
+
+/* ── 경기 기록과 결과 ──────────────────────────────────────────────
+   경기 한 건(S.matches[i])의 생김새다. 앞쪽은 경기가 시작될 때
+   (algo.js startCourt) 채워지고, 뒤쪽 넷은 끝낼 때 운영자가 넣는 결과다.
+
+     id         'm3f9a2b'      경기 id (코트의 matchId와 같다)
+     court      3              코트 번호. 코트를 맞바꾸면 사람을 따라간다
+     type       'XD'           경기 유형 (MD·WD·XD·MX)
+     typeSource 'AUTO'         유형을 누가 정했나 (AUTO·MANUAL)
+     startedAt  1755…          시작 시각(ms)
+     endedAt    1755… | null   종료 시각. null이면 아직 진행 중
+     A, B       ['a1','a2']    양 팀 출석자 id
+     An, Bn     ['김철수', …]   그때의 이름. 세션을 마감하면 att가 비므로 필요하다
+     ── 여기부터가 결과다 ──
+     win        'A'|'B'|null   이긴 팀. null = 승패를 적지 않은 경기
+     sw         21 | null      이긴 팀 점수
+     sl         15 | null      진 팀 점수
+     resAt      1755… | null   결과를 적은 시각
+
+   왜 이렇게 나눠 두는가.
+
+     · 승패(win)와 점수(sw·sl)는 별개다. 점수를 일일이 물어보기 어려워서
+       실제로는 "누가 이겼는지만" 적는 경우가 가장 흔하다. 그래서 점수 없이
+       승패만 있는 상태가 정상이고, 아예 둘 다 없는 상태(win=null)도 정상이다.
+       '21:15' 같은 한 덩어리 문자열로 저장하면 나중에 세거나 정렬할 수 없다.
+
+     · 이긴 팀 점수(sw)도 함께 적는다. 화면에서는 진 팀 점수만 받고 21점제
+       규칙으로 이긴 쪽을 계산하지만, 그 계산의 기준(설정의 winPoint)은
+       나중에 바뀔 수 있다. 계산해서 지워 두면 설정을 15점제로 바꾸는 순간
+       옛 기록의 점수까지 따라 바뀐다. 기록은 그날 있었던 그대로여야 한다.
+
+     · 사람별 승/패 수는 저장하지 않는다. matches에서 세면 되고, 따로 두면
+       둘이 어긋날 자리가 생긴다(경기 도중 사람을 바꾸면 특히 그렇다).
+
+   옛 기록에는 이 넷이 아예 없다. 없으면 "승패를 적지 않은 경기"로 읽히므로
+   따로 옮겨 적을 것은 없다.
+   ───────────────────────────────────────────────────────────── */
+
+/* 진 팀 점수에서 이긴 팀 점수를 얻는다.
+   21점제 기준 — 19점 이하로 졌으면 21점, 20점부터는 듀스라 2점 차,
+   그리고 30점이 상한이다(21+9). winPoint를 다른 값으로 두면 상한도
+   같은 폭(+9)으로 따라간다. */
+function winnerScore(lose, target){
+  if(lose==null || lose==='') return null;
+  const t = target || S.settings.winPoint || 21, cap = t + 9;
+  const l = Math.max(0, Math.min(cap-1, Math.round(+lose)));
+  if(!isFinite(l)) return null;
+  return l < t-1 ? t : Math.min(l+2, cap);
+}
+/* 결과를 기록에 적는다. r.win이 없으면 "승패 없음"으로 지운다. */
+function applyResult(m, r){
+  if(!m) return;
+  const win = (r && (r.win==='A' || r.win==='B')) ? r.win : null;
+  m.win = win;
+  m.sw  = (win && r.sw!=null) ? +r.sw : null;
+  m.sl  = (win && r.sl!=null) ? +r.sl : null;
+  m.resAt = win ? now() : null;
+}
+/* 화면에 쓰는 한 줄 — 'A팀 승 21:15' · 승패가 없으면 빈 문자열 */
+function resultLabel(m){
+  if(!m || !m.win) return '';
+  return `${m.win}팀 승` + ((m.sw!=null && m.sl!=null) ? ` ${m.sw}:${m.sl}` : '');
+}
+/* 이 사람의 승-패. 끝났고 승패가 적힌 경기만 센다. */
+function recordOf(attId){
+  let w=0, l=0;
+  S.matches.forEach(m=>{
+    if(!m.endedAt || !m.win) return;
+    const side = (m.A||[]).includes(attId) ? 'A' : (m.B||[]).includes(attId) ? 'B' : null;
+    if(!side) return;
+    if(side===m.win) w++; else l++;
+  });
+  return {w,l};
+}
 
 function initBoard(){
   S.courts = Array.from({length:S.settings.courtCount},(_,i)=>({

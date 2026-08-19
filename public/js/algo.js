@@ -365,11 +365,13 @@ function startCourt(c, silent){
 
 /* 경기를 마친다 — 게임 수를 올리고 기록을 닫고 네 명을 대기 인원으로 보낸다.
    disposition='REVENGE'면 같은 멤버로 대기열 뒤쪽에 다시 등록한다.
-   (지금 화면에는 리벤지를 고르는 곳이 없어 항상 'POOL'로 불린다.) */
-function endCourt(c, disposition){
+   (지금 화면에는 리벤지를 고르는 곳이 없어 항상 'POOL'로 불린다.)
+   result={win,sw,sl} — 종료할 때 운영자가 넣은 승패·점수. 안 넣었으면 없다.
+   결과의 생김새와 뜻은 state.js의 '경기 기록과 결과'에 적어 두었다. */
+function endCourt(c, disposition, result){
   const ids=[...c.members];
   const m=S.matches.find(x=>x.id===c.matchId);
-  if(m){ m.endedAt=now(); m.type=c.matchType; }
+  if(m){ m.endedAt=now(); m.type=c.matchType; if(result) applyResult(m,result); }
   S.hist.push(ids);
   ids.forEach(i=>{ const a=A(i); a.games++; a.lastEnd=now(); a.state='POOL'; });
   const teams=clone(c.teams), mt=c.matchType, src=c.typeSource;

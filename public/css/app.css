@@ -380,6 +380,21 @@ tr:hover td{background:var(--surface)}
 .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
 .row.end{justify-content:flex-end;margin-top:16px}
 
+/* ── 경기 결과 입력 ───────────────────────────────
+   이긴 팀을 고르면 그 줄이 초록으로 서고, 오른쪽 숫자가 점수 자리다.
+   점수를 안 넣으면 숫자 대신 승·패 글자가 온다 — 빈 칸으로 두는 것이
+   정상적인 선택이라 "덜 채워진 것"처럼 보이면 안 된다. */
+.opt.res{gap:12px}
+.opt.res .t{font-size:15px;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.res-tag{min-width:46px;height:32px;border-radius:8px;flex:none;
+         display:flex;align-items:center;justify-content:center;
+         font-size:13px;font-weight:800;color:var(--on-accent);background:var(--unk)}
+.opt.res.on .res-tag{background:var(--court)}
+.res-sc{flex:none;min-width:48px;text-align:right;font-size:22px;font-weight:800;color:var(--muted2)}
+.res-sc.w{color:var(--court)}
+td.res-cell.edit{cursor:pointer}
+td.res-cell.edit:hover{background:var(--court-soft)}
+
 /* 드래그 고스트 */
 #ghost{position:fixed;z-index:99;pointer-events:none;width:170px;
        transform:rotate(-5deg);box-shadow:0 12px 28px rgba(22,33,29,.28);display:none}
