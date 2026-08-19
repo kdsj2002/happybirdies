@@ -338,29 +338,18 @@ function pushQueueToCourt(q, c){
   return true;
 }
 
-/* 코트에 올라간 팀을 통째로 대기열로 되돌린다(팀 유지). */
-function returnCourtToQueue(c){
-  if(!c.members.length) return false;
-  const q=S.queues.find(x=>!x.members.length);
-  if(!q){ Sound.play('error'); toast('비어 있는 대기 슬롯이 없습니다'); return false; }
-  c.members.forEach(flash);
-  tx(()=>{
-    abortMatch(c);          // 진행 중이었다면 그 경기 기록은 무효 (removeFrom을 안 거치므로 직접)
-    q.members=c.members; q.teams=c.teams; q.matchType=c.matchType; q.typeSource=c.typeSource;
-    q.origin='MANUAL'; q.notice=null;     // 손으로 되돌린 팀은 origin으로 자동 재구성에서 지킨다
-    q.members.forEach(i=>A(i).state='QUEUED');
-    clearCourt(c);
-  },{auto:false});
-  Sound.play('move');
-  return true;
-}
+/* returnCourtToQueue()는 걷어냈다. 코트 팀을 대기열로 보내는 길은
+   moveCourtTeamToQueue() 하나뿐이어야 한다. 아무 데서도 부르지 않는 채로
+   남아 있었는데, 그대로 두면 나중에 누가 그것을 불러 리매치 여부를 묻는
+   질문을 건너뛰고 조용히 경기를 무효로 만들 수 있다. */
 
 /* 코트 팀의 다음 단계는 대기 인원이다. 여기가 중요한 갈림길이다.
      경기 중이었다  → 경기가 끝난 것으로 본다(게임 수 +1, 기록 저장).
      아직 안 찼다   → 그냥 되돌린다.
    종료 버튼을 없앴으므로 "대기 인원으로 보내는 것"이 곧 종료다.
-   반대로 대기열이나 다른 코트로 옮기는 것은 끝난 게 아니므로 경기를
-   무효로 하고 옮긴다(abortMatch). */
+   다른 코트로 옮기는 것은 끝난 게 아니므로 경기를 무효로 하고 옮긴다.
+   대기열로 옮기는 것만은 둘 중 어느 쪽인지 알 수 없어서 물어본다
+   (askCourtToQueue) — 리매치일 수도, 잘못 올린 것을 무르는 것일 수도 있다. */
 function advanceCourtTeam(c){
   if(!c || !c.members.length) return false;
   if(c.status==='PLAYING'){
@@ -401,6 +390,83 @@ function askMatchResult(c){
              + ' — 이긴 팀을 고르세요. 안 골라도 종료할 수 있습니다',
       okLabel:'결과 남기고 종료', noneLabel:'승패 없이 종료',
       onSave(r){ finishCourt(c.no, r); } });
+}
+
+/* =====================================================================
+   경기 중인 팀을 대기열로 — 리매치인가, 무른 것인가
+
+   같은 손동작이 두 가지 뜻을 가진다.
+     리매치   방금 한 판을 다 쳤고, 그 팀 그대로 다음 차례를 기다린다.
+              → 경기는 "끝난 것"이다. 게임 수가 오르고 기록에 남는다.
+     경기 취소 잘못 올렸거나 코트를 급히 비워야 한다.
+              → 경기는 "없던 일"이다. 진행 중이던 기록을 지운다.
+
+   화면만 보고는 어느 쪽인지 알 수 없다. 예전에는 늘 취소로 처리했는데,
+   그러면 리매치를 할 때마다 네 명분 게임 수와 그 판의 기록이 통째로
+   사라졌다. 짐작해서 하나를 고르는 대신 한 번 물어본다.
+   ===================================================================== */
+function askCourtToQueue(c, q){
+  const mins = c.startedAt ? Math.round((now()-c.startedAt)/60000) : 0;
+  const names = [...c.teams.A, ...c.teams.B].map(i=>esc((A(i)||{}).name||'?')).join(' · ');
+  openModal(`<h3>${c.no}코트 → Q${q.index}</h3>
+    <div class="sub">${names} — ${mins}분째 경기 중입니다. 이 경기를 어떻게 할까요?</div>
+    <div class="opt" data-a="rematch"><div>
+      <div class="t">리매치 — 경기를 마치고 같은 팀으로 대기</div>
+      <div class="d">한 판 친 것으로 칩니다. 네 명 모두 게임 수가 1 오르고 기록에 남습니다.
+        이어서 결과(승패·점수)를 물어봅니다.</div></div></div>
+    <div class="opt" data-a="cancel"><div>
+      <div class="t">경기 취소 — 없던 일로 하고 대기</div>
+      <div class="d">게임 수도 기록도 남지 않습니다. 잘못 올렸거나 코트를 비워야 할 때 쓰세요.</div></div></div>
+    <div class="row end"><button class="btn" id="cq_no">그만두기</button></div>`);
+  $('#cq_no').onclick=closeModal;
+  $$('#modal .opt[data-a]').forEach(e=>e.onclick=()=>{
+    const a=e.dataset.a;
+    closeModal(); Sound.play('tap');
+    if(a==='cancel') return void moveCourtTeamToQueue(c.no, q.index, null);
+    /* 리매치는 종료 처리를 그대로 태운다 — 대기 인원으로 보낼 때와 같은
+       결과 창, 같은 endCourt다. 다른 것은 네 명이 흩어지지 않고 그 슬롯에
+       팀째로 남는다는 것뿐이다. */
+    resultDialog(
+      { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
+      { title:`${c.no}코트 경기 결과`,
+        sub: `${MT_LBL[c.matchType||'UNKNOWN']} · ${mins}분 — 마친 뒤 Q${q.index}에 같은 팀으로 올립니다`,
+        okLabel:'결과 남기고 리매치', noneLabel:'승패 없이 리매치',
+        onSave(r){ moveCourtTeamToQueue(c.no, q.index, r); } });
+  });
+}
+
+/* 코트 팀을 대기 슬롯으로 옮긴다.
+   result가 있으면(리매치) 경기를 마치고 옮기고, null이면 무효로 하고 옮긴다.
+   창이 떠 있는 사이 판이 바뀌었을 수 있으므로 번호로 다시 찾아 확인한다. */
+function moveCourtTeamToQueue(no, qIndex, result){
+  const c = S.courts.find(x=>x.no===no);
+  const q = S.queues.find(x=>x.index===qIndex);
+  if(!c || !q || !c.members.length){ toast('그 사이 판이 바뀌어 옮기지 못했습니다'); return false; }
+  if(q.members.length){ Sound.play('error'); toast(`Q${qIndex}가 그 사이 채워졌습니다`); return false; }
+  /* 놓은 자리가 곧 최종 자리는 아니다. tx가 대기열의 빈칸을 앞으로 당기므로
+     (compactQueues) Q5에 놓아도 앞이 비었으면 Q3로 간다. 안내에는 실제로
+     선 자리를 적어야 해서, 옮긴 뒤에 사람을 보고 찾는다. */
+  const ids = c.members.slice();
+  const landed = () => (S.queues.find(x=>x.members.includes(ids[0])) || q).index;
+  ids.forEach(flash);
+  if(result){
+    if(c.status!=='PLAYING'){ toast('그 사이 경기가 끝나 리매치로 올리지 못했습니다'); return false; }
+    tx(()=>endCourt(c,'REMATCH',result,q),{auto:false});
+    Sound.play('end');
+    toast(`${no}코트 리매치 → Q${landed()}`
+      + (result.win ? ` · ${resultLabel(result)}` : ''));
+  }else{
+    tx(()=>{
+      abortMatch(c);
+      q.members=c.members; q.teams=c.teams; q.matchType=c.matchType; q.typeSource=c.typeSource;
+      q.origin='MANUAL'; q.notice=null;
+      q.members.forEach(i=>A(i).state='QUEUED');
+      clearCourt(c);
+    },{auto:false});
+    Sound.play('move');
+    toast(`${no}코트 경기를 취소하고 Q${landed()}로 옮겼습니다`);
+  }
+  return true;
 }
 
 /* 코트에 올라간 팀을 전부 대기 인원으로 흩는다(경기로 치지 않는다). */
@@ -490,6 +556,9 @@ function moveTeamTo(from, target){
     const to=S.queues.find(q=>q.index===+tn);
     if(!to || to===src) return;
     if(to.members.length){ Sound.play('error'); toast('그 대기 슬롯은 이미 차 있습니다'); return; }
+    /* 경기 중인 팀이 대기열로 내려오는 것은 리매치일 수도, 무르는 것일 수도
+       있다. 짐작하지 않고 물어본다 — 그 뒤는 moveCourtTeamToQueue가 맡는다. */
+    if(fk==='court' && src.status==='PLAYING') return void askCourtToQueue(src, to);
     src.members.forEach(flash);
     tx(()=>{
       if(fk==='court') abortMatch(src);                        // 옮기는 것은 종료가 아니다

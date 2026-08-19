@@ -364,11 +364,14 @@ function startCourt(c, silent){
 }
 
 /* 경기를 마친다 — 게임 수를 올리고 기록을 닫고 네 명을 대기 인원으로 보낸다.
-   disposition='REVENGE'면 같은 멤버로 대기열 뒤쪽에 다시 등록한다.
-   (지금 화면에는 리벤지를 고르는 곳이 없어 항상 'POOL'로 불린다.)
+
+   disposition='REMATCH'면 흩지 않고 같은 팀 그대로 대기 슬롯에 올린다.
+   slot을 주면 그 슬롯에(운영자가 팀을 끌어다 놓은 자리), 안 주면 대기열
+   뒤쪽의 빈 슬롯에 넣는다 — 방금 친 팀이 줄 맨 앞으로 가면 안 되기 때문이다.
+
    result={win,sw,sl} — 종료할 때 운영자가 넣은 승패·점수. 안 넣었으면 없다.
    결과의 생김새와 뜻은 state.js의 '경기 기록과 결과'에 적어 두었다. */
-function endCourt(c, disposition, result){
+function endCourt(c, disposition, result, slot){
   const ids=[...c.members];
   const m=S.matches.find(x=>x.id===c.matchId);
   if(m){ m.endedAt=now(); m.type=c.matchType; if(result) applyResult(m,result); }
@@ -377,15 +380,18 @@ function endCourt(c, disposition, result){
   const teams=clone(c.teams), mt=c.matchType, src=c.typeSource;
   Object.assign(c,{status:'EMPTY',members:[],teams:{A:[],B:[]},matchType:null,
                    typeSource:'AUTO',startedAt:null,matchId:null});
-  if(disposition==='REVENGE'){
-    // 뒤에서부터 찾는다 — 방금 친 팀이 줄 맨 앞으로 가면 안 된다.
-    const slot=[...S.queues].reverse().find(q=>!q.members.length&&!q.pinnedType)
-            || [...S.queues].reverse().find(q=>!q.members.length);
-    if(slot){
-      slot.members=ids; slot.teams=teams; slot.matchType=mt; slot.typeSource=src;
-      slot.origin='REVENGE'; slot.notice=null;
+  if(disposition==='REMATCH' || disposition==='REVENGE'){
+    // 슬롯을 안 받았으면 뒤에서부터 찾는다 — 방금 친 팀이 줄 맨 앞으로 가면 안 된다.
+    const q = slot
+           || [...S.queues].reverse().find(x=>!x.members.length&&!x.pinnedType)
+           || [...S.queues].reverse().find(x=>!x.members.length);
+    if(q){
+      q.members=ids; q.teams=teams; q.matchType=mt; q.typeSource=src;
+      /* origin을 REMATCH로 남긴다. 자동이 아니므로 '정렬' 버튼이 이 팀을
+         헐지 않고(q.origin!=='AUTO'), 대기 슬롯에 '리매치' 표시가 붙어
+         운영자가 왜 이 팀이 통째로 줄에 서 있는지 알 수 있다. */
+      q.origin='REMATCH'; q.notice=null;
       ids.forEach(i=>{A(i).state='QUEUED'; flash(i);});
-      toast('리벤지 — 같은 멤버로 대기 등록');
     } else toast('빈 대기 슬롯이 없어 대기 인원으로 보냈습니다');
   }
 }

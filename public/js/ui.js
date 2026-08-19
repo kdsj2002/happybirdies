@@ -216,7 +216,8 @@ function renderQueues(){
     e.innerHTML=`<div class="slot-h">
         <span class="slot-no">Q${q.index}</span>
         ${mtBadge(q,'queue',q.index)}
-        ${q.origin==='REVENGE'?'<span class="stat" style="color:var(--gold)">리벤지</span>':''}
+        ${(q.origin==='REMATCH'||q.origin==='REVENGE')
+          ?'<span class="stat" style="color:var(--gold)">리매치</span>':''}
         <span class="spacer"></span>
         ${q.members.length?`<span class="ic" data-clear="${q.index}" title="비우기">✕</span>`:''}
       </div>
