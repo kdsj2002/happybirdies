@@ -613,7 +613,9 @@ function moveTo(id, target){
   if(dest && dest.members.length>=4){
     const occ = occupantAt(target);
     if(occ) return swap(id,occ);
-    toast('자리가 가득 찼습니다'); return;
+    /* 꽉 찬 코트의 빈 곳에 놓으면 누구와 바꿀지 알 수 없다. 막는 게 아니라
+       어디에 놓아야 하는지 알려 준다 — 사람 위에 놓으면 그 사람과 바뀐다. */
+    toast('그 코트는 4명이 다 찼습니다 — 바꿀 사람 위에 놓으세요'); return;
   }
   /* 대기열·대기 인원으로 내리면 한 판 친 것으로 본다(1분 이상일 때).
      다른 코트로 옮기는 것은 아직 끝난 게 아니므로 세지 않는다 —
@@ -628,15 +630,35 @@ function occupantAt(target){
     const order=q.teams.A.length?[...q.teams.A,...q.teams.B]:q.members; return order[+p[2]]||null; }
   return null;
 }
+/* ── 자리 교체 ──────────────────────────────────────────────────────
+   운영자가 손으로 옮기는 것에는 상황 제약을 두지 않는다. 경기 중인 코트의
+   네 명을 서로 바꾸는 것도, 치고 있는 사람을 대기 인원과 맞바꾸는 것도
+   된다. 체육관에서는 다치거나 급한 일이 생겨 판 도중에 사람을 바꾸는 일이
+   실제로 일어나고, 그때 앱이 막아서면 운영자는 앱을 우회해 종이에 적는다.
+
+   예전에는 "경기 중인 코트는 바꿀 수 없습니다"로 막았다. 데이터가 깨질까
+   봐 둔 잠금이었는데, 실제로는 tx()가 매번 syncPlayingMatches()를 돌려
+   기록의 팀 구성을 코트에 맞춰 주므로 깨지지 않는다.
+
+   남는 제약은 역할뿐이다 — 상대방까지 움직이는 조작이라 회원에게는 열지
+   않는다. 그건 상황이 아니라 권한의 문제다. */
 function swap(a,b){
   if(a===b) return;
-  // 자리 교체는 상대방까지 움직이는 조작이라 회원에게는 열지 않는다.
   if(!requirePerm('edit')) return;
   const La=locate(a), Lb=locate(b);
   if((La.kind==='court'||Lb.kind==='court') && !requirePerm('courtAssign')) return;
-  if((La.kind==='court'&&La.obj.status==='PLAYING')||(Lb.kind==='court'&&Lb.obj.status==='PLAYING')){
-    toast('경기 중인 코트는 바꿀 수 없습니다'); return; }
+
+  /* 경기 중인 코트에서 내려와 코트 밖(대기열·대기 인원)으로 가는 사람은
+     그만큼 친 것이므로 한 판으로 쳐 준다 — 개별 이동(removeFrom)과 같은
+     규칙이다. 코트끼리 맞바꾸는 것은 자리를 옮긴 것이지 끝난 게 아니라
+     세지 않는다. */
+  const leaving = (from, to) =>
+    from.kind==='court' && to.kind!=='court' ? from.obj : null;
+  const ca = leaving(La, Lb), cb = leaving(Lb, La);
+
   tx(()=>{
+    if(ca) creditLeaver(ca, a);
+    if(cb) creditLeaver(cb, b);
     const rep=(o,x,y)=>{ if(!o) return;
       o.members=o.members.map(v=>v===x?y:v);
       o.teams.A=o.teams.A.map(v=>v===x?y:v); o.teams.B=o.teams.B.map(v=>v===x?y:v); };
