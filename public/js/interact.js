@@ -120,6 +120,35 @@
     }
     tapKey=k; tapAt=t;
   });
+
+  /* ── 아이패드 더블탭 확대 막기 ────────────────────────────────
+     아이패드는 사파리든 크롬이든 속이 WebKit이라 똑같이 동작한다.
+     막는 방법을 셋 다 써 봐야 한다.
+       · <meta viewport>의 user-scalable=no → iOS 10부터 무시된다
+       · CSS touch-action:manipulation      → iOS에서는 잘 안 먹는다
+       · 두 번째 탭의 기본 동작을 직접 막기  → 이건 먹는다
+     앞의 둘은 다른 기기(안드로이드·데스크톱)에서 값을 하므로 그대로 두고,
+     여기서 마지막 하나를 더한다.
+
+     같은 자리를 짧은 시간에 두 번 두드렸을 때만 막는다. 서로 다른 곳을
+     빠르게 연달아 누르는 것까지 막으면 멀쩡한 조작이 씹힌다.
+     입력칸과 글을 읽는 곳(도움말)은 건드리지 않는다 — 거기서 더블탭은
+     단어 선택이라는 제 뜻이 있다.
+
+     touchend의 기본 동작을 막으면 확대와 함께 뒤따르는 click 합성도
+     사라진다. 이 앱에서 두 번째 탭은 "다음 단계로 보내기"라는 조작이고
+     그 처리는 pointerup이 이미 했으므로, click이 한 번 덜 오는 편이 맞다. */
+  let zAt=0, zX=0, zY=0;
+  document.addEventListener('touchend', e=>{
+    if(e.target.closest('input,textarea,select,.doc')) return;
+    const p = e.changedTouches && e.changedTouches[0];
+    if(!p) return;
+    const t = Date.now();
+    if(t-zAt < 400 && Math.abs(p.clientX-zX) < 32 && Math.abs(p.clientY-zY) < 32){
+      e.preventDefault();
+    }
+    zAt=t; zX=p.clientX; zY=p.clientY;
+  }, { passive:false });   // passive면 preventDefault가 무시된다
 })();
 
 /* =====================================================================
