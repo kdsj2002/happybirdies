@@ -68,7 +68,15 @@
     Object.values(S.att).forEach(a=>{ if(a.jit==null) a.jit=Math.random(); });
   } else initBoard();
   checkAutoClose();                                  // 12시간 지난 세션이면 바로 마감
-  setInterval(()=>{ if(checkAutoClose()) render(); }, 60000);   // 이후 1분마다 확인
+  checkMatchTimeouts();                              // 최대 경기 시간을 넘긴 코트도 바로 정리
+  /* 1분마다 확인한다. 대진판을 보고 있을 때는 1초 타이머(ui.js tickCourts)가
+     더 촘촘히 보지만, 다른 탭(기록·설정)에 가 있거나 화면이 꺼져 있었으면
+     그 타이머가 멈춘다. 그래서 느슨한 타이머를 하나 더 둔다. */
+  setInterval(()=>{ if(checkAutoClose()) render(); checkMatchTimeouts(); }, 60000);
+  // 화면으로 돌아왔을 때, 안 보는 사이에 시간이 넘었다면 그 자리에서 마친다.
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){ checkAutoClose(); checkMatchTimeouts(); }
+  });
 
   /* Firebase가 늦게 준비된 경우(느린 네트워크 등) 이 기기 저장소로 굳어 버리면
      그날 조작이 클라우드에 안 올라간다. 아직 아무 것도 건드리지 않은 상태라면

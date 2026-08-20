@@ -139,6 +139,15 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .court.playing{border-color:var(--court)}
 .court.over{border-color:var(--cork)}
 .court.disabled{opacity:.4}
+/* 방금 배정된 코트 — 경기 시작 후 10초만 (ui.js justAssigned).
+   "내가 몇 번 코트지?"를 눈으로 찾게 해 주는 신호다. 진행 내내 번쩍이면
+   소음이 되고 정작 봐야 할 시간 초과(붉은 테두리)를 가리므로 곧 멈춘다. */
+@keyframes courtJust{
+  0%,100%{box-shadow:0 0 0 0 rgba(11,122,86,0), var(--shadow)}
+  50%    {box-shadow:0 0 0 5px rgba(11,122,86,.30), var(--shadow)}
+}
+.court.just{animation:courtJust .8s ease-in-out infinite}
+.court.just .court-no{color:var(--court)}
 .court-h{display:flex;align-items:center;gap:7px;margin-bottom:7px;min-height:32px;flex-wrap:wrap}
 .court-no{font-weight:800;font-size:17px;letter-spacing:-.01em}
 .timer{font-weight:800;font-size:21px;color:var(--muted)}

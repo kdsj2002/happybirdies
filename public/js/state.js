@@ -1,11 +1,12 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.19b';
+const APP_VERSION = '2026.08.19c';
 
 const DEFAULTS = {
   clubName:'대진판',
   courtCount:3, queueSlotCount:7,
   autoMode:true, autoPushToCourt:true,   // 4명이 차면 무조건 시작하므로 별도 설정은 없앴다
   matchWarnMinutes:18,
+  maxMatchMinutes:30,         // 이 시간에 닿으면 경기를 자동으로 마친다 (0이면 사용 안 함)
   winPoint:21,                // 한 게임의 점수. 결과 입력에서 이긴 팀 점수를 계산하는 기준
   genderPolicy:'FREE',
   considerAge:false,

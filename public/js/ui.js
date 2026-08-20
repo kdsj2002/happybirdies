@@ -84,6 +84,18 @@ function mtBadge(o, kind, key){
   return `<span class="mt ${t}${o.pinnedType?' pin':''}" data-mt="${kind}:${key}">${o.pinnedType?'📌 ':''}${MT_LBL[t]}${o.typeSource==='MANUAL'?' ✎':''}</span>`;
 }
 
+/* ── 방금 배정된 코트 ───────────────────────────────────────────
+   경기가 시작되고 10초 동안 코트 카드 테두리가 깜박인다. 체육관에서
+   이름이 불리면 사람들은 "내가 몇 번 코트지?"부터 찾는데, 코트가 서너 개
+   나란히 있으면 화면을 훑어야 한다. 방금 찬 코트만 움직이면 눈이 거기로
+   먼저 간다.
+
+   10초로 끊는 이유는 예전에 이 깜박임을 없앴던 이유와 같다 — 진행 중인
+   내내 번쩍이면 그건 신호가 아니라 소음이고, 정작 봐야 할 때(경기 시간
+   초과로 붉어질 때)를 가린다. 알릴 일이 있을 때만 잠깐 움직인다. */
+const JUST_MS = 10000;
+const justAssigned = c => !!(c && c.status==='PLAYING' && c.startedAt && now()-c.startedAt < JUST_MS);
+
 /* 경기 경과 — 헤더 숫자 타이머와 그 아래 경과 막대가 같은 값을 쓴다.
    100%의 기준은 설정의 '경기 시간 경고'(= 이 클럽이 정한 최대 경기 시간)다.
    진행 중이 아니면(코트가 비었거나 채우는 중이면) null. */
@@ -152,7 +164,8 @@ function renderCourts(){
   const box=$('#courts'); box.innerHTML='';
   for(const c of S.courts){
     const ce=courtElapsed(c);
-    const card=el('div','court'+(c.status==='PLAYING'?' playing':'')+(ce&&ce.over?' over':'')+(c.disabled?' disabled':''));
+    const card=el('div','court'+(c.status==='PLAYING'?' playing':'')+(ce&&ce.over?' over':'')
+                              +(justAssigned(c)?' just':'')+(c.disabled?' disabled':''));
     card.dataset.drop=`court:${c.no}`;
     // 버튼(시작·종료·빼기·잠금)은 전부 없앴다. 머리 부분을 두 번 두드리면
     // 다음 단계로 가고, 끌면 원하는 곳으로 옮긴다.
@@ -188,10 +201,13 @@ function renderCourts(){
    실행돼, 아무 일도 없는데 코트 가장자리가 계속 번쩍였다. 그래서 이미 있는
    DOM은 그대로 두고 숫자와 막대 값만 바꾼다 — 시작 때 한 번만 반짝인다. */
 function tickCourts(){
+  // 최대 경기 시간에 닿은 코트가 있으면 여기서 스스로 마친다(render까지 다시 돈다).
+  if(checkMatchTimeouts()) return;
   $$('#courts .court').forEach(card=>{
     const no=+(card.dataset.drop||'').split(':')[1];
     const c=S.courts.find(x=>x.no===no);
     const ce=c&&courtElapsed(c);
+    card.classList.toggle('just', justAssigned(c));
     if(!ce) return;
     card.classList.toggle('over',ce.over);
     const timerEl=card.querySelector('.timer'); if(timerEl) timerEl.textContent=ce.label;

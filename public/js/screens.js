@@ -430,6 +430,7 @@ function renderSet(){
         <div class="k">자동 배치</div><div>${s.autoMode?'켜짐':'꺼짐'}</div>
         <div class="k">성별 정책</div><div>${esc(pol[1])}</div>
         <div class="k">경기 시간 경고</div><div>${s.matchWarnMinutes}분</div>
+        <div class="k">최대 경기 시간</div><div>${s.maxMatchMinutes?`${s.maxMatchMinutes}분 (자동 종료)`:'사용 안 함'}</div>
         <div class="k">한 게임 점수</div><div>${s.winPoint||21}점</div>
         <div class="k">자동 마감</div><div>첫 경기 후 ${autoCloseHours()}시간</div>
         <div class="h">내 계정</div>
@@ -453,6 +454,10 @@ function renderSet(){
       <div class="k">풀 최소 확보 인원</div><div><input type="number" id="s_minpool" value="${s.minPool}" min="0" max="12" style="width:90px">
         <span class="hint">대기 슬롯을 끝까지 채우지 않고 이만큼은 대기 인원으로 남깁니다. 0으로 두면 방금 같이 친 4명이 그대로 다시 묶입니다</span></div>
       <div class="k">경기 시간 경고</div><div><input type="number" id="s_warn" value="${s.matchWarnMinutes}" min="5" max="60" style="width:90px"> 분 초과 시 코트가 붉게 표시</div>
+      <div class="k">최대 경기 시간</div><div><input type="number" id="s_maxmin" value="${s.maxMatchMinutes==null?30:s.maxMatchMinutes}" min="0" max="120" style="width:90px">
+        <span class="hint">이 시간에 닿으면 <b>경기를 자동으로 마칩니다</b> — 네 명 모두 게임 수가 1 오르고
+          기록에 남으며 대기 인원으로 내려갑니다. 승패는 비워 둡니다(나중에 기록 화면에서 넣을 수 있습니다).
+          <b>0이면 사용하지 않습니다.</b></span></div>
       <div class="k">한 게임 점수</div><div><input type="number" id="s_wp" value="${s.winPoint||21}" min="5" max="31" style="width:90px">
         <span class="hint">결과를 넣을 때 <b>진 팀 점수</b>만 받고 이긴 팀 점수는 여기서 계산합니다
           (${s.winPoint||21}점제 · 듀스는 2점 차 · 상한 ${(s.winPoint||21)+9}점)</span></div>
@@ -650,6 +655,7 @@ function renderSet(){
     Object.assign(s,{clubName:$('#s_club').value.trim()||'대진판',courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
       winPoint:Math.max(5,Math.min(31,+$('#s_wp').value||21)),
+      maxMatchMinutes:Math.max(0,Math.min(120,+$('#s_maxmin').value||0)),
       autoPushToCourt:$('#s_push').checked,
       genderPolicy:$('#s_pol').value, oddRelaxThreshold:+$('#s_relax').value||2,
       minPool:Math.max(0,+$('#s_minpool').value||0),

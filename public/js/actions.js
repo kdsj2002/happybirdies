@@ -393,6 +393,42 @@ function askMatchResult(c){
 }
 
 /* =====================================================================
+   최대 경기 시간 — 닿으면 스스로 마친다
+
+   설정의 '최대 경기 시간'(기본 30분)에 닿은 코트는 운영자를 기다리지 않고
+   끝난 것으로 처리한다. 네 명 모두 게임 수가 1 오르고 기록에 남으며,
+   대기 인원으로 내려간다 — 운영자가 대기 인원으로 보냈을 때와 똑같다.
+
+   결과는 비워 둔다(승패 없음). 30분이 지났다는 사실만으로는 누가 이겼는지
+   알 수 없고, 여기서 아무 값이나 적으면 그건 기록이 아니라 거짓이다.
+   나중에 기록 화면의 '결과' 칸에서 채워 넣을 수 있다.
+
+   확인은 1초 타이머(ui.js tickCourts)와 1분 타이머(main.js), 그리고 화면에
+   돌아올 때 함께 한다. 대진판을 안 보고 있는 동안에는 타이머가 멈추므로,
+   돌아왔을 때 이미 시간이 넘었다면 그 자리에서 마친다.
+   ===================================================================== */
+let timeoutBusy = false;
+function checkMatchTimeouts(){
+  const max = S.settings.maxMatchMinutes;
+  if(!max || max<=0 || timeoutBusy) return false;
+  const limit = max*60000, t = now();
+  const over = S.courts.filter(c=>c.status==='PLAYING' && c.startedAt && t-c.startedAt >= limit);
+  if(!over.length) return false;
+  timeoutBusy = true;                 // tx가 render를 부르고 render가 다시 여기로 오는 것을 막는다
+  try{
+    over.forEach(c=>{
+      c.members.slice().forEach(flash);
+      /* 자동 배치를 막지 않는다. 손으로 마칠 때와 달리 여기는 사람이 보고
+         있지 않을 수 있어서, 빈 코트를 그대로 두면 판이 멈춘다. */
+      tx(()=>endCourt(c,'POOL',null));
+    });
+  } finally { timeoutBusy = false; }
+  Sound.play('end');
+  toast(`${over.map(c=>c.no).join('·')}코트 — ${max}분이 지나 자동으로 마쳤습니다`);
+  return true;
+}
+
+/* =====================================================================
    경기 중인 팀을 대기열로 — 리매치인가, 무른 것인가
 
    같은 손동작이 두 가지 뜻을 가진다.
@@ -513,41 +549,34 @@ function moveTeamTo(from, target){
     const to=S.courts.find(c=>c.no===+tn);
     if(!to || to.disabled){ Sound.play('error'); toast('그 코트는 쓸 수 없습니다'); return; }
 
-    /* ── 코트 ↔ 코트 통째로 맞교체 ────────────────────────────────
-       양쪽 다 사람이 있으면 두 팀이 코트를 맞바꾼다. 경기 중이어도 된다 —
-       각자의 경기는 그대로 이어지고 시간·기록이 사람을 따라간다.
-       예전에는 여기서 "자리가 모자랍니다"(4+4>4)로 막혔다. 자리를 더
-       넣으려는 게 아니라 서로 바꾸려는 것인데 정원으로 잰 탓이다. */
-    if(fk==='court' && to.members.length && src.members.length){
+    /* ── 코트 ↔ 코트는 언제나 통째로 맞바꾼다 ──────────────────────
+       목적지가 비어 있으면 그냥 옮겨지는 것이고, 사람이 있으면 서로
+       자리를 바꾼다. 둘은 같은 조작의 두 모습이라 한 갈래로 둔다.
+
+       어느 쪽이든 경기는 이어진다. 코트를 옮긴 것이지 끝난 것이 아니기
+       때문이다 — 시간도, 진행 중인 기록도 사람을 따라간다(swapCourts).
+       예전에는 빈 코트로 옮길 때만 경기를 무효로 했는데, 옆 코트에 사람이
+       있으면 유지되고 비어 있으면 사라지는 것은 설명할 수 없는 차이였다.
+       비 오는 날 물이 새서 코트를 옮기는 것은 그 판을 무르는 일이 아니다. */
+    if(fk==='court'){
+      const swapping = to.members.length>0;
       [...src.members, ...to.members].forEach(flash);
       tx(()=>{ swapCourts(src, to); });
       Sound.play('move');
-      toast(`${src.no}코트 ↔ ${to.no}코트 맞바꿨습니다`);
+      toast(swapping ? `${src.no}코트 ↔ ${to.no}코트 맞바꿨습니다`
+                     : `${src.no}코트 → ${to.no}코트로 옮겼습니다 (경기는 그대로)`);
       return;
     }
 
     if(to.members.length + src.members.length > 4){
       Sound.play('error'); toast(`${to.no}코트에 자리가 모자랍니다`); return;
     }
-    if(fk==='queue'){
-      if(src.members.length===4 && !to.members.length) return void pushQueueToCourt(src, to);
-      // 4명이 아니거나 코트에 이미 몇 명 있으면 한 명씩 채워 넣는다
-      const ids=src.members.slice();
-      ids.forEach(flash);
-      tx(()=>{ ids.forEach(i=>{ removeFrom(i); addTo(i,`court:${to.no}`); }); });
-      Sound.play('move');
-      return;
-    }
-    // 여기 오면 목적지 코트는 비어 있다(사람이 있었으면 위에서 맞교체로 끝났다).
-    // 코트 → 빈 코트: 끝난 게 아니므로 경기는 무효로 하고 옮긴다
-    src.members.forEach(flash);
-    tx(()=>{
-      abortMatch(src);
-      to.members=src.members; to.teams=src.teams; to.matchType=src.matchType;
-      to.typeSource=src.typeSource; to.status='FILLING';
-      to.members.forEach(i=>A(i).state='FILLING');
-      clearCourt(src);
-    });
+    // 여기 오면 출발지는 대기 슬롯이다(코트에서 온 것은 위에서 끝났다).
+    if(src.members.length===4 && !to.members.length) return void pushQueueToCourt(src, to);
+    // 4명이 아니거나 코트에 이미 몇 명 있으면 한 명씩 채워 넣는다
+    const ids=src.members.slice();
+    ids.forEach(flash);
+    tx(()=>{ ids.forEach(i=>{ removeFrom(i); addTo(i,`court:${to.no}`); }); });
     Sound.play('move');
     return;
   }
