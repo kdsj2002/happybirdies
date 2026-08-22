@@ -103,6 +103,13 @@ function save(){
 
     if(sessionsIdx===null) sessionsIdx=(await Store.get(K('sessions')))||[];
     if(!sessionsIdx.includes(S.date)){ sessionsIdx.push(S.date); await Store.set(K('sessions'),sessionsIdx); }
+
+    /* 끝난 경기를 날짜별 원장에도 남긴다(records.js).
+       세션 문서와 따로 두는 이유, 그리고 그 안의 덮어쓰기 규칙은 그 파일
+       머리말에 적어 두었다. 여기서 부르는 이유는 하나다 — 경기가 어떤 길로
+       끝나든(손으로·리매치·30분 자동 종료·나중에 결과 수정) 저장은 전부
+       이 함수를 지나가므로, 원장에 빠지는 경로가 생기지 않는다. */
+    await Records.sync();
   },300);
 }
 

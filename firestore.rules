@@ -137,8 +137,16 @@ service cloud.firestore {
       // 앱이 실제로 만드는 문서 이름만 허용한다.
       function knownDoc() {
         return docId in ['settings', 'members', 'sessions', 'adminLeases',
-                         'adminAuth', 'joinRequests']
-            || docId.matches('session:[0-9]{4}-[0-9]{2}-[0-9]{2}');
+                         'adminAuth', 'joinRequests', 'recIndex']
+            || docId.matches('session:[0-9]{4}-[0-9]{2}-[0-9]{2}')
+            || docId.matches('rec:[0-9]{4}-[0-9]{2}-[0-9]{2}');
+      }
+
+      /* rec:*와 recIndex는 경기 원장이다(앱의 records.js 참고).
+         세션 문서와 달리 지워지면 안 되는 값이라 따로 판정한다. */
+      function isRecordDoc() {
+        return docId == 'recIndex'
+            || docId.matches('rec:[0-9]{4}-[0-9]{2}-[0-9]{2}');
       }
 
       // 저장 형식은 { v: JSON 문자열, updatedAt: 타임스탬프 }.
@@ -194,6 +202,21 @@ service cloud.firestore {
            · 소유자 계정일 때 (운영자 비밀번호를 다시 정하는 경우)
          예전에는 앞의 하나뿐이라, 한 번 정하고 나면 콘솔에서 문서를 지우기
          전에는 아무도 바꿀 수 없었다. */
+      /* ── 경기 원장은 쌓이기만 한다 ──────────────────────────────────
+         세션 문서는 매 조작마다 통째로 덮어써지는 작업 문서라 크기가
+         들쭉날쭉하지만, 원장은 끝난 경기만 붙는 곳이라 줄어들 이유가
+         거의 없다. 통째로 비우는 쓰기를 여기서 막는다.
+
+         회원 명단과 같은 10% 기준을 쓴다. 결과를 고치면(점수를 지우면)
+         문서가 조금 짧아질 수 있어서 딱 붙여 두면 정상적인 수정이 막힌다.
+         한 번에 10% 넘게 날아가는 쓰기, 즉 사고이거나 스크립트인 경우만
+         걸린다. 정말로 지워야 한다면 소유자 계정으로 하거나 콘솔에서 한다. */
+      function recordsShrinkOk() {
+        return !isRecordDoc()
+            || request.resource.data.v.size() >= resource.data.v.size() * 9 / 10
+            || isOwner(club);
+      }
+
       function saltDocOk() {
         return docId != 'adminAuth'
             || !exists(/databases/$(database)/documents/clubs/$(club)/kv/adminAuth)
@@ -204,7 +227,8 @@ service cloud.firestore {
       allow create: if signedIn() && registered(club) && knownDoc()
                     && validShape() && saltDocOk();
       allow update: if signedIn() && registered(club) && knownDoc() && validShape()
-                    && notWipingMembers() && membersShrinkOk() && saltDocOk();
+                    && notWipingMembers() && membersShrinkOk() && saltDocOk()
+                    && recordsShrinkOk();
       allow delete: if false;      // 앱은 어떤 문서도 지우지 않는다
     }
 

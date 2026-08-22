@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.19c';
+const APP_VERSION = '2026.08.19d';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -11,6 +11,10 @@ const DEFAULTS = {
   genderPolicy:'FREE',
   considerAge:false,
   candidateK:10, repeatLookback:3, oddRelaxThreshold:2,
+  /* 매칭이 참고할 지난 기록의 날짜 수. 0이면 오늘 안의 이력만 본다(지금까지의
+     동작). 켜면 그만큼의 지난 운동일을 불러와 "같은 팀이었던 횟수"를 중복
+     회피에 더한다 — records.js 원장이 그 근거다. */
+  historyDays:0,
   minPool:4,        // 자동 충원 시 풀에 남겨 둘 최소 인원 (섞을 여지를 확보)
   sessionAutoCloseHours:12,   // 세션 시작 후 이 시간이 지나면 자동 마감
   /* 관리 비밀번호는 더 이상 여기 없다. settings 문서는 누구나 읽을 수 있어서

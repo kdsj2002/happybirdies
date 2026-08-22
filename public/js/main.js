@@ -67,6 +67,12 @@
     Object.assign(S,{startedAt:sess.startedAt||null,att:sess.att||{},courts:sess.courts,queues:sess.queues,matches:sess.matches||[],hist:sess.hist||[]});
     Object.values(S.att).forEach(a=>{ if(a.jit==null) a.jit=Math.random(); });
   } else initBoard();
+  /* 오늘 원장을 먼저 읽어 둔다. 이걸 안 하면 새로고침한 기기가 오늘 경기를
+     전부 다시 올리려 든다. 이어서 과거 이력도 설정한 만큼 불러 둔다 —
+     매칭이 참조하는 값이라 첫 배치 전에 준비돼 있어야 한다. */
+  await Records.seed();
+  Records.warmUp(S.settings.historyDays).catch(()=>{});   // 실패해도 앱은 그대로 돈다
+
   checkAutoClose();                                  // 12시간 지난 세션이면 바로 마감
   checkMatchTimeouts();                              // 최대 경기 시간을 넘긴 코트도 바로 정리
   /* 1분마다 확인한다. 대진판을 보고 있을 때는 1초 타이머(ui.js tickCourts)가

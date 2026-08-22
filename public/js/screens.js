@@ -353,10 +353,26 @@ function renderHist(){
     ${done.length?`<div class="hint" style="margin-top:8px">${canEditRes
         ? '결과 칸을 누르면 승패와 점수를 넣거나 고칠 수 있습니다. 점수는 <b>진 팀 점수</b>만 넣으면 됩니다.'
         : '결과는 운영자가 넣습니다.'}</div>`:''}
+    <div class="sec-h" style="margin-top:26px">누적 통계<span class="rule"></span></div>
+    <div class="hint" style="margin-bottom:10px">
+      끝난 경기는 세션과 별개로 <span class="num">clubs/${esc(CLUB)}/kv/rec:날짜</span> 원장에 날짜별로 남습니다.
+      전원 퇴장하거나 날이 바뀌어도 지워지지 않습니다.
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn sm" data-stat="4">최근 4회</button>
+      <button class="btn sm" data-stat="12">최근 12회</button>
+      <button class="btn sm" data-stat="0">전체</button>
+      <span class="hint" id="statLbl2"></span>
+    </div>
+    <div id="statsBox"></div>
     <div class="row" style="margin-top:24px;align-items:center;gap:14px">
       <button class="btn warn" id="btnClose">세션 마감 (전원 퇴장)</button>
       <span class="hint" id="autoCloseLbl"></span>
     </div>`;
+
+  /* 누적 통계는 눌렀을 때만 읽는다. 날짜마다 문서가 하나라, 기록 탭을 열
+     때마다 통째로 읽으면 오래된 동호회일수록 느려지고 읽기 쿼터도 먹는다. */
+  $$('#histBody [data-stat]').forEach(b=>b.onclick=()=>{ Sound.play('tap'); renderStats(+b.dataset.stat); });
   /* 끝난 경기의 결과를 나중에 채워 넣거나 고친다. 종료할 때 "승패 없이"를
      골랐거나, 점수를 나중에 들었을 때 쓴다. 같은 창(resultDialog)이다. */
   $$('#histBody [data-res]').forEach(e=>e.onclick=()=>{
@@ -396,6 +412,77 @@ function renderHist(){
     tx(()=>closeSession('MANUAL'),{auto:false});
     renderHist(); toast('세션을 마감했습니다');
   };
+}
+
+/* ── 누적 통계 ───────────────────────────────────────────────────
+   원장(records.js)을 읽어 사람별로 묶는다. n=0이면 전체, 아니면 최근 n번의
+   운동일이다(달력 날짜가 아니라 기록이 있는 날 기준 — 한 주에 두 번 치는
+   동호회와 매일 치는 동호회에서 "최근 12회"가 같은 뜻이 되게).
+
+   회원은 회원 id로 묶여서 이름이 바뀌어도 이어지고, 게스트는 이름으로밖에
+   묶을 수 없어 따로 표시한다. 그 한계는 원장 설계 자체에서 온다(회원 id가
+   없는 사람에게 붙일 열쇠가 없다). */
+async function renderStats(n){
+  const box=$('#statsBox'), lbl=$('#statLbl2');
+  if(!box) return;
+  box.innerHTML='<div class="hint">불러오는 중...</div>';
+  const all = await Records.dates();
+  if(!all.length){
+    lbl.textContent='';
+    box.innerHTML='<div class="hint">아직 원장에 쌓인 기록이 없습니다. 경기를 마치면 그날부터 남습니다.</div>';
+    return;
+  }
+  const pick = n>0 ? all.slice(0,n) : all;
+  const list = await Records.load(pick);
+  const st = Records.stats(list);
+  lbl.textContent = `${pick.length}일 · ${st.matches}경기 (${pick[pick.length-1]} ~ ${pick[0]})`;
+
+  const rows=[...st.people.values()].sort((a,b)=>b.games-a.games||a.name.localeCompare(b.name,'ko'));
+  const rate = e => (e.win+e.lose) ? Math.round(100*e.win/(e.win+e.lose))+'%' : '—';
+  // 짝·상대는 이름을 붙여 보여 준다(키는 회원 id라 사람이 읽을 수 없다).
+  const nameOf = k => { const e=st.people.get(k); return e? e.name : '?'; };
+  const top = (map,limit) => [...map.values()].sort((a,b)=>b.n-a.n).slice(0,limit);
+
+  box.innerHTML=`
+    <table>
+      <tr><th>이름</th><th>경기</th><th>승</th><th>패</th><th>승률</th><th>평균 득실</th><th>나온 날</th></tr>
+      ${rows.map(e=>`<tr>
+        <td style="font-weight:700">${esc(e.name)}${e.guest?' <span style="color:var(--gold)">G</span>':''}${
+          e.memberId?'':' <span class="hint">(이름으로 묶음)</span>'}</td>
+        <td class="num" style="font-weight:800">${e.games}</td>
+        <td class="num" style="color:var(--court)">${e.win}</td>
+        <td class="num" style="color:var(--cork)">${e.lose}</td>
+        <td class="num" style="font-weight:700">${rate(e)}</td>
+        <td class="num" style="color:var(--muted)">${(e.pf+e.pa)?`${(e.pf/e.games).toFixed(1)} : ${(e.pa/e.games).toFixed(1)}`:'—'}</td>
+        <td class="num" style="color:var(--muted)">${e.days.size}</td></tr>`).join('')}
+    </table>
+    <div class="hint" style="margin-top:8px">
+      승·패·승률은 <b>결과를 적은 경기만</b> 셉니다. 경기 수는 결과와 무관하게 전부 셉니다 —
+      그래서 승+패가 경기 수보다 적을 수 있습니다.
+    </div>
+    <div class="row" style="gap:26px;align-items:flex-start;margin-top:20px">
+      <div style="flex:1;min-width:260px">
+        <div class="sec-h">자주 함께한 짝<span class="rule"></span></div>
+        <table><tr><th>짝</th><th>함께</th><th>승</th></tr>
+          ${top(st.pairs,10).map(p=>`<tr><td>${esc(nameOf(p.a))} · ${esc(nameOf(p.b))}</td>
+            <td class="num" style="font-weight:800">${p.n}</td>
+            <td class="num" style="color:var(--muted)">${p.win}</td></tr>`).join('')
+            || '<tr><td colspan="3" class="hint">없음</td></tr>'}
+        </table>
+      </div>
+      <div style="flex:1;min-width:260px">
+        <div class="sec-h">자주 만난 상대<span class="rule"></span></div>
+        <table><tr><th>상대</th><th>만남</th></tr>
+          ${top(st.foes,10).map(p=>`<tr><td>${esc(nameOf(p.a))} ↔ ${esc(nameOf(p.b))}</td>
+            <td class="num" style="font-weight:800">${p.n}</td></tr>`).join('')
+            || '<tr><td colspan="2" class="hint">없음</td></tr>'}
+        </table>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:12px">
+      설정 → <b>지난 기록 참고</b>를 켜면 이 "함께한 짝" 횟수를 자동 배치의 중복 회피에 씁니다.
+      지금은 <b>${S.settings.historyDays?`최근 ${S.settings.historyDays}회`:'사용 안 함'}</b>입니다.
+    </div>`;
 }
 
 /* ── 설정 ───────────────────────────────────────────────────────── */
@@ -479,6 +566,11 @@ function renderSet(){
       <div class="k">대기 시간 (분당)</div><div><input type="number" id="s_wwait" value="${s.w.wait}" style="width:110px"></div>
       <div class="k">중복 회피</div><div><input type="number" id="s_wrep" value="${s.w.repeat}" style="width:110px">
         <span class="hint">최근 <input type="number" id="s_look" value="${s.repeatLookback}" min="0" max="10" style="width:60px;height:32px"> 경기 내 같은 조 회피</span></div>
+      <div class="k">지난 기록 참고</div><div><input type="number" id="s_hist" value="${s.historyDays||0}" min="0" max="60" style="width:90px">
+        <span class="hint">지난 <b>운동일</b>을 이만큼 불러와 "같은 팀이었던 횟수"를 중복 회피에 더합니다
+          (달력 날짜가 아니라 기록이 있는 날 기준). 오늘 안의 이력보다 절반 무게로 셉니다 —
+          방금 친 사람과 또 붙는 것이 지난주보다 무겁기 때문입니다.
+          <b>0이면 지금까지처럼 오늘 안만 봅니다.</b></span></div>
       <div class="k">급수 밸런스</div><div><input type="number" id="s_wbal" value="${s.w.balance}" style="width:110px"></div>
       <div class="k">연령 고려</div><div><input type="number" id="s_wage" value="${s.w.age}" style="width:110px"> <span class="hint">0이면 사용 안 함</span></div>
 
@@ -659,11 +751,14 @@ function renderSet(){
       autoPushToCourt:$('#s_push').checked,
       genderPolicy:$('#s_pol').value, oddRelaxThreshold:+$('#s_relax').value||2,
       minPool:Math.max(0,+$('#s_minpool').value||0),
-      repeatLookback:+$('#s_look').value||3});
+      repeatLookback:+$('#s_look').value||3,
+      historyDays:Math.max(0,Math.min(60,+$('#s_hist').value||0))});
     s.sound = $('#s_sound').checked; Sound.set(s.sound);
     settingsTrusted = true;      // 운영자가 화면에서 직접 확정한 값이다
     Object.assign(s.w,{odd:+$('#s_odd').value,game:+$('#s_wgame').value,wait:+$('#s_wwait').value,
       repeat:+$('#s_wrep').value,balance:+$('#s_wbal').value,age:+$('#s_wage').value});
+    // 참고 일수가 바뀌었으면 과거 기록을 그만큼 다시 불러 둔다(다음 배치부터 반영).
+    Records.warmUp(s.historyDays).catch(()=>{});
     tx(()=>{ if(reset){ Object.values(S.att).forEach(a=>a.state='POOL'); initBoard(); } });
     // 코트/슬롯 수가 바뀌면 이전 스냅샷은 새 설정과 아귀가 안 맞으므로 되돌리기 이력을 버린다.
     if(reset) undoStack.length=0;

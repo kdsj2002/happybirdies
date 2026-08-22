@@ -81,11 +81,34 @@ function repeatPenalty(ids){
   // 주의: slice(-0)은 slice(0)과 같아서 배열 전체를 돌려준다. 0을 "중복 회피 끄기"로
   // 쓰려면 여기서 먼저 걸러야 한다. 안 그러면 세션 내내 쌓인 모든 경기를 보고
   // 감점하게 되어 오히려 가장 강하게 회피하는 설정이 되어 버린다.
-  if(!look || look<=0) return 0;
-  const recent=S.hist.slice(-look);
+  let p=0;
+  if(look>0){
+    const recent=S.hist.slice(-look);
+    for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++)
+      for(const g of recent) if(g.includes(ids[i])&&g.includes(ids[j])) p++;
+  }
+  return p + pastPairPenalty(ids);
+}
+
+/* ── 지난 날들의 이력 ────────────────────────────────────────────
+   위의 감점은 오늘 안에서만 본다. 그래서 매주 같은 사람과 붙는 것은
+   전혀 막지 못했다 — 오늘 처음 만난 조합이면 지난 넉 달을 내리 같이
+   쳤어도 감점이 0이다.
+
+   설정의 '이력 참고 일수'가 0보다 클 때만 원장(records.js)에서 그만큼을
+   불러 두고, 그 기간에 같은 팀이었던 횟수를 여기에 더한다. 안 불렀으면
+   0이라 지금까지와 똑같이 돈다 — 켜지 않은 기능이 조용히 배치를 바꾸는
+   일은 없어야 한다.
+
+   무게를 절반으로 깎는 이유: 오늘 한 번 같이 친 것이 지난주 한 번보다
+   무겁다. 방금 친 사람과 또 붙는 것은 지금 눈에 보이는 불만이고,
+   지난주는 기억에서 흐려진다. 같은 무게로 두면 오래된 이력이 쌓여
+   오늘의 공정성(게임 수 격차)을 눌러 버린다. */
+function pastPairPenalty(ids){
+  if(typeof Records==='undefined' || !Records.warmed()) return 0;
   let p=0;
   for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++)
-    for(const g of recent) if(g.includes(ids[i])&&g.includes(ids[j])) p++;
+    p += Records.pairCount(ids[i], ids[j]) * 0.5;
   return p;
 }
 
