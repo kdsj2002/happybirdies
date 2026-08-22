@@ -297,6 +297,43 @@ $('#fileIn').onchange=e=>{
   r.readAsText(f); e.target.value='';
 };
 
+/* ── 기록 화면의 작은 막대들 ─────────────────────────────────────
+   숫자만 늘어놓은 표는 "누가 많이 쳤나"를 읽으려면 눈이 일일이 비교를
+   해야 한다. 같은 자리에 막대를 깔면 그 비교를 눈이 대신 해 준다.
+   기록 화면과 누적 통계가 같은 함수를 쓴다 — 두 표의 막대가 다르게
+   생기면 같은 값을 다른 것으로 읽게 된다. */
+
+/* 게임 수 — 그날(또는 그 기간) 최다인 사람 대비 길이 */
+function gamesBarHtml(n, max){
+  const pct = max>0 ? Math.round(100*n/max) : 0;
+  return `<div class="mrow"><b class="num" style="font-weight:800;font-size:16px">${n}</b>
+    <span class="mbar"><i class="w" style="width:${pct}%;opacity:${n?1:0}"></i></span></div>`;
+}
+/* 승-패 — 왼쪽에서 승(초록), 오른쪽에서 패(주황)가 자란다.
+   승패를 안 적은 경기는 어느 쪽도 아니라서 가운데가 비어 남는다. */
+function winBarHtml(w, l){
+  const t = w+l;
+  if(!t) return '<span style="color:var(--muted2)">—</span>';
+  return `<div class="mrow"><b class="num" style="font-weight:700">${w}-${l}</b>
+    <span class="mbar"><i class="w" style="width:${Math.round(100*w/t)}%"></i>
+      <i class="l" style="width:${Math.round(100*l/t)}%"></i></span></div>`;
+}
+/* 경기 유형 분포 — 한 줄짜리 누적 막대. 색은 배지(.mt)와 같은 것을 쓴다.
+   좁은 조각에는 글자가 안 들어가므로 8% 미만이면 범례에만 남긴다. */
+function typeStackHtml(byType, total){
+  const ts = ['MD','WD','XD','MX','UNKNOWN'].filter(t=>byType[t]);
+  if(!ts.length || !total) return '';
+  return `<div style="margin-bottom:22px">
+    <div class="mstack">
+      ${ts.map(t=>{ const p = 100*byType[t]/total; return `<i style="width:${p.toFixed(1)}%;background:${MT_COLOR[t]}">${
+        p>=8?`<span>${MT_LBL[t]} ${Math.round(p)}%</span>`:''}</i>`; }).join('')}
+    </div>
+    <div class="mlegend">
+      ${ts.map(t=>`<span><b style="background:${MT_COLOR[t]}"></b>${MT_LBL[t]} ${byType[t]}경기
+        · ${Math.round(100*byType[t]/total)}%</span>`).join('')}
+    </div></div>`;
+}
+
 /* ── 기록 ───────────────────────────────────────────────────────── */
 function renderHist(){
   /* 기록에는 출석자 전원의 이름과 게임 수가 그대로 있다. 게스트에게는
@@ -320,27 +357,28 @@ function renderHist(){
     ? `<b style="color:var(--court)">${m.win}팀 승</b>`
       + (m.sw!=null && m.sl!=null ? ` <span class="num" style="color:var(--muted)">${m.sw}:${m.sl}</span>` : '')
     : `<span style="color:var(--muted2)">${canEditRes?'입력 ✎':'—'}</span>`;
+  const maxG = all.length ? Math.max(1, ...all.map(a=>a.games)) : 1;
   $('#histBody').innerHTML=`
     <div class="sec-h">${S.date} 세션 요약<span class="rule"></span></div>
-    <div class="row" style="gap:26px;margin:14px 0 22px;font-size:15px">
-      <div>총 경기 <b class="num" style="font-size:22px">${done.length}</b></div>
-      <div>평균 경기시간 <b class="num" style="font-size:22px">${avg.toFixed(1)}</b>분</div>
-      <div>남 평균 <b class="num" style="font-size:22px">${mean(men)}</b>게임</div>
-      <div>여 평균 <b class="num" style="font-size:22px">${mean(wom)}</b>게임</div>
-      <div>게임수 편차 <b class="num" style="font-size:22px">${all.length?Math.max(...all.map(a=>a.games))-Math.min(...all.map(a=>a.games)):0}</b></div>
-      <div>결과 입력 <b class="num" style="font-size:22px">${scored}</b><span style="color:var(--muted2)">/${done.length}</span></div>
+    <div class="mcards">
+      <div class="mcard"><div class="k">총 경기</div><div class="v num">${done.length}</div></div>
+      <div class="mcard"><div class="k">평균 경기시간</div><div class="v num">${avg.toFixed(1)}<small>분</small></div></div>
+      <div class="mcard"><div class="k">남 평균</div><div class="v num">${mean(men)}<small>게임</small></div></div>
+      <div class="mcard"><div class="k">여 평균</div><div class="v num">${mean(wom)}<small>게임</small></div></div>
+      <div class="mcard"><div class="k">게임수 편차</div><div class="v num">${all.length?maxG-Math.min(...all.map(a=>a.games)):0}</div></div>
+      <div class="mcard"><div class="k">결과 입력</div><div class="v num">${scored}<small>/${done.length}</small></div></div>
     </div>
-    <div class="row" style="gap:9px;margin-bottom:24px">
-      ${['MD','WD','XD','MX','UNKNOWN'].filter(t=>byType[t]).map(t=>
-        `<span class="mt ${t}" style="cursor:default;height:30px">${MT_LBL[t]} ${byType[t]}경기 · ${Math.round(100*byType[t]/done.length)}%</span>`).join('')||'<span class="hint">아직 종료된 경기가 없습니다.</span>'}
-    </div>
+    ${done.length ? typeStackHtml(byType, done.length)
+                  : '<div class="hint" style="margin-bottom:24px">아직 종료된 경기가 없습니다.</div>'}
     <div class="sec-h">개인별<span class="rule"></span></div>
     <table><tr><th>이름</th><th>게임수</th><th>승-패</th><th>마지막 경기</th></tr>
       ${all.map(a=>{ const r=recordOf(a.id); return `<tr><td style="font-weight:700">${esc(a.name)}${a.guest?' <span style="color:var(--gold)">G</span>':''}</td>
-        <td class="num" style="font-weight:800;font-size:17px">${a.games}</td>
-        <td class="num" style="color:${r.w+r.l?'var(--text)':'var(--muted2)'}">${r.w+r.l?`${r.w}-${r.l}`:'—'}</td>
+        <td>${gamesBarHtml(a.games, maxG)}</td>
+        <td>${winBarHtml(r.w, r.l)}</td>
         <td style="color:var(--muted)">${a.lastEnd?new Date(a.lastEnd).toTimeString().slice(0,5):'—'}</td></tr>`; }).join('')}
     </table>
+    <div class="hint" style="margin-top:6px">막대는 <b>가장 많이 친 사람 대비</b>입니다.
+      한쪽으로 길게 치우쳐 있으면 그날 배정이 고르지 않았다는 뜻입니다.</div>
     <div class="sec-h" style="margin-top:26px">경기 이력<span class="rule"></span></div>
     <table><tr><th>#</th><th>코트</th><th>유형</th><th>A팀</th><th>B팀</th><th>결과</th><th>시간</th></tr>
       ${done.slice().reverse().map((m,i)=>`<tr><td class="num">${done.length-i}</td><td>${m.court}</td>
@@ -438,20 +476,24 @@ async function renderStats(n){
   lbl.textContent = `${pick.length}일 · ${st.matches}경기 (${pick[pick.length-1]} ~ ${pick[0]})`;
 
   const rows=[...st.people.values()].sort((a,b)=>b.games-a.games||a.name.localeCompare(b.name,'ko'));
+  const maxG = rows.length ? Math.max(1, ...rows.map(e=>e.games)) : 1;
   const rate = e => (e.win+e.lose) ? Math.round(100*e.win/(e.win+e.lose))+'%' : '—';
+  const byType={}; list.forEach(m=>byType[m.type||'UNKNOWN']=(byType[m.type||'UNKNOWN']||0)+1);
+  const maxPair = Math.max(1, ...[...st.pairs.values()].map(p=>p.n), 1);
+  const maxFoe  = Math.max(1, ...[...st.foes.values()].map(p=>p.n), 1);
   // 짝·상대는 이름을 붙여 보여 준다(키는 회원 id라 사람이 읽을 수 없다).
   const nameOf = k => { const e=st.people.get(k); return e? e.name : '?'; };
   const top = (map,limit) => [...map.values()].sort((a,b)=>b.n-a.n).slice(0,limit);
 
   box.innerHTML=`
+    ${typeStackHtml(byType, st.matches)}
     <table>
-      <tr><th>이름</th><th>경기</th><th>승</th><th>패</th><th>승률</th><th>평균 득실</th><th>나온 날</th></tr>
+      <tr><th>이름</th><th>경기</th><th>승-패</th><th>승률</th><th>평균 득실</th><th>나온 날</th></tr>
       ${rows.map(e=>`<tr>
         <td style="font-weight:700">${esc(e.name)}${e.guest?' <span style="color:var(--gold)">G</span>':''}${
           e.memberId?'':' <span class="hint">(이름으로 묶음)</span>'}</td>
-        <td class="num" style="font-weight:800">${e.games}</td>
-        <td class="num" style="color:var(--court)">${e.win}</td>
-        <td class="num" style="color:var(--cork)">${e.lose}</td>
+        <td>${gamesBarHtml(e.games, maxG)}</td>
+        <td>${winBarHtml(e.win, e.lose)}</td>
         <td class="num" style="font-weight:700">${rate(e)}</td>
         <td class="num" style="color:var(--muted)">${(e.pf+e.pa)?`${(e.pf/e.games).toFixed(1)} : ${(e.pa/e.games).toFixed(1)}`:'—'}</td>
         <td class="num" style="color:var(--muted)">${e.days.size}</td></tr>`).join('')}
@@ -465,7 +507,7 @@ async function renderStats(n){
         <div class="sec-h">자주 함께한 짝<span class="rule"></span></div>
         <table><tr><th>짝</th><th>함께</th><th>승</th></tr>
           ${top(st.pairs,10).map(p=>`<tr><td>${esc(nameOf(p.a))} · ${esc(nameOf(p.b))}</td>
-            <td class="num" style="font-weight:800">${p.n}</td>
+            <td>${gamesBarHtml(p.n, maxPair)}</td>
             <td class="num" style="color:var(--muted)">${p.win}</td></tr>`).join('')
             || '<tr><td colspan="3" class="hint">없음</td></tr>'}
         </table>
@@ -474,7 +516,7 @@ async function renderStats(n){
         <div class="sec-h">자주 만난 상대<span class="rule"></span></div>
         <table><tr><th>상대</th><th>만남</th></tr>
           ${top(st.foes,10).map(p=>`<tr><td>${esc(nameOf(p.a))} ↔ ${esc(nameOf(p.b))}</td>
-            <td class="num" style="font-weight:800">${p.n}</td></tr>`).join('')
+            <td>${gamesBarHtml(p.n, maxFoe)}</td></tr>`).join('')
             || '<tr><td colspan="2" class="hint">없음</td></tr>'}
         </table>
       </div>
@@ -536,7 +578,9 @@ function renderSet(){
     <div class="kv">
       <div class="h">기본</div>
       <div class="k">클럽 이름</div><div><input type="text" id="s_club" value="${esc(s.clubName)}" style="width:240px"></div>
-      <div class="k">코트 수</div><div><input type="number" id="s_courts" value="${s.courtCount}" min="1" max="8" style="width:90px"> <span class="hint">변경하면 대진판이 초기화됩니다</span></div>
+      <div class="k">코트 수</div><div><input type="number" id="s_courts" value="${s.courtCount}" min="1" max="8" style="width:90px">
+        <span class="hint">대진판은 초기화되지 않습니다 — 뒤에서 코트를 더하거나 뺍니다.
+          줄일 때 그 코트에 사람이 있으면 무엇이 어떻게 되는지 먼저 보여 드립니다</span></div>
       <div class="k">대기 슬롯 수</div><div><input type="number" id="s_slots" value="${s.queueSlotCount}" min="2" max="12" style="width:90px"></div>
       <div class="k">풀 최소 확보 인원</div><div><input type="number" id="s_minpool" value="${s.minPool}" min="0" max="12" style="width:90px">
         <span class="hint">대기 슬롯을 끝까지 채우지 않고 이만큼은 대기 인원으로 남깁니다. 0으로 두면 방금 같이 친 4명이 그대로 다시 묶입니다</span></div>
@@ -743,7 +787,29 @@ function renderSet(){
   function renderSetHint(){ $('#s_pol').parentElement.querySelector('.hint').textContent=POLICY.find(p=>p[0]===$('#s_pol').value)[2]; }
   $('#s_save').onclick=()=>{
     const nc=Math.max(1,+$('#s_courts').value||3), ns=Math.max(2,+$('#s_slots').value||7);
-    const reset = nc!==s.courtCount || ns!==s.queueSlotCount;
+    const sized = nc!==s.courtCount || ns!==s.queueSlotCount;
+
+    /* ── 줄일 때만 물어본다 ────────────────────────────────────────
+       코트를 늘리는 것은 아무것도 잃지 않으므로 그냥 한다. 줄일 때는
+       없어지는 자리에 사람이 있을 수 있어서, 그들이 어디로 가는지 먼저
+       말하고 확인을 받는다. 예전처럼 대진판을 통째로 비우지는 않는다. */
+    if(sized){
+      const goneC = S.courts.slice(nc).filter(c=>c.members.length);
+      const goneQ = S.queues.slice(ns).filter(q=>q.members.length);
+      const playing = goneC.filter(c=>c.status==='PLAYING');
+      if(goneC.length || goneQ.length){
+        const lines = [];
+        if(goneC.length) lines.push(`${goneC.map(c=>c.no+'코트').join('·')}의 `
+          + `${goneC.reduce((n,c)=>n+c.members.length,0)}명이 대기 인원으로 내려갑니다`);
+        if(playing.length) lines.push(`그중 ${playing.map(c=>c.no+'코트').join('·')}는 경기 중입니다 — `
+          + `한 판 친 것으로 쳐서 게임 수가 오르고 기록에 남습니다(승패는 비워 둡니다)`);
+        if(goneQ.length) lines.push(`${goneQ.map(q=>'Q'+q.index).join('·')}의 `
+          + `${goneQ.reduce((n,q)=>n+q.members.length,0)}명이 대기 인원으로 흩어집니다`);
+        if(!confirm(`없어지는 자리에 사람이 있습니다.\n\n· ${lines.join('\n· ')}\n\n`
+                  + `나머지 코트와 대기열은 그대로 유지됩니다. 진행할까요?`)) return;
+      }
+    }
+
     Object.assign(s,{clubName:$('#s_club').value.trim()||'대진판',courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
       winPoint:Math.max(5,Math.min(31,+$('#s_wp').value||21)),
@@ -759,9 +825,11 @@ function renderSet(){
       repeat:+$('#s_wrep').value,balance:+$('#s_wbal').value,age:+$('#s_wage').value});
     // 참고 일수가 바뀌었으면 과거 기록을 그만큼 다시 불러 둔다(다음 배치부터 반영).
     Records.warmUp(s.historyDays).catch(()=>{});
-    tx(()=>{ if(reset){ Object.values(S.att).forEach(a=>a.state='POOL'); initBoard(); } });
-    // 코트/슬롯 수가 바뀌면 이전 스냅샷은 새 설정과 아귀가 안 맞으므로 되돌리기 이력을 버린다.
-    if(reset) undoStack.length=0;
+    tx(()=>{ if(sized) resizeBoard(nc, ns); });
+    /* 코트/슬롯 수가 바뀌면 이전 스냅샷은 새 설정과 아귀가 안 맞으므로
+       되돌리기 이력을 버린다. 되돌려서 옛 코트 배열이 돌아오면 화면과
+       설정이 서로 다른 코트 수를 말하게 된다. */
+    if(sized) undoStack.length=0;
     renderSet(); toast('설정을 저장했습니다');
   };
   $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };

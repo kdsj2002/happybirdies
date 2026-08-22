@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.19d';
+const APP_VERSION = '2026.08.19e';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -218,6 +218,39 @@ function initBoard(){
     index:i+1, members:[], teams:{A:[],B:[]},
     matchType:null, typeSource:'AUTO', pinnedType:null, notice:null, origin:'AUTO'
   }));
+}
+
+/* ── 코트·대기 슬롯 수 바꾸기 ────────────────────────────────────
+   예전에는 설정에서 코트 수를 건드리면 initBoard()가 돌아 대진판이 통째로
+   비워졌다. 진행 중인 경기가 사라지고 대기열이 흩어져서, 코트 하나 더 여는
+   일이 그날 운영을 처음부터 다시 짜는 일이 됐다. 그래서 다들 손을 못 댔다.
+
+   이제 있던 것은 그대로 두고 뒤에서만 더하거나 뺀다.
+
+   빼는 자리에 사람이 있으면 대기 인원으로 내린다. 그 코트가 경기 중이었다면
+   결과 없이 "마친 것"으로 친다 — 그들은 실제로 쳤으므로 게임 수가 사라지면
+   안 된다(무효로 하면 사라진다). 승패는 알 수 없으니 비워 둔다.
+
+   무엇이 없어지는지 미리 보여 주고 확인받는 일은 부르는 쪽(설정 화면)이 한다.
+   여기서는 시키는 대로 한다. */
+function resizeBoard(nc, ns){
+  while(S.courts.length > nc){
+    const c = S.courts.pop();
+    if(c.status==='PLAYING') endCourt(c, 'POOL', null);
+    else c.members.forEach(i=>{ if(A(i)) A(i).state='POOL'; });
+  }
+  while(S.courts.length < nc)
+    S.courts.push({ no:S.courts.length+1, status:'EMPTY', disabled:false,
+                    members:[], teams:{A:[],B:[]}, matchType:null, typeSource:'AUTO',
+                    startedAt:null, matchId:null });
+
+  while(S.queues.length > ns){
+    const q = S.queues.pop();
+    q.members.forEach(i=>{ if(A(i)) A(i).state='POOL'; });
+  }
+  while(S.queues.length < ns)
+    S.queues.push({ index:S.queues.length+1, members:[], teams:{A:[],B:[]},
+                    matchType:null, typeSource:'AUTO', pinnedType:null, notice:null, origin:'AUTO' });
 }
 
 /* ── 내 출석 처리 (회원 본인용) ────────────────────────────────── */

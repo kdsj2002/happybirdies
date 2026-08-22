@@ -346,15 +346,20 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .pad{padding:14px 16px;overflow-y:auto;flex:1;min-height:0}
 .bar{display:flex;align-items:center;gap:10px;padding:11px 16px;
      border-bottom:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
-.grid-att{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:9px}
+/* 출석 카드 — 이름을 고르는 곳이지 읽는 곳이 아니다.
+   대진판의 칩은 코트 건너편에서도 읽혀야 해서 크지만, 여기는 손에 든
+   태블릿을 들여다보며 누르는 화면이라 그만큼 클 이유가 없었다. 한 화면에
+   더 많이 담기는 편이 40명 명단에서 이름을 찾는 데 훨씬 낫다.
+   높이는 54px까지만 줄인다 — 손가락 탭 목표의 하한(약 44px)을 지킨다. */
+.grid-att{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:7px}
 .acard{
-  min-height:72px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);
-  padding:11px 12px;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;
+  min-height:54px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);
+  padding:8px 10px;cursor:pointer;position:relative;display:flex;flex-direction:column;justify-content:center;
 }
 .acard.in{background:var(--court-soft);border-color:var(--court)}
-.acard .nm{font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.acard .sub{font-size:13px;color:var(--muted);margin-top:3px}
-.acard .ck{position:absolute;right:10px;top:9px;color:var(--court);font-weight:800;font-size:16px;display:none}
+.acard .nm{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:14px}
+.acard .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.acard .ck{position:absolute;right:8px;top:6px;color:var(--court);font-weight:800;font-size:14px;display:none}
 .acard.in .ck{display:block}
 input[type=text],input[type=number],input[type=password],select,textarea{
   height:42px;padding:0 12px;border:1px solid var(--line);border-radius:9px;
@@ -411,6 +416,33 @@ td.res-cell.edit:hover{background:var(--court-soft)}
 #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:80;
        background:var(--raise);border:1px solid var(--line);border-radius:10px;
        padding:11px 18px;font-weight:700;font-size:15px;display:none;pointer-events:none}
+
+/* ── 기록 화면의 작은 막대들 ─────────────────────────
+   숫자만 늘어놓은 표는 "누가 많이 쳤나"를 읽으려면 눈으로 비교를 해야
+   한다. 같은 자리에 막대를 하나 깔면 그 비교를 눈이 대신 해 준다.
+   값은 전부 JS가 인라인 style로 얹는다 — 여기서는 자리와 모양만 잡는다. */
+.mbar{position:relative;height:8px;border-radius:4px;background:var(--line-soft);
+      overflow:hidden;min-width:54px;flex:1}
+.mbar i{position:absolute;top:0;bottom:0;display:block}
+.mrow{display:flex;align-items:center;gap:9px;min-width:120px}
+.mrow .num{flex:none;min-width:26px;text-align:right}
+/* 승-패 — 왼쪽이 승(코트 초록), 오른쪽이 패(코르크 주황) */
+.mbar i.w{left:0;background:var(--court)}
+.mbar i.l{right:0;background:var(--cork);opacity:.62}
+/* 경기 유형 분포 — 한 줄에 다 담는다 */
+.mstack{display:flex;height:18px;border-radius:9px;overflow:hidden;background:var(--line-soft)}
+.mstack i{display:block;height:100%;position:relative}
+.mstack i span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+               font-size:11px;font-weight:800;color:var(--on-accent);white-space:nowrap}
+.mlegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--muted)}
+.mlegend b{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+/* 요약 숫자 카드 */
+.mcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin:14px 0 22px}
+.mcard{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+       box-shadow:var(--shadow);padding:10px 12px}
+.mcard .k{font-size:12px;color:var(--muted);font-weight:700}
+.mcard .v{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+.mcard .v small{font-size:13px;font-weight:700;color:var(--muted2);margin-left:2px}
 
 .hint{color:var(--muted2);font-size:13px;line-height:1.6}
 .kv{display:grid;grid-template-columns:200px 1fr;gap:12px 16px;align-items:center;max-width:760px}
@@ -605,9 +637,9 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
   .kv .k{margin-top:14px; font-size:13px; color:var(--muted)}
   .kv .h{margin-top:8px}
 
-  .grid-att{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))}
-  .acard{min-height:78px; padding:9px 10px}
-  .acard .nm{font-size:17px}
+  .grid-att{grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:6px}
+  .acard{min-height:52px; padding:7px 9px}
+  .acard .nm{font-size:15px}
 
   .bar{padding:9px 10px}
 

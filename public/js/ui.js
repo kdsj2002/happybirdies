@@ -5,6 +5,9 @@ const $  = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
 const MT_LBL = {MD:'남복',WD:'여복',XD:'혼복',MX:'혼성',UNKNOWN:'미정'};
+// 배지(.mt.MD 등)에 쓰는 색과 같은 값. 기록 화면의 막대가 배지와 같은 색이어야
+// "이 색이 남복"이라는 규칙을 화면마다 다시 배우지 않는다.
+const MT_COLOR = {MD:'var(--md)',WD:'var(--wd)',XD:'var(--xd)',MX:'var(--mx)',UNKNOWN:'var(--unk)'};
 const esc = s => String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 let flashSet=new Set();
 function flash(id){ flashSet.add(id); setTimeout(()=>flashSet.delete(id),2100); }
