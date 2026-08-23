@@ -5,26 +5,49 @@
    ===================================================================== */
 (function(){
   let sx=0,sy=0,src=null,drag=false,srcEl=null,lastDrop=null,holdT=null;
+  let downAt=0;                  // 손가락이 닿은 시각. 스크롤과 끌기를 가르는 기준이다
+  let moved=false;               // MOVE_TOL을 넘겨 실제로 움직였나
   let team=null;                 // 팀째 끌 때의 출발지 키('court:1'·'queue:3'). 개인 드래그면 null
   let touchMode=false;           // 손가락인가(마우스와 규칙이 다르다)
   const ghost=$('#ghost');
 
   /* ── 끌기와 스크롤을 어떻게 가르는가 ──────────────────────────────
-     둘은 같은 "손가락을 대고 움직인다"이지만 시작이 다르다.
-       스크롤 : 손을 대자마자 곧바로 움직인다
-       끌기   : 잠깐 눌러 집은 다음에 움직인다
-     그래서 손가락일 때는 HOLD_MS 동안 MOVE_TOL 안에 머물러야 끌기로 본다.
-     그 전에 움직이면 끌기를 포기하고 브라우저에 넘긴다 — 스크롤이 된다.
 
-     예전에는 8px만 움직이면 곧바로 끌기가 시작됐다. 스크롤하려던 손이
-     전부 끌기로 잡혔다. 게다가 칩에 touch-action:none 이 걸려 있어서
-     칩 위에서 시작한 터치로는 화면을 아예 못 굴렸다(대기 인원 칸은
-     칩으로 빽빽해서 굴릴 여백이 거의 없다). 그 둘을 함께 고쳤다.
+     손가락 하나로 하는 같은 동작이라 무언가로는 갈라야 한다. 세 번째 방식이다.
+
+       1세대 — 8px만 움직이면 끌기. 스크롤하려던 손이 전부 끌기로 잡혔다.
+       2세대 — 300ms 동안 가만히 있어야 끌기. 정확했지만 매번 0.3초를
+               기다려야 해서, 칩 하나 옮기는 데 손이 멈칫하는 느낌이 났다.
+       3세대 — 지금. 기다리지 않고 "움직임의 성질"로 가른다.
+
+     실제로 두 동작은 이렇게 다르다.
+
+       스크롤 : 손을 대자마자 곧바로 움직인다. 그리고 세로로만 움직인다.
+       끌기   : 집을 것을 겨냥하느라 아주 잠깐 멈췄다가 움직이고,
+                가려는 곳이 옆이면 가로로도 움직인다.
+
+     그래서 두 가지를 본다.
+
+       가로가 세로보다 우세하면 → 곧바로 끌기.
+         이 앱에서 굴러가는 것(코트·대기열·대기 인원)은 전부 세로다.
+         가로로 가는 손가락은 스크롤일 수가 없다. 판단을 기다릴 이유가 없다.
+
+       세로인데 SCROLL_MS 안에 움직이기 시작했으면 → 스크롤.
+         "찍자마자 위아래"가 이것이다. 그 뒤에 움직였으면 겨냥한 것이므로 끌기다.
+
+     결과적으로 겨냥해서 집는 손은 움직이는 그 순간 바로 집히고(기다림 0),
+     굴리려는 손은 예전처럼 그대로 굴러간다.
+
+     HOLD_MS는 남겨 둔다 — 움직이지 않고 누르고만 있어도 집히는 길이다.
+     집혔다는 진동이 손에 먼저 오므로, 옮길지 말지 생각하는 동안 붙잡아
+     두기에 좋다.
 
      마우스는 이 규칙에서 뺀다. 마우스로 굴릴 때는 휠을 쓰지 끌지 않으므로
      헷갈릴 일이 없고, 누르고 기다리게 하면 굼떠서 답답하다. */
-  const HOLD_MS  = 300;
-  const MOVE_TOL = 8;
+  const HOLD_MS   = 220;   // 움직이지 않고 누르고만 있어도 이만큼이면 집힌다
+  const SCROLL_MS = 130;   // 닿고 이 안에 세로로 움직이기 시작하면 스크롤이다
+  const MOVE_TOL  = 8;     // 이 안의 흔들림은 아직 아무 뜻도 아니다
+  const DIR_BIAS  = 1.15;  // 가로가 세로보다 이만큼 크면 스크롤이 아니다
 
   document.addEventListener('pointerdown',e=>{
     const c=e.target.closest('[data-chip]');
@@ -37,6 +60,7 @@
         if(L.kind==='court') return;
       }
       sx=e.clientX; sy=e.clientY; src=id; srcEl=c; team=null; drag=false;
+      downAt=Date.now(); moved=false;
       touchMode = e.pointerType !== 'mouse';
       holdT=setTimeout(()=>begin(e), touchMode?HOLD_MS:160);
       return;
@@ -48,6 +72,7 @@
     if(e.target.closest('button,.ic,.mt')) return;
     if(!Auth.can('edit') || !Auth.can('courtAssign')) return;
     sx=e.clientX; sy=e.clientY; src=null; srcEl=s; team=s.dataset.team; drag=false;
+    downAt=Date.now(); moved=false;
     touchMode = e.pointerType !== 'mouse';
     holdT=setTimeout(()=>begin(e), touchMode?HOLD_MS:160);
   });
@@ -83,15 +108,20 @@
   }
   document.addEventListener('pointermove',e=>{
     if(!src && team===null) return;
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    // 집힌 뒤에 움직였는지도 세어야 한다(눌러서 집는 길이 따로 있으므로).
+    if(!moved && Math.hypot(dx,dy) > MOVE_TOL) moved=true;
     if(!drag){
-      if(Math.hypot(e.clientX-sx,e.clientY-sy) <= MOVE_TOL) return;
+      if(!moved) return;
       if(touchMode){
-        /* 누르자마자 움직였다 = 스크롤이다. 붙잡지 않고 놓아 준다.
-           preventDefault를 하지 않았으므로 브라우저가 그대로 굴린다. */
-        cleanup();
-        return;
+        /* 가로가 우세하면 스크롤일 수 없다 — 이 앱에서 굴러가는 것은 전부
+           세로다. 기다리지 않고 곧바로 집는다. */
+        const sideways = Math.abs(dx) > Math.abs(dy)*DIR_BIAS;
+        /* 세로인데 닿자마자 움직이기 시작했다 = 스크롤이다. 붙잡지 않고
+           놓아 준다(preventDefault를 하지 않았으므로 브라우저가 굴린다). */
+        if(!sideways && Date.now()-downAt < SCROLL_MS){ cleanup(); return; }
       }
-      clearTimeout(holdT); begin(e);          // 마우스는 움직이면 곧 끌기다
+      clearTimeout(holdT); begin(e);
     }
     e.preventDefault(); move(e);
   },{passive:false});
@@ -103,7 +133,10 @@
   document.addEventListener('pointerup',e=>{
     clearTimeout(holdT);
     if(!src && team===null) return;
-    if(drag){
+    /* 집히기는 했는데 한 번도 움직이지 않았다면 놓은 것이 아니라 그냥 누른
+       것이다(HOLD_MS로 집힌 경우). 굴리려다 잠깐 멈춘 손가락이 제자리에서
+       떼어질 때 칩이 엉뚱한 자리로 가면 안 된다. */
+    if(drag && moved){
       const under=document.elementFromPoint(e.clientX,e.clientY);
       const d=under?.closest('[data-drop]');
       const t=team, s=src;
@@ -120,6 +153,7 @@
     if(srcEl) srcEl.classList.remove('ghost','team-drag');
     if(lastDrop) lastDrop.classList.remove('drop');
     ghost.style.display='none'; src=null; srcEl=null; drag=false; lastDrop=null; team=null;
+    moved=false;
   }
   /* 탭-투-무브: 선택된 칩이 있을 때 드롭 영역을 탭하면 이동 */
   document.addEventListener('click',e=>{
