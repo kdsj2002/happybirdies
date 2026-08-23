@@ -149,24 +149,64 @@
     if(!cfg) setTimeout(()=>toast('설정 → 저장소에서 Firebase를 연결할 수 있습니다 (지금은 이 기기에만 저장됨)'),1200);
   }
 
-  /* 다른 태블릿에서 같은 날짜 세션을 저장하면 실시간으로 반영한다.
-     내가 방금 저장한 직후의 에코는 짧은 시간창으로 걸러 깜빡임을 막는다. */
-  let lastLocalSave=0;
-  window.__markLocalSave = ()=>{ lastLocalSave=now(); };
-  const unsub = Store.subscribe(K('session:'+S.date), remote=>{
+  /* ── 다른 태블릿의 변경을 받는다 ────────────────────────────────
+
+     예전에는 "마지막 저장 후 1.5초 안에 온 것은 전부 무시"였다. 내가 쓴
+     메아리를 거르려는 것이었는데, 그 1.5초 동안 **다른 태블릿이 보낸
+     변경까지 통째로 버려졌다.** 두 사람이 번갈아 칩을 옮기면 저장이 계속
+     겹쳐서 서로의 변경이 조용히 사라졌다 — 동기화가 안 되던 주된 원인이다.
+
+     이제 시간이 아니라 내용으로 가른다.
+       · 아직 서버에 안 올라간 내 쓰기(hasPendingWrites)는 건너뛴다
+       · 방금 내가 쓴 그 내용과 똑같으면 메아리다 — 건너뛴다
+       · 그 외에는 남이 바꾼 것이므로 언제 왔든 반드시 받는다
+
+     비교 대상도 넓혔다. 예전에는 courts와 queues만 봐서, 출석·게임 수·
+     경기 기록만 바뀐 변경(다른 기기에서 출석 체크, 결과 입력 등)은
+     "달라진 게 없다"고 판단해 버렸다. 이제 세션 전체를 비교한다. */
+  const unsub = Store.subscribe(K('session:'+S.date), (remote, info)=>{
+    if(!remote || !remote.courts || !remote.queues) return;
+    if(info && info.local) return;                    // 아직 서버에 안 올라간 내 쓰기
+    const js = JSON.stringify(remote);
+    if(js === lastWritten.session) return;            // 내가 쓴 것의 메아리
     const prevPlaying = myPlayingCourt();
-    if(now()-lastLocalSave < 1500) return;              // 내가 방금 쓴 것
-    if(!remote || JSON.stringify(remote.queues)===JSON.stringify(S.queues) &&
-       JSON.stringify(remote.courts)===JSON.stringify(S.courts)) return;
-    Object.assign(S,{att:remote.att||{},courts:remote.courts,queues:remote.queues,
-      matches:remote.matches||[],hist:remote.hist||[]});
+    Object.assign(S,{startedAt:remote.startedAt||null, att:remote.att||{},
+      courts:remote.courts, queues:remote.queues,
+      matches:remote.matches||[], hist:remote.hist||[]});
     Object.values(S.att).forEach(a=>{ if(a.jit==null) a.jit=Math.random(); });
+    /* 저쪽에서 코트 수를 바꿨다면 이 기기의 설정값도 맞춰 둔다. 안 맞으면
+       화면은 새 코트를 그리는데 설정 화면은 옛 숫자를 말하게 된다.
+       settingsTrusted는 건드리지 않는다 — 내가 정한 값이 아니라 받은
+       값이므로 이 기기가 설정 문서를 되쓰지는 않는다. */
+    S.settings.courtCount = remote.courts.length;
+    S.settings.queueSlotCount = remote.queues.length;
+    /* 받은 내용이 곧 지금 화면이다. 이걸 안 적어 두면 다음 저장이
+       "바뀌었다"고 판단해 같은 내용을 서버에 되쓰고, 그 메아리가 다시
+       돌아오는 헛돌이가 생긴다. */
+    lastWritten.session = js;
     sel=null; render();
     const nowPlaying = myPlayingCourt();
     if(nowPlaying && !prevPlaying) announceMyMatch(nowPlaying);
     else toast('다른 기기에서 변경되어 화면을 갱신했습니다');
   });
   window.addEventListener('beforeunload', ()=>unsub&&unsub());
+
+  /* 설정도 받는다. 코트 수·경기 시간·성별 정책은 클럽 전체의 규칙인데
+     여태 구독이 없어서, 한 태블릿에서 바꾸면 다른 태블릿은 새로고침할
+     때까지 옛 규칙으로 배치를 돌렸다. */
+  const unsubSet = Store.subscribe(K('settings'), (remote, info)=>{
+    if(!remote || (info && info.local)) return;
+    const js = JSON.stringify(remote);
+    if(js === lastWritten.settings) return;
+    S.settings = Object.assign(clone(DEFAULTS), remote,
+                               { w:Object.assign({}, DEFAULTS.w, remote.w||{}) });
+    lastWritten.settings = js;
+    Sound.set(S.settings.sound !== false);
+    Records.warmUp(S.settings.historyDays).catch(()=>{});
+    render();
+    if($('#scr-set') && $('#scr-set').classList.contains('on')) renderSet();
+  });
+  window.addEventListener('beforeunload', ()=>unsubSet&&unsubSet());
 
   /* 화면 꺼짐 방지는 ui.js의 syncWake가 맡는다 — 출석자가 있는 동안만 걸고,
      세션이 끝나면 놓는다. 예전에는 여기서 조건 없이 걸고 푸는 코드가 없어,

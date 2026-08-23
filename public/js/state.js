@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.19f';
+const APP_VERSION = '2026.08.19g';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -107,7 +107,15 @@ function todayStr(d=new Date()){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 const uid = p => p+Math.random().toString(36).slice(2,9);
-const now = () => Date.now();
+/* ── 지금 몇 시인가 ─────────────────────────────────────────────
+   이 앱의 시각은 전부 여기서 나온다. 경기 시작 시각도, 게임을 마친 시각도
+   세션 문서에 적혀 다른 태블릿으로 건너간다. 그래서 기기마다 시계가
+   다르면 같은 경기가 화면마다 다른 시간으로 보인다.
+
+   Date.now() 대신 "서버 시계와의 차이"를 더해 돌려준다. 그 차이는
+   Store가 스냅샷의 updatedAt(서버가 박아 준 시각)에서 계속 재고 있다.
+   Firebase에 연결돼 있지 않으면 차이는 0이고, 그러면 예전과 똑같다. */
+const now = () => Date.now() + (typeof Store!=='undefined' && Store.clockSkew ? Store.clockSkew() : 0);
 const G   = code => S.settings.grades.find(g=>g.code===code) || {code,label:code,weight:3,color:'var(--gE)'};
 const gw  = code => G(code).weight;
 const A   = id => S.att[id];

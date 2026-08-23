@@ -649,12 +649,33 @@ function renderSet(){
           현재 기준 명단: <b>${loadedMembersCount==null?'확인 안 됨':loadedMembersCount+'명'}</b></div></div>
 
       <div class="h">저장소</div>
+      <div class="k">서버 시계와의 차이</div><div>${clockLabel()}
+        <div class="hint" style="margin-top:6px">경기 시간은 이 기기의 시계가 아니라
+          <b>서버 시계</b>를 기준으로 셉니다. 그래야 어느 태블릿에서 봐도 같은 시간이 나옵니다.
+          차이가 몇 분씩 난다면 이 기기의 날짜·시간 설정을 확인하세요
+          (앱은 알아서 보정하지만, 다른 앱의 시간도 틀리게 됩니다).</div></div>
       <div class="k">현재 모드</div><div><b id="storeMode" style="color:${Store.mode==='firebase'?'var(--court)':'var(--muted)'}">${storeModeLabel()}</b>
         <div class="hint" style="margin-top:6px">Firebase를 연결하면 클라우드에 저장되고 다른 태블릿과 실시간으로 맞춰집니다. 연결이 끊겨도 이 기기에서 계속 조작할 수 있고, 돌아오면 자동으로 동기화됩니다. 연결하지 않으면 이 기기에만 저장되니 회원 화면의 <b>백업</b>을 주기적으로 받아 두세요.</div></div>
       <div class="k">Firebase 프로젝트</div><div>${fbConfigSectionHtml()}</div>
     </div>
     <div class="row" style="margin-top:24px"><button class="btn primary" id="s_save">설정 저장</button>
       <button class="btn" id="s_reset">기본값으로</button></div>`;
+  /* 이 기기 시계가 서버보다 얼마나 빠르거나 느린가. 앱은 이 차이를 보정해
+     쓰므로 화면의 경기 시간은 어느 기기에서나 같다 — 이 값은 "왜 그런가"를
+     확인하고 기기 시계가 크게 틀어진 것을 알아채기 위한 것이다. */
+  function clockLabel(){
+    if(Store.mode!=='firebase') return '<b style="color:var(--muted)">—</b> '
+      + '<span class="hint">Firebase 미연결 — 이 기기 시계를 그대로 씁니다</span>';
+    if(!Store.clockKnown()) return '<b style="color:var(--muted)">확인 중...</b> '
+      + '<span class="hint">첫 동기화가 오면 잽니다</span>';
+    const ms = Store.clockSkew(), s = Math.abs(ms)/1000;
+    const big = s >= 60;
+    const txt = s < 1 ? '거의 없음'
+              : s < 60 ? `${s.toFixed(1)}초 ${ms<0?'빠름':'느림'}`
+              : `${Math.round(s/60)}분 ${ms<0?'빠름':'느림'}`;
+    return `<b style="color:${big?'var(--cork)':'var(--court)'}">${txt}</b>`
+         + (big?' <span class="hint">이 기기 시계가 많이 틀어져 있습니다</span>':'');
+  }
   function storeModeLabel(){
     if(Store.mode==='firebase'){
       const src = window.__fbConfigSource==='file' ? '설정 파일' : '수동 입력';

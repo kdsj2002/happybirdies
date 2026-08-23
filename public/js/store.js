@@ -144,6 +144,15 @@ const Store = (() => {
             localSet(key, null);
             return { ok:true, value:null, source:'firebase', cached };
           }
+          /* 서버 시계를 여기서도 한 번 잰다. 구독이 붙기 전(부팅 중)에
+             경기가 시작되면 그 시각이 이 기기 시계로 찍히고, 나중에 시계가
+             맞춰지는 순간 경과 시간이 훌쩍 뛴다. 부팅 읽기에서 미리 재
+             두면 그 틈이 없다. 캐시가 답한 updatedAt은 옛날 값이라 쓰지
+             않는다. */
+          try{
+            const u = snap.data().updatedAt;
+            if(!cached && u && u.toMillis) this.noteServerTime(u.toMillis());
+          }catch{}
           const v = JSON.parse(snap.data().v);
           localSet(key, v);           // 로컬에도 미러링
           return { ok:true, value:v, source:'firebase', cached };
@@ -240,12 +249,51 @@ const Store = (() => {
       }catch(e){ return { ok:false, error:String(e) }; }
     },
 
+    /* ── 여러 기기가 같은 시계를 쓰게 한다 ──────────────────────────
+       경기 시간은 "어느 기기가 세는가"의 문제가 아니다. 시작 시각
+       (courts[].startedAt)은 세션 문서에 적혀 모든 기기가 나눠 갖고, 각
+       기기는 그저 지금 시각에서 그것을 뺄 뿐이다. 그래서 화면마다 시간이
+       다르게 보이는 원인은 하나뿐이다 — 기기마다 시계가 다르다.
+
+       태블릿 시계가 3분 빠르면 그 기기가 시작한 경기는 다른 기기에서 3분
+       덜 된 것으로 보인다. "운영자 기기 하나를 기준으로 삼자"는 방법도
+       있지만, 그 기기가 꺼지거나 배터리가 나가거나 자리를 뜨면 기준 자체가
+       사라진다. 사람이 아니라 서버를 기준으로 삼는 편이 낫다.
+
+       Firestore는 쓸 때마다 updatedAt에 서버 시각을 박아 준다. 그 값이
+       스냅샷으로 돌아올 때 내 시계와 비교하면 차이를 알 수 있고, 그 차이를
+       now()에 더하면 모든 기기가 같은 시계를 읽는다(state.js의 now 참고).
+
+       네트워크 지연만큼(보통 0.1~0.3초) 서버 시각이 과거로 치우치지만,
+       분·초로 보는 경기 시간에는 보이지 않는 크기다. 튀는 값에 흔들리지
+       않도록 새 값은 3할만 반영한다. */
+    _skew: 0,
+    _skewKnown: false,
+    noteServerTime(serverMs){
+      const s = serverMs - Date.now();
+      if(!isFinite(s) || Math.abs(s) > 12*3600*1000) return;   // 말이 안 되는 값은 버린다
+      this._skew = this._skewKnown ? Math.round(this._skew*0.7 + s*0.3) : Math.round(s);
+      this._skewKnown = true;
+    },
+    clockSkew(){ return this._skew; },
+    clockKnown(){ return this._skewKnown; },
+
     subscribe(key, cb){
       if(this.mode!=='firebase') return ()=>{};
       const fb=this._fb;
+      const self=this;
       return fb.onSnapshot(fb.doc(fb.db,'clubs',CLUB,'kv',docId(key)), snap=>{
         if(!snap.exists()) return;
-        try{ cb(JSON.parse(snap.data().v)); }catch{}
+        const meta = snap.metadata || {};
+        const data = snap.data();
+        /* 서버가 확정한 시각. 아직 서버에 안 올라간 내 쓰기에서는 null이라
+           그때는 시계를 맞추지 않는다(내 시계로 내 시계를 재는 꼴이 된다). */
+        try{
+          if(!meta.hasPendingWrites && data.updatedAt && data.updatedAt.toMillis)
+            self.noteServerTime(data.updatedAt.toMillis());
+        }catch{}
+        try{ cb(JSON.parse(data.v),
+                { local: !!meta.hasPendingWrites, cached: !!meta.fromCache }); }catch{}
       }, err=>console.warn('구독 오류',err));
     }
   };

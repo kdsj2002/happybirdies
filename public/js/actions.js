@@ -69,7 +69,10 @@ function save(){
   clearTimeout(saveT);
   saveT=setTimeout(async()=>{
     if(SAFE_MODE) return;
-    window.__markLocalSave && window.__markLocalSave();
+    /* 예전에는 여기서 "방금 저장했다"고 시각을 찍어 두고, 구독 쪽이 그 뒤
+       1.5초 동안 오는 것을 전부 무시했다. 내 메아리를 거르려던 것인데 남의
+       변경까지 함께 버려서 동기화가 깨졌다. 지금은 lastWritten의 내용과
+       비교해 메아리를 가른다(main.js 구독 참고). */
 
     const st=JSON.stringify(S.settings);
     if(settingsTrusted && st!==lastWritten.settings){ await Store.set(K('settings'),S.settings); lastWritten.settings=st; }
