@@ -82,6 +82,12 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 쓰였는지 알 수 없어 기준으로 삼지 않는다. 표시되는 경과 시간은 음수로
 내려가지 않도록 화면 쪽에서 한 번 더 clamp한다(`ui.js` `courtElapsed`).
 
+시계를 아직 못 맞춘 채(`Store.clockKnown()===false`) 코트가 시작되면
+그 `startedAt`은 날것 기기 시계다 — `algo.js` `startCourt()`가 그 코트에
+`c.startedRaw=true`를 남겨 두고, 시계가 **처음** 맞춰지는 순간
+(`Store.onCalibrated` 콜백, `main.js` 등록부)에 그 코트와 대응하는
+`S.matches[]` 기록의 시작 시각을 한 번만 소급 보정한다.
+
 **결과 기록 강제**(`S.settings.requireResult`, 기본 꺼짐)가 켜지면
 결과가 없는 경기의 참가자는 `isHeld(attId)`가 참이 되고, `poolIds()`
 (자동 배치용)에서 빠지며, `moveTo`/`swap`/`moveTeamTo` 등 손으로 옮기는

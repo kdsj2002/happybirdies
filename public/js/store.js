@@ -281,14 +281,26 @@ const Store = (() => {
     _skew: 0,
     _skewKnown: false,
     _seenUpdated: new Map(),      // docId -> 마지막으로 본 updatedAt(ms)
+    _calibratedCbs: [],
     noteServerTime(serverMs){
       const s = serverMs - Date.now();
       if(!isFinite(s) || Math.abs(s) > 12*3600*1000) return;   // 말이 안 되는 값은 버린다
+      const first = !this._skewKnown;
       this._skew = this._skewKnown ? Math.round(this._skew*0.7 + s*0.3) : Math.round(s);
       this._skewKnown = true;
+      /* 처음으로 시계가 맞춰지는 순간만 알린다. 그 전까지 now()는 이 기기의
+         날것 시계였고, 그동안 startCourt() 같은 곳이 이미 몇 개의 시각을
+         찍어 두었을 수 있다 — 그 값들을 지금 알아낸 진짜 오차만큼 보정할
+         기회를 주는 신호다(algo.js startCourt · main.js 보정 콜백 참고).
+         이후의 미세한 재조정(0.7/0.3 블렌딩)은 몇 밀리초 단위라 다시 알릴
+         필요가 없다. */
+      if(first) this._calibratedCbs.forEach(fn=>{ try{ fn(this._skew); }catch(e){ console.warn(e); } });
     },
     clockSkew(){ return this._skew; },
     clockKnown(){ return this._skewKnown; },
+    /* 시계가 "처음" 맞춰지는 그 순간에 한 번 불린다. 그 전에 날것 시계로
+       찍어 둔 시각을 보정할 곳(main.js)이 쓴다. */
+    onCalibrated(cb){ this._calibratedCbs.push(cb); },
 
     subscribe(key, cb){
       if(this.mode!=='firebase') return ()=>{};

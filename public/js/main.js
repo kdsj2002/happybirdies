@@ -4,6 +4,30 @@
 (async function boot(){
   await Store.init();
 
+  /* ── 시계가 늦게 맞춰지면 그 전에 찍은 시작 시각을 고쳐 쓴다 ──────
+     코트가 앱을 켜자마자(서버 시계를 아직 못 맞춘 채) 시작되면, 그때 찍힌
+     startedAt은 날것 기기 시계다 — 기기 시계가 틀려 있었다면 그 오차가
+     그대로 남는다. algo.js의 startCourt()가 그런 코트에 startedRaw
+     표시를 남겨 두고, 여기서 시계가 "처음" 맞춰지는 순간(대개 이 세션
+     문서 자체가 쓰이고 몇백 ms 뒤) 그 표시가 붙은 코트를 찾아 한 번만
+     고쳐 쓴다. 표시가 없는 코트(시계가 이미 맞은 뒤 시작된 것)는 건드릴
+     이유가 없다 — 애초에 틀릴 일이 없었다.
+
+     같은 경기의 S.matches[] 기록도 함께 고친다. 둘이 따로 놀면 코트
+     화면의 경과 시간과 기록 화면의 시작 시각이 어긋난다. */
+  Store.onCalibrated(skew => {
+    const raw = S.courts.filter(c => c.startedRaw);
+    if(!raw.length) return;
+    tx(() => {
+      raw.forEach(c => {
+        c.startedAt += skew;
+        delete c.startedRaw;
+        const m = S.matches.find(x => x.id===c.matchId && !x.endedAt);
+        if(m) m.startedAt = c.startedAt;
+      });
+    }, {auto:false});
+  });
+
   /* ── '/' 가 대진판인가 현관인가 ─────────────────────────────────
      원래 '/' 는 동호회 하나(default) 그 자체였다. 그 동호회가 제 주소로
      이관하고 clubs/default를 지우면, '/' 는 동호회를 찾아 주는 현관이

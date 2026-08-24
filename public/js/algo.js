@@ -384,6 +384,13 @@ function startCourt(c, silent){
   // 있다. 그러면 배지가 계속 "미정"으로 남고 기록에도 유형이 안 남는다.
   if(!c.matchType) c.matchType = mtypeOf(c.members, c.teams);
   c.status='PLAYING'; c.startedAt=now(); c.matchId=uid('m');
+  /* 이 기기가 아직 서버 시계를 못 맞춘 채(clockKnown()===false) 시작됐다면
+     지금 찍은 startedAt은 날것 기기 시계다 — 기기 시계가 틀려 있었다면
+     그만큼 그대로 틀린 값이다. 표시만 아니라 값 자체가 틀리므로 나중에
+     시계가 맞춰지는 순간 고쳐 써야 한다. 그 표시를 남겨 둔다
+     (main.js의 Store.onCalibrated 콜백이 이 표시가 붙은 코트를 찾아
+     보정한다). 시계가 이미 맞았다면 애초에 틀릴 일이 없으니 표시하지 않는다. */
+  if(!Store.clockKnown()) c.startedRaw = true;
   // 자동 마감 타이머는 여기서 시작한다. 앱을 연 시각이 아니라 실제로 첫 게임이
   // 시작된 시각이 기준이어야 한다.
   if(!S.startedAt) S.startedAt = now();
