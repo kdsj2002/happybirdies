@@ -77,6 +77,10 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 **경기 시간은 서버 시계 기준**. `state.js`의 `now()`가 `Date.now()`에
 `Store.clockSkew()`를 더해 돌려준다. 기기 시계를 믿지 않는다 — 어떤
 타임스탬프를 새로 계산에 쓸 때 `Date.now()`를 직접 쓰지 말고 `now()`를 쓸 것.
+`clockSkew()`는 구독한 문서의 `updatedAt`이 **이전 값에서 바뀌는 순간**만
+잰다(`store.js` `subscribe()`의 `_seenUpdated`) — 처음 보는 값은 언제
+쓰였는지 알 수 없어 기준으로 삼지 않는다. 표시되는 경과 시간은 음수로
+내려가지 않도록 화면 쪽에서 한 번 더 clamp한다(`ui.js` `courtElapsed`).
 
 **결과 기록 강제**(`S.settings.requireResult`, 기본 꺼짐)가 켜지면
 결과가 없는 경기의 참가자는 `isHeld(attId)`가 참이 되고, `poolIds()`

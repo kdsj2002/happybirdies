@@ -107,7 +107,14 @@ const justAssigned = c => !!(c && c.status==='PLAYING' && c.startedAt && now()-c
    진행 중이 아니면(코트가 비었거나 채우는 중이면) null. */
 function courtElapsed(c){
   if(c.status!=='PLAYING' || !c.startedAt) return null;
-  const ms=now()-c.startedAt, mins=ms/60000;
+  /* 0 아래로는 내려가지 않는다. 서버 시계 보정이 자리를 잡기 전, 이
+     기기가 정말로 시계가 틀린 채로 경기를 막 시작한 그 짧은 순간에는
+     이론상 여전히 음수가 나올 수 있다(store.js noteServerTime 참고 —
+     보정 값 자체가 방금 새로 갱신됐는데 시작 시각은 그 전 값으로 이미
+     적혀 있는 경우). 화면에 마이너스 숫자를 보여줄 이유는 없으므로
+     0에서 멈춰 있다가, 실제 경과 시간이 따라잡으면 그때부터 정상적으로
+     올라간다. */
+  const ms=Math.max(0, now()-c.startedAt), mins=ms/60000;
   const warn=S.settings.matchWarnMinutes||1;
   return {
     over: mins>=warn,

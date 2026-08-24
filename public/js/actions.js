@@ -418,7 +418,7 @@ function fixCourtRoster(c, roster){
 /* 종료 직전에 뜨는 결과 입력 창. 창 자체는 interact.js의 resultDialog가
    그린다(기록 화면에서 나중에 고칠 때도 같은 창을 쓴다). */
 function askMatchResult(c){
-  const mins = c.startedAt ? Math.round((now()-c.startedAt)/60000) : null;
+  const mins = c.startedAt ? Math.max(0, Math.round((now()-c.startedAt)/60000)) : null;
   resultDialog(
     { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
     { title: `${c.no}코트 경기 결과`,
@@ -478,7 +478,7 @@ function checkMatchTimeouts(){
    사라졌다. 짐작해서 하나를 고르는 대신 한 번 물어본다.
    ===================================================================== */
 function askCourtToQueue(c, q){
-  const mins = c.startedAt ? Math.round((now()-c.startedAt)/60000) : 0;
+  const mins = c.startedAt ? Math.max(0, Math.round((now()-c.startedAt)/60000)) : 0;
   const names = [...c.teams.A, ...c.teams.B].map(i=>esc((A(i)||{}).name||'?')).join(' · ');
   openModal(`<h3>${c.no}코트 → Q${q.index}</h3>
     <div class="sub">${names} — ${mins}분째 경기 중입니다. 이 경기를 어떻게 할까요?</div>

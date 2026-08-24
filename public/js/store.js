@@ -144,15 +144,11 @@ const Store = (() => {
             localSet(key, null);
             return { ok:true, value:null, source:'firebase', cached };
           }
-          /* 서버 시계를 여기서도 한 번 잰다. 구독이 붙기 전(부팅 중)에
-             경기가 시작되면 그 시각이 이 기기 시계로 찍히고, 나중에 시계가
-             맞춰지는 순간 경과 시간이 훌쩍 뛴다. 부팅 읽기에서 미리 재
-             두면 그 틈이 없다. 캐시가 답한 updatedAt은 옛날 값이라 쓰지
-             않는다. */
-          try{
-            const u = snap.data().updatedAt;
-            if(!cached && u && u.toMillis) this.noteServerTime(u.toMillis());
-          }catch{}
+          /* 여기서는 서버 시계를 재지 않는다. 한 번 읽은 updatedAt은
+             "이 문서가 마지막으로 쓰인 시각"이지 "지금"이 아니다 — 부팅
+             읽기가 재는 이유였는데, 그 값이 오래전 것일 수 있다는 게
+             바로 이 시계 보정을 망가뜨리던 원인이었다. 자세한 사정은
+             아래 subscribe()의 noteServerTime 호출부에 적어 뒀다. */
           const v = JSON.parse(snap.data().v);
           localSet(key, v);           // 로컬에도 미러링
           return { ok:true, value:v, source:'firebase', cached };
@@ -260,15 +256,31 @@ const Store = (() => {
        있지만, 그 기기가 꺼지거나 배터리가 나가거나 자리를 뜨면 기준 자체가
        사라진다. 사람이 아니라 서버를 기준으로 삼는 편이 낫다.
 
-       Firestore는 쓸 때마다 updatedAt에 서버 시각을 박아 준다. 그 값이
-       스냅샷으로 돌아올 때 내 시계와 비교하면 차이를 알 수 있고, 그 차이를
-       now()에 더하면 모든 기기가 같은 시계를 읽는다(state.js의 now 참고).
+       ── 언제를 "지금"으로 재는가가 핵심이다 ─────────────────────
+       Firestore 문서의 updatedAt은 "마지막으로 쓰인 시각"이지 "지금"이
+       아니다. 둘은 방금 막 쓰였을 때만 같다. 그런데 예전 구현은 이 둘을
+       같은 것으로 쳤다 — 스냅샷이 오면(캐시에서 왔든, 막 구독을 붙여서
+       왔든) 그 안의 updatedAt을 무조건 "지금 서버 시각"으로 읽고 내 시계와
+       비교했다. 아무도 안 건드린 채 10분이 지난 문서를 열면 updatedAt은
+       10분 전인데 그걸 "지금"이라고 우기니, 시계가 10분 어긋난 것으로
+       잘못 잰다. 코트를 열자마자 시작한 경기의 경과 시간이 마이너스로
+       보이던 것, 기기마다 처음엔 안 맞다가 새로고침해야 맞던 것이 전부
+       이 계산 오류였다 — 새로고침이 "고친" 게 아니라, 마침 그 순간
+       가까이에 있던 다른 갱신을 얻어걸린 것뿐이었다.
 
-       네트워크 지연만큼(보통 0.1~0.3초) 서버 시각이 과거로 치우치지만,
-       분·초로 보는 경기 시간에는 보이지 않는 크기다. 튀는 값에 흔들리지
-       않도록 새 값은 3할만 반영한다. */
+       "방금 막 일어난 일"이라고 믿을 수 있는 순간은 하나뿐이다 — 이
+       문서를 구독한 뒤로 updatedAt 값이 이전과 달라진 바로 그 순간.
+       값이 바뀌었다는 것은 누군가 방금 썼다는 뜻이고, 우리는 그것을
+       실시간 구독으로 거의 지연 없이(보통 0.1~0.3초) 받는다. 그래서
+       "처음 보는 값"은 기준으로 삼지 않는다 — 캐시에서 왔을 수도, 막
+       붙은 구독이 기존 상태를 확인해 주는 것일 수도 있어서, 그게 방금
+       쓰인 것인지 훨씬 전에 쓰인 것인지 이 스냅샷 하나만으로는 알 수
+       없기 때문이다. 두 번째부터, 즉 "값이 바뀌는 순간"만 잰다.
+
+       튀는 값에 흔들리지 않도록 새 값은 3할만 반영한다. */
     _skew: 0,
     _skewKnown: false,
+    _seenUpdated: new Map(),      // docId -> 마지막으로 본 updatedAt(ms)
     noteServerTime(serverMs){
       const s = serverMs - Date.now();
       if(!isFinite(s) || Math.abs(s) > 12*3600*1000) return;   // 말이 안 되는 값은 버린다
@@ -282,15 +294,20 @@ const Store = (() => {
       if(this.mode!=='firebase') return ()=>{};
       const fb=this._fb;
       const self=this;
-      return fb.onSnapshot(fb.doc(fb.db,'clubs',CLUB,'kv',docId(key)), snap=>{
+      const id=docId(key);
+      return fb.onSnapshot(fb.doc(fb.db,'clubs',CLUB,'kv',id), snap=>{
         if(!snap.exists()) return;
         const meta = snap.metadata || {};
         const data = snap.data();
-        /* 서버가 확정한 시각. 아직 서버에 안 올라간 내 쓰기에서는 null이라
-           그때는 시계를 맞추지 않는다(내 시계로 내 시계를 재는 꼴이 된다). */
+        // 아직 서버에 안 올라간 내 쓰기(hasPendingWrites)는 애초에 값이
+        // 진짜로 바뀐 것인지 알 수 없으니 건너뛴다. 값 변화 판정은 위 설명대로.
         try{
-          if(!meta.hasPendingWrites && data.updatedAt && data.updatedAt.toMillis)
-            self.noteServerTime(data.updatedAt.toMillis());
+          if(!meta.hasPendingWrites && data.updatedAt && data.updatedAt.toMillis){
+            const ms = data.updatedAt.toMillis();
+            const prev = self._seenUpdated.get(id);
+            if(prev !== undefined && prev !== ms) self.noteServerTime(ms);
+            self._seenUpdated.set(id, ms);
+          }
         }catch{}
         try{ cb(JSON.parse(data.v),
                 { local: !!meta.hasPendingWrites, cached: !!meta.fromCache }); }catch{}
