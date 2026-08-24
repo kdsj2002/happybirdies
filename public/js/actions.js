@@ -350,6 +350,82 @@ function pushQueueToCourt(q, c){
   return true;
 }
 
+/* =====================================================================
+   빈 코트 · 빈 대기 슬롯 더블탭 — 손으로 다시 채운다
+
+   자동 배치가 꺼져 있거나('자동' 토글, 또는 설정의 '코트 자동 투입'만
+   꺼둔 경우) 무언가가 비면 그대로 비어 있다. 이럴 때 매번 설정을 다시
+   켰다 끄는 대신, 빈 자리를 두드리면 그 자리 하나만 즉석에서 채운다 —
+   이 경로는 자동 배치 설정과 무관하게 항상 동작한다. 켜져 있든
+   꺼져 있든, "지금 이 자리를 채워 달라"는 명시적 손동작이기 때문이다.
+   ===================================================================== */
+
+/* 빈 코트를 두드렸을 때. 대기열에 이미 다 채워진 팀이 있으면 그걸
+   그대로 올린다(투입과 같은 동작). 없으면 대기 인원에서 새로 짜야
+   하는데, 그건 "이번 한 번만" 하는 것인지 확인부터 받는다 — 매번
+   자동으로 짜이길 바랐다면 애초에 '자동' 토글을 켜 뒀을 것이기 때문이다. */
+function fillEmptyCourt(c){
+  if(!c || c.disabled || c.status!=='EMPTY' || c.members.length) return;
+  const q = S.queues.find(q=>q.members.length===4 && !q.members.some(isHeld));
+  if(q) return void pushQueueToCourt(q, c);
+  askOneOffAutoFill(c.no);
+}
+function askOneOffAutoFill(no){
+  openModal(`<h3>${no}코트 자동 배정</h3>
+    <div class="sub">대기열에 다 채워진 팀이 없습니다. 대기 인원에서
+      지금 한 번만 자동으로 팀을 짜서 이 코트에 넣을까요?</div>
+    <div class="row end">
+      <button class="btn" id="fillCancel">취소</button>
+      <button class="btn primary" id="fillOk">자동 배정</button>
+    </div>`);
+  $('#fillCancel').onclick = closeModal;
+  $('#fillOk').onclick = ()=>{ closeModal(); composeIntoCourt(no); };
+}
+/* 확인을 기다리는 동안 다른 기기가 이 코트를 채웠을 수 있으니 번호로
+   다시 찾아 아직 비어 있는지 확인한 뒤에 짠다. */
+function composeIntoCourt(no){
+  const c = S.courts.find(x=>x.no===no);
+  if(!c || c.disabled || c.status!=='EMPTY' || c.members.length){
+    toast('그 사이 코트 상태가 바뀌어 넣지 못했습니다'); return;
+  }
+  const all=Object.values(S.att);
+  const maxG=Math.max(...all.map(a=>a.games),0);
+  const pool=poolIds();
+  if(pool.length<4){ Sound.play('error'); toast('대기 인원이 4명이 안 됩니다'); return; }
+  // 조건이 빡빡해 못 찾으면 후보를 넓혀 한 번 더(fillQueues와 같은 순서).
+  let best=bestCombination(topCandidates(pool,maxG,S.settings.candidateK),4,[],null,maxG);
+  if(!best) best=bestCombination(topCandidates(pool,maxG,20),4,[],null,maxG);
+  if(!best){ Sound.play('error'); toast('조건에 맞는 조합을 찾지 못했습니다'); return; }
+  best.picked.forEach(flash);
+  tx(()=>{
+    c.members=best.picked; c.teams=best.teams; c.matchType=best.matchType; c.typeSource='AUTO';
+    c.status='FILLING'; best.picked.forEach(i=>A(i).state='FILLING');
+  });
+  Sound.play('move');
+  toast(`${no}코트에 한 번만 자동으로 팀을 짜 넣었습니다`);
+}
+
+/* 빈 대기 슬롯을 두드렸을 때 — 대기 인원에서 곧바로 한 팀을 짜 넣는다.
+   코트와 달리 확인을 묻지 않는다. 대기열을 채우는 것은 경기를 시작하는
+   일이 아니라서(코트에 올라가야 비로소 시작된다) 되돌리기 쉽고, 매번
+   확인창을 띄우면 대기열 슬롯 여러 개를 연달아 채울 때 성가시다. */
+function fillEmptyQueue(q){
+  if(!q || q.members.length) return;
+  const all=Object.values(S.att);
+  const maxG=Math.max(...all.map(a=>a.games),0);
+  const pool=eligibleFor(poolIds(), q);
+  if(pool.length<4){ Sound.play('error'); toast('대기 인원이 4명이 안 됩니다'); return; }
+  let best=bestCombination(topCandidates(pool,maxG,S.settings.candidateK),4,[],q.pinnedType,maxG);
+  if(!best) best=bestCombination(topCandidates(pool,maxG,20),4,[],q.pinnedType,maxG);
+  if(!best){ Sound.play('error'); toast('조건에 맞는 조합을 찾지 못했습니다'); return; }
+  best.picked.forEach(flash);
+  tx(()=>{
+    q.members=best.picked; q.teams=best.teams; q.matchType=best.matchType;
+    q.notice=null; best.picked.forEach(i=>A(i).state='QUEUED');
+  });
+  Sound.play('move');
+}
+
 /* returnCourtToQueue()는 걷어냈다. 코트 팀을 대기열로 보내는 길은
    moveCourtTeamToQueue() 하나뿐이어야 한다. 아무 데서도 부르지 않는 채로
    남아 있었는데, 그대로 두면 나중에 누가 그것을 불러 리매치 여부를 묻는
@@ -727,17 +803,23 @@ function chipToQueue(id){
   Sound.play('move');
 }
 
-/* 팀 영역(코트 카드 / 대기 슬롯)을 두드렸을 때 — 개인과 같은 방향으로 통째로 */
+/* 팀 영역(코트 카드 / 대기 슬롯)을 두드렸을 때 — 개인과 같은 방향으로 통째로.
+   비어 있는 코트·대기 슬롯을 두드리면 다음 단계로 갈 사람이 없으니, 대신
+   그 자리를 채운다(fillEmptyCourt·fillEmptyQueue) — "다음 단계로"라는
+   방향은 같다. 채울 사람이 아직 이 자리에 없을 뿐이다. */
 function advanceTeam(target){
   const [kind,key]=String(target||'').split(':');
   if(!requirePerm('edit')) return;
   if(kind==='court'){
     if(!requirePerm('courtAssign')) return;
-    return void advanceCourtTeam(S.courts.find(c=>c.no===+key));   // 코트 → 대기 인원(=종료)
+    const c=S.courts.find(c=>c.no===+key);
+    if(c && c.status==='EMPTY' && !c.disabled && !c.members.length) return void fillEmptyCourt(c);
+    return void advanceCourtTeam(c);   // 코트 → 대기 인원(=종료)
   }
   if(kind==='queue'){
     if(!requirePerm('courtAssign')) return;
     const q=S.queues.find(q=>q.index===+key);
+    if(q && !q.members.length) return void fillEmptyQueue(q);
     if(!q || !q.members.length) return;
     if(q.members.length===4) return void pushQueueToCourt(q);   // 4명이면 통째로
     // 아직 4명이 아니면 있는 사람만 빈 코트 자리로 옮긴다

@@ -143,6 +143,8 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 | 동기화는 시간창이 아니라 내용 비교로 메아리 판정 | `main.js` 세션 구독 주석 |
 | 소유자 비밀번호 없음 — 소유자는 실계정으로만 | `firestore.rules` 머리말 |
 | `App Check` 사용 안 함(사용자 결정, 온라인 무차별 대입 미완화) | `firestore.rules` ⚠ 항목 |
+| 시계가 늦게 맞으면 그 전 startedAt을 소급 보정(한 번만) | `store.js` `onCalibrated` / `main.js` 등록부 |
+| 빈 코트·빈 대기 슬롯 더블탭은 자동 배치 설정과 무관하게 항상 채움 | `actions.js` `fillEmptyCourt`/`fillEmptyQueue` |
 
 이 표는 "무엇을, 어디서"만 담는다. 왜 그렇게 했는지는 표에 적힌 위치의
 주석을 읽을 것 — 중복해서 옮겨 적지 않는다(옮겨 적으면 코드가 바뀔 때
