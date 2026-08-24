@@ -165,6 +165,7 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 빈 코트·빈 대기 슬롯 더블탭은 자동 배치 설정과 무관하게 항상 채움 | `actions.js` `fillEmptyCourt`/`fillEmptyQueue` |
 | 새 동호회는 무인증으로 신청 즉시 열림(`status:'pending'`은 표시일 뿐) | `functions/index.js` `createClub` |
 | 소유자 자리는 신청서 이메일이 아니라 그 이메일의 구글 인증으로만 확정 | `functions/index.js` `claimOwnership` |
+| `#gate` 카드는 화면보다 길어질 수 있어 자신이 스크롤 컨테이너 | `app.css` `#gate` 규칙 |
 
 이 표는 "무엇을, 어디서"만 담는다. 왜 그렇게 했는지는 표에 적힌 위치의
 주석을 읽을 것 — 중복해서 옮겨 적지 않는다(옮겨 적으면 코드가 바뀔 때

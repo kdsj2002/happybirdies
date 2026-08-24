@@ -743,8 +743,12 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
 /* ─────────────────────────────────────────────
    입장 화면(게이트) · 내 경기 알림 · 역할 표시
    ───────────────────────────────────────────── */
+/* html/body는 항상 overflow:hidden이라(44행) #gate 카드가 화면보다 길어지면
+   갈 곳이 없다 — 예전 카드들(로그인·PIN 등)은 늘 화면보다 짧아 안 드러났지만,
+   "새 동호회 신청" 폼처럼 입력칸이 여럿인 카드는 폰 화면 + 키보드가 뜬
+   상태에서 쉽게 넘친다. #gate 자신을 스크롤 컨테이너로 만든다. */
 #gate{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
-      padding:20px;background:radial-gradient(120% 90% at 50% 0%,#FFFFFF 0%,var(--bg) 70%)}
+      padding:20px;overflow-y:auto;background:radial-gradient(120% 90% at 50% 0%,#FFFFFF 0%,var(--bg) 70%)}
 #gate.on{display:flex}
 .gate-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);
            border-radius:18px;padding:24px 22px;box-shadow:0 18px 44px rgba(22,33,29,.16)}
