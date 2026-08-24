@@ -411,41 +411,30 @@ tr:hover td{background:var(--surface)}
    이긴 팀을 고르면 그 줄이 초록으로 서고, 오른쪽 숫자가 점수 자리다.
    점수를 안 넣으면 숫자 대신 승·패 글자가 온다 — 빈 칸으로 두는 것이
    정상적인 선택이라 "덜 채워진 것"처럼 보이면 안 된다. */
-/* ── 1단계. 팀 구성 ──────────────────────────────
-   이름을 끌어 상대 팀에 놓으면 자리가 바뀐다. 놓일 자리는 미리 밝혀 준다. */
-.rteam{display:flex;align-items:center;gap:11px;padding:10px 12px;margin-bottom:8px;
-       border:1px solid var(--line);border-radius:11px;background:var(--surface2)}
-.rteam.over{border-color:var(--court);background:var(--court-soft)}
-.rnames{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-.rp{display:inline-block;padding:5px 10px;border-radius:8px;cursor:grab;
-    background:var(--surface);border:1px solid var(--line);
-    font-size:15px;font-weight:700;touch-action:none;user-select:none}
-.rp.on{border-color:var(--court);background:var(--court-soft);box-shadow:0 0 0 2px var(--court-soft)}
-.rp.over{border-color:var(--court);border-style:dashed}
-.rp.drag{opacity:.45;cursor:grabbing}
-.res-tag{min-width:46px;height:32px;border-radius:8px;flex:none;
-         display:flex;align-items:center;justify-content:center;
-         font-size:13px;font-weight:800;color:var(--on-accent);background:var(--unk)}
+/* ── 결과 창 — 한 번에 한 가지만 묻는다 ──────────
+   점수 · 경기 점수 · 이긴 팀을 한 화면에 쌓으면 폰에서 스크롤이 생기고,
+   스크롤이 생기면 "다 채웠나"를 위아래로 훑어야 한다. 그 확인이 귀찮아서
+   결과를 안 적게 된다. 그래서 단계마다 창이 작게 유지되도록 짠다. */
 
-/* ── 2단계. 진 팀 점수 ───────────────────────────
-   10~24는 버튼으로 깐다. 아이패드에서 숫자 키보드가 화면을 덮지 않는 것이
-   이 화면에서 가장 큰 차이다. */
+/* 진 팀 점수 — 10~24를 버튼으로. 아이패드에서 숫자 키보드가 화면을 덮지
+   않는 것이 이 화면에서 가장 큰 차이다. */
 .sgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .sgrid .btn{width:100%;padding:0}
 .btn.on{border-color:var(--court);background:var(--court-soft);color:var(--court)}
 
-/* ── 3단계. 이긴 팀 ──────────────────────────────
-   마지막 한 번의 선택이라 크게 둔다. 고르면 그 팀 점수가 함께 뜬다. */
+/* 고르는 큰 버튼들 — 경기 점수(21/25)는 둘씩 나란히, 이긴 팀은 한 줄씩 */
 .wpick{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.wbtn{height:auto;min-height:64px;padding:10px 12px;display:flex;flex-direction:column;
-      align-items:flex-start;justify-content:center;gap:2px;position:relative;text-align:left}
+.wteam{display:grid;grid-template-columns:1fr;gap:9px}
+.wbtn{height:auto;min-height:62px;padding:11px 14px;display:flex;flex-direction:column;
+      align-items:flex-start;justify-content:center;gap:3px;position:relative;text-align:left}
+.wbtn.big{min-height:70px}
 .wbtn.on{border-color:var(--court);background:var(--court-soft)}
-.wbtn b{font-size:15px}
-.wbtn .wnm{font-size:13px;font-weight:700;color:var(--muted);
+.wbtn:active{transform:scale(.99)}
+.wbtn b{font-size:16px}
+.wbtn .wnm{font-size:14px;font-weight:700;color:var(--muted);
            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.wbtn .wsc{position:absolute;right:12px;top:50%;transform:translateY(-50%);
-           font-size:24px;font-weight:800;color:var(--muted2)}
-.wbtn .wsc.w{color:var(--court)}
+.wbtn .wsc{position:absolute;right:14px;top:50%;transform:translateY(-50%);
+           font-size:20px;font-weight:800;color:var(--muted2)}
 td.res-cell.edit{cursor:pointer}
 td.res-cell.edit:hover{background:var(--court-soft)}
 
