@@ -236,7 +236,17 @@ function topCandidates(pool, maxG, k){
    4부. 배치 파이프라인
    ===================================================================== */
 
-function poolIds(){ return Object.values(S.att).filter(a=>a.state==='POOL').map(a=>a.id); }
+/* 지금 배치할 수 있는 사람들.
+   결과를 안 적어 묶인 사람(state.js의 '결과 기록 강제')은 여기서 빠진다.
+   손으로 옮기는 길만 막고 자동 배치를 그냥 두면, 운영자가 아무것도 안 해도
+   다음 판에 올라가 버려서 강제가 아무 뜻이 없다. */
+function poolIds(){
+  return Object.values(S.att).filter(a=>a.state==='POOL' && !isHeld(a.id)).map(a=>a.id);
+}
+/* 화면에 보여 줄 대기 인원 — 묶인 사람도 포함한다.
+   배치에서 빠지는 것과 화면에서 사라지는 것은 전혀 다른 일이다. 사라지면
+   운영자는 왜 사람이 줄었는지 알 수 없고, 결과를 적어 풀어 줄 길도 못 찾는다. */
+function poolAllIds(){ return Object.values(S.att).filter(a=>a.state==='POOL').map(a=>a.id); }
 
 /* 슬롯에 유형 핀이 걸려 있으면 해당 성별만 후보로 남긴다.
    XD/MX는 성별을 거르는 것으로는 표현이 안 되므로 분할 단계에서 처리한다. */
@@ -265,7 +275,9 @@ function pushToCourt(){
   let moved=false;
   for(const c of S.courts){
     if(c.status!=='EMPTY'||c.disabled) continue;
-    const q=S.queues.find(q=>q.members.length===4);
+    /* 묶인 사람이 낀 대기 팀은 코트에 올리지 않는다. 리매치로 대기열에
+       올라간 팀이 결과를 안 적은 채 다시 뛰는 것을 막는다. */
+    const q=S.queues.find(q=>q.members.length===4 && !q.members.some(isHeld));
     if(!q) break;
     c.members=q.members; c.teams=q.teams; c.matchType=q.matchType; c.typeSource=q.typeSource;
     c.members.forEach(i=>A(i).state='FILLING');

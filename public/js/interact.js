@@ -418,7 +418,11 @@ function resultDialog(m, opts={}){
   // 상한을 넘겨 적었으면 손을 뗄 때 눈에 보이는 값도 맞춰 준다(30점 상한).
   scIn.addEventListener('change', ()=>{ const l=loseVal(); scIn.value = l==null?'':l; paint(); });
   $('#rsCancel').onclick = closeModal;
-  $('#rsNone').onclick = ()=>{ closeModal(); opts.onSave && opts.onSave({win:null,sw:null,sl:null}); };
+  /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
+     선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한 구멍이라
+     그 표시(skip)를 함께 넘긴다. */
+  $('#rsNone').onclick = ()=>{ closeModal();
+    opts.onSave && opts.onSave({win:null, sw:null, sl:null, skip:!!opts.skipOnNone}); };
   $('#rsOk').onclick = ()=>{
     if(!win) return;
     const lose = loseVal();

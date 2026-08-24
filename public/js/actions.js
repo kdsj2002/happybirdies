@@ -333,6 +333,8 @@ function clearQueue(q){
 /* 대기 슬롯 하나를 코트로 통째로 올린다. c를 안 주면 빈 코트를 찾는다. */
 function pushQueueToCourt(q, c){
   if(!q || q.members.length!==4) return false;
+  const held = q.members.find(i=>isHeld(i));
+  if(held && heldBlock(held)) return false;
   c = c || firstEmptyCourt();
   if(!c){ Sound.play('error'); toast('빈 코트가 없습니다'); return false; }
   if(c.disabled){ Sound.play('error'); toast(`${c.no}코트는 사용하지 않습니다`); return false; }
@@ -369,7 +371,13 @@ function advanceCourtTeam(c){
        어느 코트가 몇 대 몇이었는지 기억에 의존해야 한다.
 
        묻기만 하고 여기서 끝내지는 않는다. 실제 종료는 확인을 받은 뒤
-       finishCourt()가 한다 — 취소하면 경기는 그대로 이어진다. */
+       finishCourt()가 한다 — 취소하면 경기는 그대로 이어진다.
+
+       단, '결과 기록 강제'가 켜져 있으면 여기서는 묻지 않는다. 그때는
+       창을 띄우는 대신 네 사람을 묶어 두고, 다음에 그들을 쓰려 할 때
+       그 자리에서 받는다(heldBlock). 창을 띄워 봐야 '나중에'를 누르게
+       되고, 그 '나중에'가 결국 안 적히는 이유였다. */
+    if(S.settings.requireResult){ finishCourt(c.no, null); return true; }
     askMatchResult(c);
     return true;
   }
@@ -385,7 +393,9 @@ function finishCourt(no, result){
   c.members.slice().forEach(flash);
   tx(()=>endCourt(c,'POOL',result),{auto:false});
   Sound.play('end');
-  toast(result && result.win ? `${no}코트 — ${resultLabel(result)}` : `${no}코트 경기를 마쳤습니다`);
+  toast(result && result.win ? `${no}코트 — ${resultLabel(result)}`
+      : S.settings.requireResult ? `${no}코트 경기를 마쳤습니다 — 결과를 적어야 네 사람이 다시 뜁니다`
+      : `${no}코트 경기를 마쳤습니다`);
   return true;
 }
 
@@ -477,6 +487,10 @@ function askCourtToQueue(c, q){
       { title:`${c.no}코트 경기 결과`,
         sub: `${MT_LBL[c.matchType||'UNKNOWN']} · ${mins}분 — 마친 뒤 Q${q.index}에 같은 팀으로 올립니다`,
         okLabel:'결과 남기고 리매치', noneLabel:'승패 없이 리매치',
+        /* 결과 기록 강제가 켜져 있으면 '승패 없이'도 "안 적기로 했다"는
+           표시를 남겨야 한다. 안 그러면 리매치 팀이 대기열에서 묶여
+           코트에 올라가지 못한다. */
+        skipOnNone: !!S.settings.requireResult,
         onSave(r){ moveCourtTeamToQueue(c.no, q.index, r); } });
   });
 }
@@ -546,6 +560,9 @@ function moveTeamTo(from, target){
   if(fk===tk && fn===tn) return;
   const src = fk==='court' ? S.courts.find(c=>c.no===+fn) : S.queues.find(q=>q.index===+fn);
   if(!src || !src.members.length) return;
+  // 팀 안에 결과를 안 적어 묶인 사람이 있으면 팀째로도 못 옮긴다.
+  const heldOne = src.members.find(i=>isHeld(i));
+  if(heldOne && heldBlock(heldOne)) return;
 
   if(tk==='pool'){
     if(fk==='court') return void advanceCourtTeam(src);       // 코트 → 대기 인원 = 경기 종료
@@ -622,8 +639,47 @@ function moveTeamTo(from, target){
    운영자가 다음에 나갈 팀을 눈으로 짐작할 수 없었다.
    ===================================================================== */
 
+/* ── 결과를 안 적어 묶인 사람 ────────────────────────────────────
+   설정의 '결과 기록 강제'가 켜져 있으면, 결과가 적히지 않은 경기의 네 명은
+   아무 데로도 못 움직인다(state.js의 '결과 기록 강제' 참고).
+
+   막기만 하면 운영자는 왜 안 되는지 모른 채 손가락만 반복한다. 그래서
+   막는 그 자리에서 적을 창을 띄운다 — 하려던 일(이 사람을 쓰는 것)에서
+   해야 할 일(결과 적기)까지가 한 동작이 된다. */
+function heldBlock(id){
+  const m = holdingMatchOf(id);
+  if(!m) return false;
+  Sound.play('error');
+  const who = (A(id)||{}).name || '이 사람';
+  toast(`${who} — ${m.court}코트 결과를 먼저 적어야 움직일 수 있습니다`);
+  if(Auth.can('edit')) openResultFor(m);
+  return true;
+}
+/* 끝난 경기 하나의 결과를 적는 창. 묶인 사람을 풀 때도, 기록 화면에서
+   나중에 고칠 때도 같은 창이다. */
+function openResultFor(m, opts={}){
+  if(!m) return;
+  const held = S.settings.requireResult && resultPending(m);
+  resultDialog(m, {
+    title: `${m.court}코트 경기 결과`,
+    sub: `${MT_LBL[m.type||'UNKNOWN']} · ${new Date(m.startedAt).toTimeString().slice(0,5)} 시작`
+         + (held ? ' — 이 결과를 적어야 네 사람이 다시 뜁니다' : ' — 나중에 다시 고칠 수 있습니다'),
+    okLabel: '저장',
+    // 강제가 켜져 있을 때만 "안 적기로 했다"는 표시를 남긴다. 그래야 풀린다.
+    noneLabel: held ? '모름 — 기록 없이 풀기' : '결과 지우기',
+    skipOnNone: held,
+    onSave(r){
+      tx(()=>applyResult(m,r),{auto:false});
+      if(opts.after) opts.after();
+      toast(r.win ? `${m.court}코트 — ${resultLabel(m)}`
+                  : held ? '결과 없이 풀었습니다' : '결과를 지웠습니다');
+    }
+  });
+}
+
 function advanceChip(id){
   if(!A(id) || !requirePerm('edit')) return;
+  if(heldBlock(id)) return;
   const L=locate(id);
   if(L.kind==='court'){                       // 코트 → 대기 인원
     if(!requirePerm('courtAssign')) return;
@@ -668,6 +724,8 @@ function advanceTeam(target){
     const c=S.courts.find(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
     if(!c){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
     const ids=q.members.slice();
+    const heldOne = ids.find(i=>isHeld(i));      // 여기도 묶인 사람은 못 올라간다
+    if(heldOne && heldBlock(heldOne)) return;
     ids.forEach(flash);
     tx(()=>{ ids.forEach(i=>{ if(c.members.length<4){ removeFrom(i); addTo(i,`court:${c.no}`); } }); });
     Sound.play('move');
@@ -773,6 +831,7 @@ function canMove(id, target){
 
 function moveTo(id, target){
   const [kind,key]=target.split(':');
+  if(heldBlock(id)) return;
   const deny = canMove(id, target);
   if(deny){ Sound.play('error'); toast(Auth.denyMsg(deny)); return; }
   const dest = kind==='court'? S.courts.find(c=>c.no===+key) : kind==='queue'? S.queues.find(q=>q.index===+key):null;
@@ -824,6 +883,8 @@ function occupantAt(target){
 function swap(a,b){
   if(a===b) return;
   if(!requirePerm('edit')) return;
+  // 맞교체는 두 사람을 다 움직인다. 상대가 묶여 있으면 그쪽도 막아야 한다.
+  if(heldBlock(a) || heldBlock(b)) return;
   const La=locate(a), Lb=locate(b);
   if((La.kind==='court'||Lb.kind==='court') && !requirePerm('courtAssign')) return;
 

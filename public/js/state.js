@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.19g';
+const APP_VERSION = '2026.08.19h';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -8,6 +8,7 @@ const DEFAULTS = {
   matchWarnMinutes:18,
   maxMatchMinutes:30,         // 이 시간에 닿으면 경기를 자동으로 마친다 (0이면 사용 안 함)
   winPoint:21,                // 한 게임의 점수. 결과 입력에서 이긴 팀 점수를 계산하는 기준
+  requireResult:false,        // 결과를 적을 때까지 그 네 명을 묶어 둔다 (아래 '결과 기록 강제')
   genderPolicy:'FREE',
   considerAge:false,
   candidateK:10, repeatLookback:3, oddRelaxThreshold:2,
@@ -198,12 +199,63 @@ function applyResult(m, r){
   m.sw  = (win && r.sw!=null) ? +r.sw : null;
   m.sl  = (win && r.sl!=null) ? +r.sl : null;
   m.resAt = win ? now() : null;
+  /* '모름으로 넘기기로 했다'는 표시. 결과 기록 강제에서 "아직 안 적었다"와
+     "안 적기로 했다"를 가르는 유일한 값이라, 없으면 강제가 영영 안 풀린다.
+     승패를 적으면 지워지고, 결과를 지우면(r.skip 없이 win=null) 다시
+     "아직 안 적음"으로 돌아간다. */
+  if(win || !(r && r.skip)) delete m.skipped;
+  else m.skipped = true;
 }
 /* 화면에 쓰는 한 줄 — 'A팀 승 21:15' · 승패가 없으면 빈 문자열 */
 function resultLabel(m){
   if(!m || !m.win) return '';
   return `${m.win}팀 승` + ((m.sw!=null && m.sl!=null) ? ` ${m.sw}:${m.sl}` : '');
 }
+/* ── 결과 기록 강제 (설정: requireResult) ────────────────────────
+   결과를 적는 것은 귀찮은 일이라, 물어보기만 해서는 잘 안 적힌다. 그래서
+   물어보는 대신 **막는다.**
+
+     경기가 끝나면 결과를 묻지 않고 그냥 끝낸다(창이 안 뜬다).
+     대신 그 네 명은 결과가 적힐 때까지 아무 데로도 못 움직인다.
+     다음 판에 넣으려면 결과부터 적어야 한다.
+
+   운영 흐름 자체가 결과를 요구하게 만드는 방식이다. 잊어버릴 수가 없다 —
+   잊으면 사람이 모자라기 시작하니까.
+
+   빠져나갈 구멍은 하나 남긴다. 결과 창의 '모름 — 기록 없이 풀기'다.
+   정말 아무도 점수를 모르는 판이 있는데 구멍이 없으면 그 네 명이 영영
+   묶인다. 다만 그것도 손으로 눌러야 하는 선택이라 강제의 뜻은 살아 있다.
+   그 표시가 skipped이고, 승패를 적으면 지워진다.
+
+   기본은 꺼 둔다. 지금까지 쓰던 동호회의 운영 방식을 설정 하나로 조용히
+   바꿔 버리면 안 된다. */
+
+/* 결과가 아직 정해지지 않은 경기 — 승패도 없고 '모름'으로 넘긴 적도 없다. */
+const resultPending = m => !!(m && m.endedAt && !m.win && !m.skipped);
+/* 지금 결과를 기다리는 경기들. 강제가 꺼져 있으면 아무도 안 묶는다. */
+function pendingResults(){
+  return S.settings.requireResult ? S.matches.filter(resultPending) : [];
+}
+/* 이 사람을 묶고 있는 경기. 없으면 null. */
+function holdingMatchOf(attId){
+  if(!S.settings.requireResult) return null;
+  return S.matches.find(m => resultPending(m) &&
+      ((m.A||[]).includes(attId) || (m.B||[]).includes(attId))) || null;
+}
+/* 화면은 칩마다 이걸 묻는다. 매번 경기 목록을 훑으면 사람 수 × 경기 수가
+   되므로, 렌더 직전에 한 번 모아 두고 조회만 한다. */
+let heldSet = new Set();
+function refreshHeld(){
+  const s = new Set();
+  pendingResults().forEach(m=>{
+    (m.A||[]).forEach(i=>s.add(i));
+    (m.B||[]).forEach(i=>s.add(i));
+  });
+  heldSet = s;
+  return s;
+}
+const isHeld = attId => heldSet.has(attId);
+
 /* 이 사람의 승-패. 끝났고 승패가 적힌 경기만 센다. */
 function recordOf(attId){
   let w=0, l=0;

@@ -74,6 +74,9 @@ function chipEl(id, ctx){
     ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${w}분</div>`:''}`;
   if(sel===id) e.classList.add('sel');
   if(flashSet.has(id)) e.classList.add('hl');
+  /* 결과를 안 적어 묶인 사람. 붉은 테두리가 깜박인다 — 왜 안 움직이는지
+     손대기 전에 보여야 한다. */
+  if(isHeld(id)) e.classList.add('held');
   if(Auth.isMember && Auth.isMe(id)) e.classList.add('mine');   // 내 이름 강조
   return e;
 }
@@ -259,14 +262,26 @@ function renderPool(){
   const box=$('#pool'); box.innerHTML='';
   const all=Object.values(S.att);
   const maxG=Math.max(...all.map(a=>a.games),0);
-  let ids=poolIds().filter(i=>!poolSex||A(i).gender===poolSex);
+  let ids=poolAllIds().filter(i=>!poolSex||A(i).gender===poolSex);
   if(poolSort==='pri')       ids.sort((x,y)=>priority(A(y),maxG)-priority(A(x),maxG));
   else if(poolSort==='game') ids.sort((x,y)=>A(x).games-A(y).games||A(x).name.localeCompare(A(y).name,'ko'));
   else                       ids.sort((x,y)=>A(x).name.localeCompare(A(y).name,'ko'));
   if(!ids.length) box.appendChild(el('div','pool-empty','대기 인원이 없습니다.'));
   ids.forEach(i=>box.appendChild(chipEl(i,'pool')));
-  const m=poolIds().filter(i=>isM(A(i))).length, f=poolIds().filter(i=>isF(A(i))).length;
-  $('#poolCnt').innerHTML=`<b>${poolIds().length}명</b> <span style="color:var(--muted2)">♂${m} ♀${f}</span>`;
+  const p=poolAllIds();
+  const m=p.filter(i=>isM(A(i))).length, f=p.filter(i=>isF(A(i))).length;
+  /* 묶인 사람이 있으면 몇 경기 때문인지 함께 보여 주고, 누르면 그 자리에서
+     결과를 적게 한다. 붉게 깜박이는 칩만으로는 "무엇을 해야 푸는지"가
+     안 보인다 — 막는 화면에는 푸는 길이 함께 있어야 한다. */
+  const pend = pendingResults();
+  $('#poolCnt').innerHTML=`<b>${p.length}명</b> <span style="color:var(--muted2)">♂${m} ♀${f}</span>`
+    + (pend.length ? ` <button class="btn sm warn" id="btnHeld">결과 대기 ${pend.length}경기</button>` : '');
+  const hb=$('#btnHeld');
+  if(hb) hb.onclick=()=>{ Sound.play('tap');
+    if(!requirePerm('edit')) return;
+    const first = pendingResults()[0];
+    if(first) openResultFor(first);
+  };
 }
 
 function renderTop(){
@@ -314,6 +329,8 @@ function render(){
   // 파워 막대는 절대값이 아니라 "지금 화면에 있는 사람 중 최댓값 대비"라서
   // 출석자가 바뀔 때마다(=render 때마다) 기준을 다시 잰다.
   powerMax = Math.max(1, ...Object.values(S.att).map(powerOf));
+  // 결과를 안 적어 묶인 사람들을 한 번에 모은다(칩마다 경기 목록을 훑지 않게).
+  refreshHeld();
   renderTop(); renderCourts(); renderQueues(); renderPool();
   syncIdle();          // 상태가 바뀌었으니 타이머·화면잠금도 다시 맞춘다
 }

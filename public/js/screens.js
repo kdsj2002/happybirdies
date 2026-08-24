@@ -417,17 +417,8 @@ function renderHist(){
     if(!requirePerm('edit')) return;
     const m=S.matches.find(x=>x.id===e.dataset.res); if(!m) return;
     Sound.play('tap');
-    resultDialog(m, {
-      title: `${m.court}코트 경기 결과`,
-      sub:   `${MT_LBL[m.type||'UNKNOWN']} · ${new Date(m.startedAt).toTimeString().slice(0,5)} 시작`
-             + ' — 나중에 다시 고칠 수 있습니다',
-      okLabel:'저장', noneLabel:'결과 지우기',
-      onSave(r){
-        tx(()=>applyResult(m,r),{auto:false});
-        renderHist();
-        toast(r.win ? `${m.court}코트 — ${resultLabel(m)}` : '결과를 지웠습니다');
-      }
-    });
+    // 대진판에서 묶인 사람을 풀 때와 같은 창이다(actions.js openResultFor).
+    openResultFor(m, { after: renderHist });
   });
   (function(){
     const lbl=$('#autoCloseLbl');
@@ -561,6 +552,7 @@ function renderSet(){
         <div class="k">경기 시간 경고</div><div>${s.matchWarnMinutes}분</div>
         <div class="k">최대 경기 시간</div><div>${s.maxMatchMinutes?`${s.maxMatchMinutes}분 (자동 종료)`:'사용 안 함'}</div>
         <div class="k">한 게임 점수</div><div>${s.winPoint||21}점</div>
+        <div class="k">결과 기록 강제</div><div>${s.requireResult?'켜짐 — 결과를 적어야 다음 판에 들어갑니다':'꺼짐'}</div>
         <div class="k">자동 마감</div><div>첫 경기 후 ${autoCloseHours()}시간</div>
         <div class="h">내 계정</div>
         <div class="k">현재 역할</div><div><b>${esc(Auth.roleLabel())}</b></div>
@@ -589,6 +581,14 @@ function renderSet(){
         <span class="hint">이 시간에 닿으면 <b>경기를 자동으로 마칩니다</b> — 네 명 모두 게임 수가 1 오르고
           기록에 남으며 대기 인원으로 내려갑니다. 승패는 비워 둡니다(나중에 기록 화면에서 넣을 수 있습니다).
           <b>0이면 사용하지 않습니다.</b></span></div>
+      <div class="k">결과 기록 강제</div><div>
+        <label class="row"><input type="checkbox" id="s_reqres" ${s.requireResult?'checked':''} style="width:20px;height:20px">
+          결과를 적을 때까지 그 네 명을 묶어 둡니다</label>
+        <div class="hint" style="margin-top:6px">켜면 경기가 끝날 때 <b>결과 창이 뜨지 않습니다.</b>
+          대신 그 네 명의 칩이 <b style="color:var(--cork)">붉게 깜박이며 아무 데로도 움직이지 않습니다</b> —
+          자동 배치에서도 빠집니다. 다음 판에 넣으려면 결과부터 적어야 합니다.<br>
+          창을 띄워 봐야 '나중에'를 누르게 되고, 그 '나중에'가 결국 결과가 안 남는 이유였습니다.
+          정말 아무도 모르는 판은 결과 창의 <b>모름 — 기록 없이 풀기</b>로 넘길 수 있습니다.</div></div>
       <div class="k">한 게임 점수</div><div><input type="number" id="s_wp" value="${s.winPoint||21}" min="5" max="31" style="width:90px">
         <span class="hint">결과를 넣을 때 <b>진 팀 점수</b>만 받고 이긴 팀 점수는 여기서 계산합니다
           (${s.winPoint||21}점제 · 듀스는 2점 차 · 상한 ${(s.winPoint||21)+9}점)</span></div>
@@ -831,9 +831,18 @@ function renderSet(){
       }
     }
 
+    /* '결과 기록 강제'를 지금 켠 것이라면, 이미 끝나 있던 미기록 경기들은
+       그냥 넘긴 것으로 표시해 둔다. 안 그러면 설정을 켜는 순간 오늘 친
+       사람 전부가 한꺼번에 묶여 대진판이 통째로 멈춘다. 앞으로 끝나는
+       경기부터 적으라는 것이 이 설정의 뜻이지, 지난 판을 소급해 캐묻는
+       것이 아니다. */
+    if($('#s_reqres').checked && !s.requireResult)
+      S.matches.forEach(m=>{ if(resultPending(m)) m.skipped = true; });
+
     Object.assign(s,{clubName:$('#s_club').value.trim()||'대진판',courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
       winPoint:Math.max(5,Math.min(31,+$('#s_wp').value||21)),
+      requireResult:$('#s_reqres').checked,
       maxMatchMinutes:Math.max(0,Math.min(120,+$('#s_maxmin').value||0)),
       autoPushToCourt:$('#s_push').checked,
       genderPolicy:$('#s_pol').value, oddRelaxThreshold:+$('#s_relax').value||2,
