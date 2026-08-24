@@ -422,30 +422,35 @@ tr:hover td{background:var(--surface)}
 .sgrid .btn{width:100%;padding:0}
 .btn.on{border-color:var(--court);background:var(--court-soft);color:var(--court)}
 
-/* 고르는 큰 버튼들 — 경기 점수(21/25)는 둘씩 나란히, 이긴 팀은 한 줄씩 */
+/* 고르는 큰 버튼들 — 경기 점수(21/25)는 둘씩 나란히, 이긴 팀은 한 줄씩.
+   ── 무엇을 크게 둘 것인가 ─────────────────────────
+   이 창에서 눈이 실제로 읽는 것은 <b>이름</b>이다. 'A팀'·'B팀'은 어느
+   줄인지 가리키는 이름표일 뿐이라 작아도 된다. 체육관 조명 아래에서
+   노안으로 보는 화면이므로 이름에 쓸 수 있는 크기를 다 준다.
+   이름이 길면 자르지 않고 줄을 바꾼다 — 잘린 이름은 못 읽는 이름이다. */
 .wpick{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .wteam{display:grid;grid-template-columns:1fr;gap:9px}
-.wbtn{height:auto;min-height:62px;padding:11px 14px;display:flex;flex-direction:column;
+.wbtn{height:auto;min-height:62px;padding:12px 14px;display:flex;flex-direction:column;
       align-items:flex-start;justify-content:center;gap:3px;position:relative;text-align:left}
-.wbtn.big{min-height:70px}
+.wbtn.big{min-height:78px}
 .wbtn.on{border-color:var(--court);background:var(--court-soft)}
 .wbtn:active{transform:scale(.99)}
-.wbtn b{font-size:16px}
-.wbtn .wnm{font-size:14px;font-weight:700;color:var(--muted);
-           overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.wbtn .wsc{position:absolute;right:14px;top:50%;transform:translateY(-50%);
-           font-size:20px;font-weight:800;color:var(--muted2)}
+.wbtn b{font-size:22px;letter-spacing:-.01em}
+/* 팀 이름표 — 작고 조용하게 */
+.wtag{font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted)}
+.wbtn.on .wtag,.wrow.win .wtag{color:var(--court)}
+/* 사람 이름 — 이 창의 주인공 */
+.wnm{font-size:27px;font-weight:800;line-height:1.2;color:var(--text);
+     letter-spacing:-.02em;overflow-wrap:anywhere;max-width:100%}
+.wsub{font-size:13px;font-weight:700;color:var(--muted)}
 /* 마지막 확인 — 누를 수 없는 줄이다. 이긴 쪽만 초록으로 선다. */
 .wrow{position:relative;display:flex;flex-direction:column;justify-content:center;gap:3px;
-      min-height:62px;padding:11px 14px;border:1px solid var(--line);border-radius:var(--r);
-      background:var(--surface2)}
+      min-height:78px;padding:12px 14px;padding-right:64px;
+      border:1px solid var(--line);border-radius:var(--r);background:var(--surface2)}
 .wrow.win{border-color:var(--court);background:var(--court-soft)}
-.wrow b{font-size:16px}
-.wrow.win b{color:var(--court)}
-.wrow .wnm{font-size:14px;font-weight:700;color:var(--muted);
-           overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.wrow.win .wnm{color:var(--court)}
 .wrow .wsc{position:absolute;right:14px;top:50%;transform:translateY(-50%);
-           font-size:22px;font-weight:800;color:var(--muted2)}
+           font-size:28px;font-weight:800;color:var(--muted2)}
 .wrow.win .wsc{color:var(--court)}
 td.res-cell.edit{cursor:pointer}
 td.res-cell.edit:hover{background:var(--court-soft)}
@@ -691,6 +696,11 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
 
   .modal{padding:16px; max-width:94vw; max-height:80vh}
   .row.end{flex-wrap:wrap}
+  /* 결과 창의 이름 — 폰에서도 최대한 크게. 줄이 바뀌는 것은 괜찮지만
+     작아지는 것은 안 된다(읽으라고 띄운 화면이다). */
+  .wnm{font-size:24px}
+  .wrow{padding-right:58px}
+  .wrow .wsc{font-size:25px;right:12px}
   #toast{bottom:calc(var(--navpad) + 14px)}
 
   .mobile-only{display:block}

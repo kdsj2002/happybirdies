@@ -434,8 +434,8 @@ function resultDialog(m, opts={}){
         이긴 팀 점수가 달라지므로 한 번만 확인합니다</div>
       <div class="wpick">
         ${[21,25].map(t=>`<button class="btn wbtn${target===t?' on':''}" data-t="${t}">
-            <b>${t}점 경기</b>
-            <span class="wnm num">${winnerScore(lose,t)} : ${lose}</span></button>`).join('')}
+            <span class="wsub">${t}점 경기</span>
+            <b class="num">${winnerScore(lose,t)} : ${lose}</b></button>`).join('')}
       </div>
       <div class="row end">
         <button class="btn" id="rsBack">← 뒤로</button>
@@ -446,11 +446,11 @@ function resultDialog(m, opts={}){
       box.innerHTML = head(`${tag()} 이긴 팀은?`) + `
       <div class="hint" style="margin-bottom:10px">
         ${lose==null ? '점수 없이 승패만 기록합니다'
-                     : `<b class="num">${swOf()} : ${lose}</b>`}</div>
+                     : `<b class="num" style="font-size:19px;color:var(--text)">${swOf()} : ${lose}</b>`}</div>
       <div class="wteam">
         ${['A','B'].map(s=>`<button class="btn wbtn big" data-win="${s}">
-            <b>${s}팀</b><span class="wnm">${nameLine(r[s])}</span>
-            ${lose==null?'':`<span class="wsc num">${swOf()} : ${lose}</span>`}</button>`).join('')}
+            <span class="wtag">${s}팀</span>
+            <span class="wnm">${nameLine(r[s])}</span></button>`).join('')}
       </div>
       ${canPair?`<div class="row" style="margin-top:10px">
           <button class="btn sm" id="rsPair">⇄ 팀 구성 바꾸기</button>
@@ -469,7 +469,8 @@ function resultDialog(m, opts={}){
       box.innerHTML = head(`${tag()} 이대로 저장할까요?`) + `
       <div class="wteam">
         ${['A','B'].map(s=>`<div class="wrow${win===s?' win':''}">
-            <b>${s}팀</b><span class="wnm">${nameLine(r[s])}</span>
+            <span class="wtag">${s}팀</span>
+            <span class="wnm">${nameLine(r[s])}</span>
             <span class="wsc num">${
               win==null ? '' : (s===win ? (swOf()==null?'승':swOf()) : (lose==null?'패':lose))
             }</span></div>`).join('')}
