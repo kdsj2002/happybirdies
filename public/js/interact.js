@@ -389,6 +389,7 @@ function resultDialog(m, opts={}){
   const PAIRS = [[[0,1],[2,3]], [[0,2],[1,3]], [[0,3],[1,2]]];
 
   let pairIdx = 0;
+  let win = null;                    // 마지막 확인 단계에서만 쓴다
   let lose = (m.sl==null) ? null : +m.sl;
   // 이미 적힌 기록을 여는 경우에는 그 점수에서 경기 점수를 되짚는다.
   let target = (m.sw!=null && m.sl!=null && m.sw>=25 && m.sl<=20) ? 25
@@ -405,9 +406,16 @@ function resultDialog(m, opts={}){
   const head = sub => `<h3>${esc(opts.title||'경기 결과')}</h3>
                        <div class="sub">${sub}</div>`;
 
+  /* 몇 단계짜리 흐름인가. 20점 이하로 졌을 때만 '몇 점 경기' 단계가 끼므로
+     번호가 흔들린다. 화면에 적히는 숫자는 실제 흐름과 맞아야 한다. */
+  const hasGameStep = () => lose!=null && lose<=20;
+  const total = () => hasGameStep() ? 4 : 3;
+  const stepNo = () => step<=2 ? step : (hasGameStep() ? step : step-1);
+  const tag = () => `<b>${stepNo()}/${total()}</b>`;
+
   function draw(){
     const box = $('#modal');
-    if(step===1) box.innerHTML = head(`<b>1/3</b> 진 팀 점수는?`) + `
+    if(step===1) box.innerHTML = head(`<b>1/${total()}</b> 진 팀 점수는?`) + `
       <div class="sgrid">
         ${BTNS.map(n=>`<button class="btn sm sc${!custom&&lose===n?' on':''}" data-sc="${n}">${n}</button>`).join('')}
       </div>
@@ -421,7 +429,7 @@ function resultDialog(m, opts={}){
       </div>
       <div class="row end"><button class="btn" id="rsCancel">취소</button></div>`;
 
-    else if(step===2) box.innerHTML = head(`<b>2/3</b> 몇 점 경기였나요?`) + `
+    else if(step===2) box.innerHTML = head(`${tag()} 몇 점 경기였나요?`) + `
       <div class="hint" style="margin-bottom:10px">진 팀 <b class="num">${lose}</b>점 —
         이긴 팀 점수가 달라지므로 한 번만 확인합니다</div>
       <div class="wpick">
@@ -433,13 +441,12 @@ function resultDialog(m, opts={}){
         <button class="btn" id="rsBack">← 뒤로</button>
         <button class="btn" id="rsCancel">취소</button></div>`;
 
-    else {
+    else if(step===3){
       const r = rosterNow();
-      box.innerHTML = head(`<b>3/3</b> 이긴 팀은?`) + `
+      box.innerHTML = head(`${tag()} 이긴 팀은?`) + `
       <div class="hint" style="margin-bottom:10px">
         ${lose==null ? '점수 없이 승패만 기록합니다'
-                     : `<b class="num">${swOf()} : ${lose}</b>`}
-        — <b>누르면 그대로 저장됩니다</b></div>
+                     : `<b class="num">${swOf()} : ${lose}</b>`}</div>
       <div class="wteam">
         ${['A','B'].map(s=>`<button class="btn wbtn big" data-win="${s}">
             <b>${s}팀</b><span class="wnm">${nameLine(r[s])}</span>
@@ -452,6 +459,32 @@ function resultDialog(m, opts={}){
         <button class="btn" id="rsBack">← 뒤로</button>
         <button class="btn" id="rsNone">${esc(opts.noneLabel||'승패 없이')}</button>
         <button class="btn" id="rsCancel">취소</button></div>`;
+    }
+
+    /* 마지막 확인. 여기서 저장을 누르는 순간 경기가 끝나거나 기록이
+       바뀐다 — 되돌릴 길(↩·기록 화면)이 있어도, 되돌려야 할 일을 아예
+       만들지 않는 편이 낫다. 무엇이 저장되는지 한 화면에 다 보여 준다. */
+    else {
+      const r = rosterNow();
+      box.innerHTML = head(`${tag()} 이대로 저장할까요?`) + `
+      <div class="wteam">
+        ${['A','B'].map(s=>`<div class="wrow${win===s?' win':''}">
+            <b>${s}팀</b><span class="wnm">${nameLine(r[s])}</span>
+            <span class="wsc num">${
+              win==null ? '' : (s===win ? (swOf()==null?'승':swOf()) : (lose==null?'패':lose))
+            }</span></div>`).join('')}
+      </div>
+      <div class="hint" style="margin-top:10px">
+        ${win==null ? `<b>승패를 적지 않습니다.</b> 게임 수와 경기 시간은 그대로 기록됩니다.`
+          : lose==null ? `<b>${win}팀 승</b> — 점수는 적지 않습니다.`
+          : `<b>${win}팀 승 ${swOf()} : ${lose}</b>`}
+        ${pairIdx ? '<br><b style="color:var(--cork)">팀 구성도 고쳐서 저장합니다.</b>' : ''}
+      </div>
+      <div class="row end">
+        <button class="btn" id="rsBack">← 뒤로</button>
+        <button class="btn primary" id="rsSave">${
+          esc(win ? (opts.okLabel||'저장') : (opts.noneLabel||'승패 없이 저장'))
+        }</button></div>`;
     }
     bind();
   }
@@ -469,7 +502,10 @@ function resultDialog(m, opts={}){
   function bind(){
     const cancel = $('#rsCancel'); if(cancel) cancel.onclick = closeModal;
     const back = $('#rsBack');
-    if(back) back.onclick = ()=>{ step = (step===3 && lose!=null && lose<=20) ? 2 : 1; draw(); };
+    if(back) back.onclick = ()=>{
+      step = step===4 ? 3 : (step===3 && hasGameStep()) ? 2 : 1;
+      draw();
+    };
 
     if(step===1){
       $$('#modal .btn.sc').forEach(b=>b.onclick=()=>{ custom=false; chose(+b.dataset.sc); });
@@ -490,19 +526,26 @@ function resultDialog(m, opts={}){
         Sound.play('tap'); step=3; draw();
       });
     }
-    else {
+    else if(step===3){
       $$('#modal .wbtn').forEach(b=>b.onclick=()=>{
-        const win = b.dataset.win;
-        closeModal();
-        opts.onSave && opts.onSave({ win, sw: swOf(), sl: lose }, rosterOut());
+        win = b.dataset.win; Sound.play('tap'); step=4; draw();
       });
       const p=$('#rsPair');
       if(p) p.onclick=()=>{ pairIdx=(pairIdx+1)%3; Sound.play('move'); draw(); };
-      /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
-         선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한
-         구멍이라 그 표시(skip)를 함께 넘긴다. */
-      $('#rsNone').onclick = ()=>{ closeModal();
-        opts.onSave && opts.onSave({win:null,sw:null,sl:null,skip:!!opts.skipOnNone}, rosterOut()); };
+      // 승패 없이도 확인 단계를 거친다 — 저장은 한 곳에서만 일어난다.
+      $('#rsNone').onclick = ()=>{ win=null; Sound.play('tap'); step=4; draw(); };
+    }
+    else {
+      $('#rsSave').onclick = ()=>{
+        closeModal();
+        /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
+           선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한
+           구멍이라 그 표시(skip)를 함께 넘긴다. */
+        opts.onSave && opts.onSave(
+          win ? { win, sw: swOf(), sl: lose }
+              : { win:null, sw:null, sl:null, skip:!!opts.skipOnNone },
+          rosterOut());
+      };
     }
   }
 
