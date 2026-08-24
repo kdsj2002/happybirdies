@@ -345,144 +345,258 @@ function askPin(title, desc, onOk, opts={}){
 $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal(); });
 
 /* ── 경기 결과 입력 ──────────────────────────────────────────────
-   경기를 마칠 때와 기록을 나중에 고칠 때가 같은 창을 쓴다. m은
-   {A,B,An,Bn,win,sw,sl} 모양이면 무엇이든 된다 — 진행 중인 코트든
-   끝난 기록이든.
+   경기를 마칠 때도, 묶인 사람을 풀 때도, 기록을 나중에 고칠 때도 이 창
+   하나를 쓴다. m은 {A,B,An,Bn,win,sw,sl} 모양이면 무엇이든 된다 —
+   진행 중인 코트든 끝난 기록이든.
 
-   점수는 "진 팀 점수"만 받는다. 21점제에서 이긴 쪽 점수는 진 쪽에서
-   나오기 때문이다(19점 이하면 21점, 듀스면 2점 차, 상한 30점). 두 칸을
-   다 받으면 21을 매번 손으로 넣게 되고, 그러다 20:15 같은 있을 수 없는
-   점수가 기록에 남는다. 실제 계산은 state.js의 winnerScore가 한다.
+   ── 세 단계로 나눠 둔 이유 ─────────────────────────────────────
 
-   승패를 고르는 것도, 점수를 넣는 것도 강제하지 않는다. 점수를 물어보기
-   어려운 판이 많고, 강제하면 아무 값이나 넣고 넘기게 된다 — 그건 빈 칸보다
-   나쁘다. 빈 칸은 "모른다"지만 아무 값은 거짓이다.
+     1. 팀 구성    적힌 팀이 실제로 친 팀인지 먼저 확인한다
+     2. 진 팀 점수 버튼으로 고른다
+     3. 이긴 팀    마지막에 고르고 저장한다
 
-   ── 팀 구성도 여기서 고친다 ────────────────────────────────────
-   기록에 적힌 팀이 실제로 친 팀과 다를 때가 있다. 코트에서 "자리 좀
-   바꿔서 치자"고 하고 앱에는 안 옮겼거나, 중간에 사람이 바뀐 경우다.
-   그대로 승패를 적으면 이긴 사람과 진 사람이 뒤집힌 채 남는다 —
-   빈 기록보다 나쁘다.
+   순서에 뜻이 있다. 승자를 먼저 고르면 그 뒤에 팀 구성을 고쳤을 때
+   "누가 이긴 것인지"가 흔들린다. 무엇을 적을지 정하기 전에 누가 어느
+   팀이었는지부터 확정하는 것이 자연스럽다. 그리고 마지막 한 번의 선택
+   (이긴 팀)이 곧 저장 직전이라, 손이 멈추는 자리가 한 곳뿐이다.
 
-   그래서 이 창에서 바로잡을 수 있게 했다. 이름을 하나 누르고 반대편
-   이름을 누르면 둘이 자리를 바꾼다(대진판에서 칩을 맞교체하는 것과 같은
-   손동작이다). 두 팀이 통째로 뒤바뀐 흔한 경우는 '⇄ 두 팀 바꾸기' 한
-   번으로 끝난다.
+   ── 1. 팀 구성 ────────────────────────────────────────────────
+   코트에서 "자리 좀 바꿔서 치자"고 하고 앱에는 안 옮겼거나 중간에 사람이
+   바뀌면 기록과 실제가 어긋난다. 그대로 승패를 적으면 이긴 사람과 진
+   사람이 뒤집힌 채 남는다 — 빈 기록보다 나쁘다.
 
-   맞교체만 되므로 인원은 언제나 2:2로 남는다. 이 창에서 사람을 더하거나
-   빼지는 못한다 — 그건 결과 기록이 아니라 대진판에서 할 일이다.
+   고치는 방법은 하나다. **이름을 끌어 상대 팀에 놓는다.** 놓인 자리의
+   사람과 자리를 바꾼다. 2:2에서는 한 쌍만 맞바꾸면 어떤 어긋남도 바로
+   잡히므로 이 동작 하나로 충분하다. 끌기가 어려우면 이름을 하나 누르고
+   반대편 이름을 눌러도 같다.
+
+   두 팀이 통째로 뒤바뀐 흔한 경우는 '⇄ 두 팀 바꾸기' 한 번이다.
+
+   맞교체만 되므로 인원은 언제나 2:2다. 사람을 더하고 빼는 것은 결과
+   기록이 아니라 대진판에서 할 일이라 이 창에 넣지 않았다.
+
+   ── 2. 진 팀 점수 ─────────────────────────────────────────────
+   "진 팀 점수"만 받는다. 21점제에서 이긴 쪽 점수는 진 쪽에서 나오기
+   때문이다(19점 이하면 21점, 듀스면 2점 차, 상한 30점). 두 칸을 다 받으면
+   21을 매번 손으로 넣게 되고, 그러다 20:15 같은 있을 수 없는 점수가
+   기록에 남는다. 계산은 state.js의 winnerScore가 한다.
+
+   10~24를 버튼으로 깔았다. 실제로 나오는 점수는 사실상 이 안에 다 있고,
+   무엇보다 아이패드에서 숫자 키보드가 화면을 덮지 않는다. 그 바깥
+   점수(0~9, 25 이상)는 '직접 입력'으로 넣는다.
+
+   점수는 선택이다. 물어보기 어려운 판이 많고, 강제하면 아무 값이나 넣고
+   넘기게 된다 — 빈 칸은 "모른다"지만 아무 값은 거짓이다.
 
    opts.onSave(result, roster) — result.win이 null이면 승패 없이.
-     roster는 팀 구성을 고쳤을 때만 온다({A:[{id,name}], B:[…]}), 안 고쳤으면 null.
+     roster는 팀 구성을 고쳤을 때만 온다({A:[{id,name}], B:[…]}), 아니면 null.
    ───────────────────────────────────────────────────────────── */
 function resultDialog(m, opts={}){
   const target = S.settings.winPoint || 21;
+  const CAP    = target + 8;              // 진 팀 점수의 상한 (21점제면 29)
+  const BTNS   = Array.from({length:15},(_,i)=>10+i);   // 버튼으로 까는 점수
   const nameAt = (arr,names,i) => (names&&names[i]) || (A(arr[i])&&A(arr[i]).name) || '?';
-  /* 창 안에서만 고치는 사본. 저장을 눌러야 밖으로 나간다 — 취소하면
-     아무 일도 없어야 한다. */
+
+  /* 창 안에서만 고치는 사본. 저장을 눌러야 밖으로 나간다 —
+     취소하면 아무 일도 없어야 한다. */
   const roster = { A:(m.A||[]).map((id,i)=>({id, name:nameAt(m.A, m.An, i)})),
                    B:(m.B||[]).map((id,i)=>({id, name:nameAt(m.B, m.Bn, i)})) };
   const orig = JSON.stringify([roster.A.map(p=>p.id), roster.B.map(p=>p.id)]);
   const rosterChanged = () =>
     JSON.stringify([roster.A.map(p=>p.id), roster.B.map(p=>p.id)]) !== orig;
-  let win = (m.win==='A'||m.win==='B') ? m.win : null;
-  let pick = null;                 // 'A:0' — 자리를 바꾸려고 집어 든 사람
+
+  let win  = (m.win==='A'||m.win==='B') ? m.win : null;
+  let lose = (m.sl==null) ? null : Math.max(0, Math.min(CAP, +m.sl));
+  let custom = lose!=null && !BTNS.includes(lose);   // 버튼 밖의 점수면 입력칸을 연 채로 연다
+  let pick = null;                                   // 탭으로 집어 든 사람 ('A:0')
+  let dragKey = null, sx=0, sy=0, over=null;
 
   openModal(`<h3>${esc(opts.title||'경기 결과')}</h3>
     <div class="sub">${esc(opts.sub||'')}</div>
+
+    <div class="sec-h" style="margin-top:4px">1 · 팀 구성<span class="rule"></span>
+      <button class="btn sm" id="rsFlip">⇄ 두 팀 바꾸기</button></div>
     ${['A','B'].map(s=>`
-      <div class="opt res" data-win="${s}">
+      <div class="rteam" data-roster="${s}">
         <div class="res-tag">${s}팀</div>
-        <div class="t" data-roster="${s}"></div>
-        <span class="spacer"></span>
-        <div class="res-sc num" data-sc="${s}">–</div>
+        <div class="rnames"></div>
       </div>`).join('')}
-    <div class="row" style="margin:2px 2px 0">
-      <button class="btn sm" id="rsFlip">⇄ 두 팀 바꾸기</button>
-      <span class="hint" id="rsRosterHint"></span>
+    <div class="hint" id="rsRosterHint" style="margin:6px 2px 16px"></div>
+
+    <div class="sec-h">2 · 진 팀 점수 <span style="font-weight:700;letter-spacing:0">(선택)</span><span class="rule"></span></div>
+    <div class="sgrid" id="rsGrid">
+      ${BTNS.map(n=>`<button class="btn sm sc" data-sc="${n}">${n}</button>`).join('')}
     </div>
-    <div class="row" id="scRow" style="margin:12px 2px 0">
-      <span class="hint">진 팀 점수</span>
-      <input type="number" id="scIn" inputmode="numeric" min="0" max="${target+8}"
-             value="${m.sl==null?'':m.sl}" style="width:96px;text-align:center">
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" id="rsNoScore">점수 없음</button>
+      <button class="btn sm" id="rsCustom">직접 입력</button>
+      <input type="number" id="scIn" inputmode="numeric" min="0" max="${CAP}"
+             style="width:96px;text-align:center;display:none">
       <span class="hint" id="scHint"></span>
     </div>
+
+    <div class="sec-h" style="margin-top:18px">3 · 이긴 팀<span class="rule"></span></div>
+    <div class="wpick">
+      ${['A','B'].map(s=>`<button class="btn wbtn" data-win="${s}">
+          <b>${s}팀</b><span class="wnm" data-wnm="${s}"></span>
+          <span class="wsc num" data-wsc="${s}">–</span></button>`).join('')}
+    </div>
+
     <div class="row end">
       <button class="btn" id="rsCancel">취소</button>
       <button class="btn" id="rsNone">${esc(opts.noneLabel||'승패 없이')}</button>
       <button class="btn primary" id="rsOk">${esc(opts.okLabel||'저장')}</button>
     </div>`);
 
-  /* 이름을 다시 그린다. 누르는 대상이라 매번 새로 만든다(이름이 자리를
-     옮기므로 안에 든 글자만 바꾸는 것보다 통째로 그리는 편이 안 헷갈린다). */
+  const scIn = $('#scIn');
+
+  /* ── 1단계: 이름 그리기와 자리 바꾸기 ───────────────────────── */
+  function swapAt(aKey, bKey){
+    const [as,ai]=aKey.split(':'), [bs,bi]=bKey.split(':');
+    if(as===bs) return false;                        // 같은 팀 안에서는 뜻이 없다
+    const t = roster[as][+ai]; roster[as][+ai] = roster[bs][+bi]; roster[bs][+bi] = t;
+    Sound.play('move');
+    return true;
+  }
+  /* 포인터 밑에 있는 자리를 알아낸다. 이름 위면 그 사람, 팀 줄의 빈 곳이면
+     그 팀의 첫 사람 — 어디에 놓든 결과가 정해지도록 한다. */
+  function targetAt(x, y){
+    const el = document.elementFromPoint(x, y);
+    if(!el || !el.closest) return null;
+    const rp = el.closest('.rp');
+    const row = el.closest('[data-roster]');
+    const key = rp ? rp.dataset.p
+              : (row && roster[row.dataset.roster].length) ? row.dataset.roster + ':0'
+              : null;
+    // 제 팀 안에 놓는 것은 뜻이 없다. 밝혀 주지도 않는다.
+    if(!key || (dragKey && key.split(':')[0] === dragKey.split(':')[0])) return null;
+    return key;
+  }
+  function markOver(key){
+    if(over===key) return;
+    over = key;
+    $$('#modal .rp').forEach(e=>e.classList.toggle('over', e.dataset.p===key));
+    $$('#modal .rteam').forEach(e=>
+      e.classList.toggle('over', !!key && e.dataset.roster===key.split(':')[0]));
+  }
   function paintRoster(){
     ['A','B'].forEach(s=>{
-      const box = $(`#modal [data-roster="${s}"]`);
+      const box = $(`#modal [data-roster="${s}"] .rnames`);
       box.innerHTML = roster[s].length
-        ? roster[s].map((p,i)=>`<span class="rp${pick===s+':'+i?' on':''}" data-p="${s}:${i}">${esc(p.name)}</span>`).join('')
-        : '—';
-      box.querySelectorAll('.rp').forEach(e=>e.onclick=ev=>{
-        ev.stopPropagation();          // 이름을 누른 것은 "이 팀이 이겼다"가 아니다
-        tapPerson(e.dataset.p);
-      });
+        ? roster[s].map((p,i)=>
+            `<span class="rp${pick===s+':'+i?' on':''}" data-p="${s}:${i}">${esc(p.name)}</span>`).join('')
+        : '<span class="hint">—</span>';
+      box.querySelectorAll('.rp').forEach(bindPerson);
+    });
+    ['A','B'].forEach(s=>{
+      const e=$(`#modal [data-wnm="${s}"]`);
+      if(e) e.textContent = roster[s].map(p=>p.name).join(' · ') || '—';
     });
     $('#rsRosterHint').textContent = pick
       ? '반대편 이름을 누르면 둘이 자리를 바꿉니다 (다시 누르면 취소)'
       : rosterChanged() ? '팀 구성을 고쳤습니다 — 저장하면 기록에 반영됩니다'
-      : '실제로 친 팀과 다르면 이름을 눌러 바꾸세요';
+      : '실제로 친 팀과 다르면 이름을 끌어 상대 팀에 놓으세요';
+  }
+  /* 끌기와 탭을 한 손동작으로 묶는다. 움직였으면 놓은 자리와 맞바꾸고,
+     제자리에서 뗐으면 탭으로 본다(집어 들기 → 반대편 탭). */
+  function bindPerson(el){
+    const key = el.dataset.p;
+    el.addEventListener('pointerdown', e=>{
+      if(e.button!=null && e.button!==0) return;
+      e.preventDefault();
+      try{ el.setPointerCapture(e.pointerId); }catch{}
+      dragKey=key; sx=e.clientX; sy=e.clientY;
+    });
+    el.addEventListener('pointermove', e=>{
+      if(dragKey!==key) return;
+      if(Math.hypot(e.clientX-sx, e.clientY-sy) <= 8) return;
+      el.classList.add('drag');
+      markOver(targetAt(e.clientX, e.clientY));
+    });
+    el.addEventListener('pointerup', e=>{
+      if(dragKey!==key) return;
+      const moved = Math.hypot(e.clientX-sx, e.clientY-sy) > 8;
+      const tgt = moved ? targetAt(e.clientX, e.clientY) : null;
+      dragKey=null; el.classList.remove('drag'); markOver(null);
+      if(moved){ if(tgt && swapAt(key, tgt)){ pick=null; paintRoster(); paint(); } return; }
+      tapPerson(key);
+    });
+    el.addEventListener('pointercancel', ()=>{
+      dragKey=null; el.classList.remove('drag'); markOver(null);
+    });
   }
   function tapPerson(key){
-    if(!pick){ pick = key; Sound.play('tap'); paintRoster(); return; }
-    if(pick === key){ pick = null; paintRoster(); return; }     // 같은 사람 = 취소
-    const [as,ai] = pick.split(':'), [bs,bi] = key.split(':');
-    if(as === bs){ pick = key; Sound.play('tap'); paintRoster(); return; }  // 같은 팀 = 집어 든 사람만 바뀜
-    const t = roster[as][+ai]; roster[as][+ai] = roster[bs][+bi]; roster[bs][+bi] = t;
-    pick = null; Sound.play('move');
-    paintRoster();
+    if(!pick){ pick=key; Sound.play('tap'); paintRoster(); return; }
+    if(pick===key){ pick=null; paintRoster(); return; }
+    if(pick.split(':')[0] === key.split(':')[0]){    // 같은 팀 = 집어 든 사람만 바뀐다
+      pick=key; Sound.play('tap'); paintRoster(); return;
+    }
+    swapAt(pick, key); pick=null; paintRoster(); paint();
   }
   $('#rsFlip').onclick = ()=>{
     const t = roster.A; roster.A = roster.B; roster.B = t;
-    /* 팀이 통째로 뒤바뀐 것이면 이미 골라 둔 승자도 함께 뒤집는 것이 맞다.
-       "A팀 승"이라고 눌러 둔 뒤 두 팀을 바꾸면, 이긴 사람들은 그대로
-       이긴 채로 있어야 한다. */
+    /* 팀이 통째로 뒤바뀐 것이면 골라 둔 승자도 함께 뒤집는 것이 맞다.
+       이긴 사람들은 그대로 이긴 채로 있어야 한다. */
     if(win) win = (win==='A' ? 'B' : 'A');
-    pick = null; Sound.play('move');
+    pick=null; Sound.play('move');
     paintRoster(); paint();
   };
 
-  const scIn = $('#scIn');
-  const loseVal = () => {
-    const v = scIn.value.trim(); if(v==='') return null;
-    const n = Math.round(+v);
-    return isFinite(n) ? Math.max(0, Math.min(target+8, n)) : null;
-  };
+  /* ── 2·3단계: 점수와 승자 ──────────────────────────────────── */
+  function setScore(n){
+    lose = (n==null) ? null : Math.max(0, Math.min(CAP, Math.round(n)));
+    paint();
+  }
   function paint(){
-    $$('#modal .opt.res').forEach(e=>e.classList.toggle('on', e.dataset.win===win));
-    const lose = loseVal(), sw = win ? winnerScore(lose, target) : null;
+    const sw = lose==null ? null : winnerScore(lose, target);
+    // 점수 버튼
+    $$('#modal .btn.sc').forEach(b=>b.classList.toggle('on', !custom && lose===+b.dataset.sc));
+    $('#rsNoScore').classList.toggle('on', lose==null && !custom);
+    $('#rsCustom').classList.toggle('on', custom);
+    scIn.style.display = custom ? '' : 'none';
+    // 승자 버튼
+    $$('#modal .wbtn').forEach(b=>b.classList.toggle('on', b.dataset.win===win));
     ['A','B'].forEach(s=>{
-      const e = $(`#modal [data-sc="${s}"]`);
+      const e=$(`#modal [data-wsc="${s}"]`);
       e.textContent = !win ? '–'
                     : s===win ? (sw==null ? '승' : sw)
                               : (lose==null ? '패' : lose);
       e.classList.toggle('w', !!win && s===win);
     });
-    scIn.disabled = !win;
-    $('#scRow').style.opacity = win ? '1' : '.45';
     $('#rsOk').disabled = !win;
-    $('#scHint').textContent = !win ? '이긴 팀을 먼저 고르세요'
-                             : lose==null ? '비워 두면 승패만 기록합니다'
-                             : `${sw} : ${lose}`;
+    $('#scHint').textContent =
+        lose==null ? '점수를 몰라도 됩니다 — 승패만 기록합니다'
+      : !win       ? `${sw} : ${lose} — 아래에서 이긴 팀을 고르세요`
+                   : `${sw} : ${lose}`;
   }
-  $$('#modal .opt.res').forEach(e=>e.onclick=()=>{
-    win = (win===e.dataset.win) ? null : e.dataset.win;   // 같은 팀을 다시 누르면 해제
+  $$('#modal .btn.sc').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.sc;
+    custom=false;
+    setScore(lose===n ? null : n);        // 같은 점수를 다시 누르면 해제
+    Sound.play('tap');
+  });
+  $('#rsNoScore').onclick = ()=>{ custom=false; scIn.value=''; setScore(null); Sound.play('tap'); };
+  $('#rsCustom').onclick  = ()=>{
+    custom = !custom;
+    if(custom){ scIn.value = lose==null?'':lose; paint(); setTimeout(()=>scIn.focus(),40); }
+    else { setScore(null); }
+    Sound.play('tap');
+  };
+  scIn.addEventListener('input', ()=>{
+    const v=scIn.value.trim();
+    lose = v==='' ? null : Math.max(0, Math.min(CAP, Math.round(+v) || 0));
+    paint();
+  });
+  // 상한을 넘겨 적었으면 손을 뗄 때 눈에 보이는 값도 맞춰 준다.
+  scIn.addEventListener('change', ()=>{ scIn.value = lose==null?'':lose; paint(); });
+  $$('#modal .wbtn').forEach(b=>b.onclick=()=>{
+    win = (win===b.dataset.win) ? null : b.dataset.win;   // 다시 누르면 해제
     Sound.play('tap'); paint();
   });
-  scIn.addEventListener('input', paint);
-  // 상한을 넘겨 적었으면 손을 뗄 때 눈에 보이는 값도 맞춰 준다(30점 상한).
-  scIn.addEventListener('change', ()=>{ const l=loseVal(); scIn.value = l==null?'':l; paint(); });
-  $('#rsCancel').onclick = closeModal;
-  // 고친 팀 구성. 안 고쳤으면 null을 넘겨 부르는 쪽이 손대지 않게 한다.
+
+  /* ── 마무리 ────────────────────────────────────────────────── */
   const rosterOut = () => rosterChanged() ? { A:roster.A.slice(), B:roster.B.slice() } : null;
+  $('#rsCancel').onclick = closeModal;
   /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
      선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한 구멍이라
      그 표시(skip)를 함께 넘긴다. */
@@ -490,10 +604,10 @@ function resultDialog(m, opts={}){
     opts.onSave && opts.onSave({win:null, sw:null, sl:null, skip:!!opts.skipOnNone}, rosterOut()); };
   $('#rsOk').onclick = ()=>{
     if(!win) return;
-    const lose = loseVal();
     closeModal();
     opts.onSave && opts.onSave({ win, sw: winnerScore(lose, target), sl: lose }, rosterOut());
   };
+  if(custom) scIn.value = lose==null?'':lose;
   paintRoster(); paint();
 }
 
