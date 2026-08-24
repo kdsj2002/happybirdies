@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.19h';
+const APP_VERSION = '2026.08.19i';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -206,6 +206,26 @@ function applyResult(m, r){
   if(win || !(r && r.skip)) delete m.skipped;
   else m.skipped = true;
 }
+/* 기록의 팀 구성을 고쳐 쓴다. 결과 창에서 "실제로는 이 사람이 저 팀이었다"고
+   바로잡았을 때만 불린다(맞교체뿐이라 인원은 그대로 2:2다).
+
+   유형(남복·혼복…)은 팀 구성에서 나오는 값이라 함께 다시 계산한다. 네 명이
+   모두 이 세션에 살아 있을 때만 — 지난 세션 기록을 고치는 경우에는 성별을
+   알 방법이 없으므로 적혀 있던 유형을 그대로 둔다. */
+function applyRoster(m, roster){
+  if(!m || !roster) return false;
+  const same = ['A','B'].every(s => String(m[s]||[]) === String(roster[s].map(p=>p.id)));
+  if(same) return false;
+  ['A','B'].forEach(s=>{
+    m[s]      = roster[s].map(p=>p.id);
+    m[s+'n']  = roster[s].map(p=>p.name);
+  });
+  const ids = [...m.A, ...m.B];
+  if(ids.length===4 && ids.every(i=>A(i))) m.type = mtypeOf(ids, {A:m.A, B:m.B});
+  m.fixedAt = now();
+  return true;
+}
+
 /* 화면에 쓰는 한 줄 — 'A팀 승 21:15' · 승패가 없으면 빈 문자열 */
 function resultLabel(m){
   if(!m || !m.win) return '';

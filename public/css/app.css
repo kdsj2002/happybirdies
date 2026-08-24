@@ -412,7 +412,15 @@ tr:hover td{background:var(--surface)}
    점수를 안 넣으면 숫자 대신 승·패 글자가 온다 — 빈 칸으로 두는 것이
    정상적인 선택이라 "덜 채워진 것"처럼 보이면 안 된다. */
 .opt.res{gap:12px}
-.opt.res .t{font-size:15px;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.opt.res .t{font-size:15px;font-weight:700;min-width:0;overflow-wrap:anywhere;
+            display:flex;flex-wrap:wrap;gap:6px}
+/* 결과 창 안의 이름 — 누르면 반대편 사람과 자리를 바꾼다.
+   실제로 친 팀이 기록과 다를 때 여기서 바로잡는다. */
+.rp{display:inline-block;padding:4px 9px;border-radius:8px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:700}
+.rp.on{border-color:var(--court);background:var(--court-soft);
+       box-shadow:0 0 0 2px var(--court-soft)}
+.rp:active{transform:scale(.96)}
 .res-tag{min-width:46px;height:32px;border-radius:8px;flex:none;
          display:flex;align-items:center;justify-content:center;
          font-size:13px;font-weight:800;color:var(--on-accent);background:var(--unk)}

@@ -358,23 +358,49 @@ $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal();
    어려운 판이 많고, 강제하면 아무 값이나 넣고 넘기게 된다 — 그건 빈 칸보다
    나쁘다. 빈 칸은 "모른다"지만 아무 값은 거짓이다.
 
-   opts.onSave(result) — result.win이 null이면 승패 없이.
+   ── 팀 구성도 여기서 고친다 ────────────────────────────────────
+   기록에 적힌 팀이 실제로 친 팀과 다를 때가 있다. 코트에서 "자리 좀
+   바꿔서 치자"고 하고 앱에는 안 옮겼거나, 중간에 사람이 바뀐 경우다.
+   그대로 승패를 적으면 이긴 사람과 진 사람이 뒤집힌 채 남는다 —
+   빈 기록보다 나쁘다.
+
+   그래서 이 창에서 바로잡을 수 있게 했다. 이름을 하나 누르고 반대편
+   이름을 누르면 둘이 자리를 바꾼다(대진판에서 칩을 맞교체하는 것과 같은
+   손동작이다). 두 팀이 통째로 뒤바뀐 흔한 경우는 '⇄ 두 팀 바꾸기' 한
+   번으로 끝난다.
+
+   맞교체만 되므로 인원은 언제나 2:2로 남는다. 이 창에서 사람을 더하거나
+   빼지는 못한다 — 그건 결과 기록이 아니라 대진판에서 할 일이다.
+
+   opts.onSave(result, roster) — result.win이 null이면 승패 없이.
+     roster는 팀 구성을 고쳤을 때만 온다({A:[{id,name}], B:[…]}), 안 고쳤으면 null.
    ───────────────────────────────────────────────────────────── */
 function resultDialog(m, opts={}){
   const target = S.settings.winPoint || 21;
   const nameAt = (arr,names,i) => (names&&names[i]) || (A(arr[i])&&A(arr[i]).name) || '?';
-  const roster = s => ((m[s]||[]).map((_,i)=>esc(nameAt(m[s], m[s+'n'], i))).join(' · ')) || '—';
+  /* 창 안에서만 고치는 사본. 저장을 눌러야 밖으로 나간다 — 취소하면
+     아무 일도 없어야 한다. */
+  const roster = { A:(m.A||[]).map((id,i)=>({id, name:nameAt(m.A, m.An, i)})),
+                   B:(m.B||[]).map((id,i)=>({id, name:nameAt(m.B, m.Bn, i)})) };
+  const orig = JSON.stringify([roster.A.map(p=>p.id), roster.B.map(p=>p.id)]);
+  const rosterChanged = () =>
+    JSON.stringify([roster.A.map(p=>p.id), roster.B.map(p=>p.id)]) !== orig;
   let win = (m.win==='A'||m.win==='B') ? m.win : null;
+  let pick = null;                 // 'A:0' — 자리를 바꾸려고 집어 든 사람
 
   openModal(`<h3>${esc(opts.title||'경기 결과')}</h3>
     <div class="sub">${esc(opts.sub||'')}</div>
     ${['A','B'].map(s=>`
       <div class="opt res" data-win="${s}">
         <div class="res-tag">${s}팀</div>
-        <div class="t">${roster(s)}</div>
+        <div class="t" data-roster="${s}"></div>
         <span class="spacer"></span>
         <div class="res-sc num" data-sc="${s}">–</div>
       </div>`).join('')}
+    <div class="row" style="margin:2px 2px 0">
+      <button class="btn sm" id="rsFlip">⇄ 두 팀 바꾸기</button>
+      <span class="hint" id="rsRosterHint"></span>
+    </div>
     <div class="row" id="scRow" style="margin:12px 2px 0">
       <span class="hint">진 팀 점수</span>
       <input type="number" id="scIn" inputmode="numeric" min="0" max="${target+8}"
@@ -386,6 +412,43 @@ function resultDialog(m, opts={}){
       <button class="btn" id="rsNone">${esc(opts.noneLabel||'승패 없이')}</button>
       <button class="btn primary" id="rsOk">${esc(opts.okLabel||'저장')}</button>
     </div>`);
+
+  /* 이름을 다시 그린다. 누르는 대상이라 매번 새로 만든다(이름이 자리를
+     옮기므로 안에 든 글자만 바꾸는 것보다 통째로 그리는 편이 안 헷갈린다). */
+  function paintRoster(){
+    ['A','B'].forEach(s=>{
+      const box = $(`#modal [data-roster="${s}"]`);
+      box.innerHTML = roster[s].length
+        ? roster[s].map((p,i)=>`<span class="rp${pick===s+':'+i?' on':''}" data-p="${s}:${i}">${esc(p.name)}</span>`).join('')
+        : '—';
+      box.querySelectorAll('.rp').forEach(e=>e.onclick=ev=>{
+        ev.stopPropagation();          // 이름을 누른 것은 "이 팀이 이겼다"가 아니다
+        tapPerson(e.dataset.p);
+      });
+    });
+    $('#rsRosterHint').textContent = pick
+      ? '반대편 이름을 누르면 둘이 자리를 바꿉니다 (다시 누르면 취소)'
+      : rosterChanged() ? '팀 구성을 고쳤습니다 — 저장하면 기록에 반영됩니다'
+      : '실제로 친 팀과 다르면 이름을 눌러 바꾸세요';
+  }
+  function tapPerson(key){
+    if(!pick){ pick = key; Sound.play('tap'); paintRoster(); return; }
+    if(pick === key){ pick = null; paintRoster(); return; }     // 같은 사람 = 취소
+    const [as,ai] = pick.split(':'), [bs,bi] = key.split(':');
+    if(as === bs){ pick = key; Sound.play('tap'); paintRoster(); return; }  // 같은 팀 = 집어 든 사람만 바뀜
+    const t = roster[as][+ai]; roster[as][+ai] = roster[bs][+bi]; roster[bs][+bi] = t;
+    pick = null; Sound.play('move');
+    paintRoster();
+  }
+  $('#rsFlip').onclick = ()=>{
+    const t = roster.A; roster.A = roster.B; roster.B = t;
+    /* 팀이 통째로 뒤바뀐 것이면 이미 골라 둔 승자도 함께 뒤집는 것이 맞다.
+       "A팀 승"이라고 눌러 둔 뒤 두 팀을 바꾸면, 이긴 사람들은 그대로
+       이긴 채로 있어야 한다. */
+    if(win) win = (win==='A' ? 'B' : 'A');
+    pick = null; Sound.play('move');
+    paintRoster(); paint();
+  };
 
   const scIn = $('#scIn');
   const loseVal = () => {
@@ -418,18 +481,20 @@ function resultDialog(m, opts={}){
   // 상한을 넘겨 적었으면 손을 뗄 때 눈에 보이는 값도 맞춰 준다(30점 상한).
   scIn.addEventListener('change', ()=>{ const l=loseVal(); scIn.value = l==null?'':l; paint(); });
   $('#rsCancel').onclick = closeModal;
+  // 고친 팀 구성. 안 고쳤으면 null을 넘겨 부르는 쪽이 손대지 않게 한다.
+  const rosterOut = () => rosterChanged() ? { A:roster.A.slice(), B:roster.B.slice() } : null;
   /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
      선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한 구멍이라
      그 표시(skip)를 함께 넘긴다. */
   $('#rsNone').onclick = ()=>{ closeModal();
-    opts.onSave && opts.onSave({win:null, sw:null, sl:null, skip:!!opts.skipOnNone}); };
+    opts.onSave && opts.onSave({win:null, sw:null, sl:null, skip:!!opts.skipOnNone}, rosterOut()); };
   $('#rsOk').onclick = ()=>{
     if(!win) return;
     const lose = loseVal();
     closeModal();
-    opts.onSave && opts.onSave({ win, sw: winnerScore(lose, target), sl: lose });
+    opts.onSave && opts.onSave({ win, sw: winnerScore(lose, target), sl: lose }, rosterOut());
   };
-  paint();
+  paintRoster(); paint();
 }
 
 function typeDialog(o,kind){

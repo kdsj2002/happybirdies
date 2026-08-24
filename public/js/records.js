@@ -48,9 +48,15 @@ const Records = (() => {
   let warm = null;           // 통계·매칭용으로 불러 둔 과거 기록
 
   const fb = () => (Store.mode === 'firebase' ? Store._fb : null);
-  const stamp = m => JSON.stringify([m.endedAt || 0, m.win || null,
-                                     m.sw == null ? null : m.sw,
-                                     m.sl == null ? null : m.sl]);
+  /* 굳은 사본에서 뽑는 지문. 결과뿐 아니라 참가자까지 넣는다 — 결과 창에서
+     팀 구성을 바로잡는 일이 생기고, 그것도 원장에 올라가야 하기 때문이다.
+     세션의 경기와 원장의 경기가 생김새가 달라서, 양쪽 다 굳힌 다음 잰다. */
+  const stampOf = f => JSON.stringify([
+    f.endedAt || 0, f.win || null,
+    f.sw == null ? null : f.sw, f.sl == null ? null : f.sl,
+    (f.A||[]).map(p=>p.m || p.n).join(','),
+    (f.B||[]).map(p=>p.m || p.n).join(',')
+  ]);
 
   /* 문서 하나를 읽고-고치고-쓴다.
      두 태블릿이 같은 순간에 경기를 마치면 나중 것이 앞 것을 지울 수 있다.
@@ -96,6 +102,10 @@ const Records = (() => {
       sl: m.sl == null ? null : m.sl
     };
   }
+  /* 이 경기의 네 사람이 모두 아직 이 세션에 살아 있는가.
+     살아 있어야 회원 id를 얻을 수 있고, 그때만 원장의 참가자를 고쳐 쓴다. */
+  const allResolved = m =>
+    [...(m.A||[]), ...(m.B||[])].every(id => typeof A==='function' && A(id));
 
   /* 부팅 때 오늘 원장을 읽어 지문을 채운다. 이걸 안 하면 새로고침한 기기가
      오늘 경기를 전부 다시 올리려 든다(내용은 같지만 쓰기가 낭비다). */
@@ -103,7 +113,7 @@ const Records = (() => {
     try{
       const cur = await Store.get(REC(S.date));
       if(cur && Array.isArray(cur.matches))
-        cur.matches.forEach(x => sig.set(x.id, stamp(x)));
+        cur.matches.forEach(x => sig.set(x.id, stampOf(x)));
     }catch(e){ console.warn('원장 읽기 실패', e); }
   }
 
@@ -125,25 +135,34 @@ const Records = (() => {
   async function sync(){
     if(SAFE_MODE) return;            // 반쪽 상태는 원장에도 남기지 않는다
     const date = S.date;
-    const dirty = S.matches.filter(m => m.endedAt && sig.get(m.id) !== stamp(m));
+    const dirty = [];
+    S.matches.forEach(m => {
+      if(!m.endedAt) return;
+      const f = freeze(m);
+      if(sig.get(m.id) !== stampOf(f)) dirty.push({ m, f, resolved: allResolved(m) });
+    });
     if(!dirty.length) return;
-    const frozen = dirty.map(freeze);
     try{
       await mutate(REC(date), cur => {
         const doc = (cur && Array.isArray(cur.matches)) ? cur : { date, ver:1, matches:[] };
         const at = new Map(doc.matches.map((x, i) => [x.id, i]));
-        frozen.forEach(f => {
+        dirty.forEach(({ f, resolved }) => {
           const i = at.get(f.id);
           if(i == null){ doc.matches.push(f); return; }
-          /* 참가자는 처음 적힌 것을 지킨다. 결과만 고쳐 쓴다. */
           const old = doc.matches[i];
           old.endedAt = f.endedAt; old.win = f.win; old.sw = f.sw; old.sl = f.sl;
           if(f.type) old.type = f.type;
+          /* 참가자는 원칙적으로 처음 적힌 것을 지킨다 — 세션이 비워진 뒤
+             다시 올라오면 이름이 '?'로 굳기 때문이다. 다만 운영자가 결과
+             창에서 팀 구성을 바로잡은 경우는 고쳐 써야 한다. 그 경우는 네
+             사람이 모두 이 세션에 살아 있어서(resolved) 정보가 줄어들 일이
+             없다는 것이 확인된 때뿐이다. */
+          if(resolved){ old.A = f.A; old.B = f.B; }
         });
         doc.matches.sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
         return doc;
       });
-      dirty.forEach(m => sig.set(m.id, stamp(m)));
+      dirty.forEach(({ m, f }) => sig.set(m.id, stampOf(f)));
       await touchIndex(date);
       if(warm) warm = null;          // 통계 캐시가 낡았다. 다음에 다시 부른다
     }catch(e){
