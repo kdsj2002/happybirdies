@@ -100,12 +100,16 @@ const Gate = (() => {
           (<span class="doc-k">happybirdies.web.app/<b>teambailey</b>/</span>).<br>
           <span id="quotaNote"></span>
         </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn" id="cApply" style="width:100%">새 동호회 신청하기</button>
+        </div>
         <div class="hint" style="margin-top:10px">
           <a href="/manual.html">사용 설명서 보기 →</a>
         </div>
       </div>`);
 
     const inp=$('#cCode'); setTimeout(()=>inp&&inp.focus(),60);
+    $('#cApply').onclick=()=>{ Sound.play('tap'); screenApply(); };
     const go=async()=>{
       const btn=$('#cGo'); if(btn.disabled) return;
       const code=(inp.value||'').trim().toLowerCase();
@@ -135,8 +139,208 @@ const Gate = (() => {
       const el=$('#quotaNote'); if(!el || !q.ok) return;
       el.innerHTML = q.full
         ? `새 동호회는 지금 정원(${q.limit}개)이 다 차서 받지 못합니다.`
-        : `새 동호회를 열고 싶으시면 운영자에게 문의해 주세요 (현재 <b>${q.count}</b>/${q.limit}개).`;
+        : `아래 버튼으로 새 동호회를 신청할 수 있습니다 (현재 <b>${q.count}</b>/${q.limit}개).`;
     });
+  }
+
+  /* ── 새 동호회 신청 ─────────────────────────────────────────────
+     여기서 만든 동호회는 신청 즉시 정상적으로 열린다 — 승인이 나기 전까지
+     막아 두는 것이 아니다. 신청서의 status는 'pending'으로 남지만, 그건
+     운영진이 나중에 훑어보는 표시일 뿐 이용을 막는 값이 아니다
+     (functions/index.js createClub 머리말 참고). 신청자가 곧 소유자이니
+     자기 동호회를 바로 시험 운영해 볼 수 있어야 한다.
+
+     소유자 자리는 신청서에 적은 이메일만으로 주어지지 않는다. 그 이메일로
+     실제 구글 로그인을 마쳐야(다음 화면) 진짜 소유자가 된다 — 아무 이메일이나
+     적어 놓고 남의 동호회를 만드는 것을 막기 위해서다. */
+  const CODE_RE = /^[a-z0-9][a-z0-9-]{1,30}$/;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const FN_ERR = {
+    'already-exists':     '이미 쓰이고 있는 동호회 코드입니다',
+    'resource-exhausted': '지금은 신규 동호회 정원이 다 찼습니다',
+    'permission-denied':  '이 기기에서 만들 수 있는 동호회 수를 넘었습니다',
+    'invalid-argument':   '입력값을 다시 확인해 주세요',
+    'unauthenticated':    '연결을 확인하고 다시 시도해 주세요'
+  };
+
+  function screenApply(){
+    open(`
+      <div class="gate-card wide">
+        <div class="gate-title">새 동호회 신청</div>
+        <div class="gate-sub">신청하면 곧바로 동호회가 열립니다. 이어서 소유자 이메일을
+          구글로 인증하면 운영자 비밀번호를 정해 바로 시험 운영해 볼 수 있습니다.</div>
+        <div class="row" style="gap:10px">
+          <label class="fl" style="flex:1">나라<input type="text" id="aCountry" placeholder="예: 대한민국"></label>
+          <label class="fl" style="flex:1">지역<input type="text" id="aArea" placeholder="예: 서울 강남구"></label>
+        </div>
+        <label class="fl" style="margin-top:10px">동호회 이름<input type="text" id="aName" placeholder="예: 팀베일리"></label>
+        <label class="fl" style="margin-top:10px">동호회 코드(영문)
+          <input type="text" id="aCode" placeholder="예: teambailey" autocomplete="off"
+                 autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+        <div class="hint" style="margin-top:4px">주소 <span class="doc-k">happybirdies.web.app/<b>코드</b>/</span>가
+          됩니다. 영문 소문자·숫자·하이픈만, 2~31자.</div>
+        <div class="row" style="gap:10px;margin-top:10px">
+          <label class="fl" style="flex:1">소유자 이름<input type="text" id="aOwner" placeholder="이름"></label>
+          <label class="fl" style="flex:1">연락처<input type="text" id="aContact" placeholder="휴대폰 번호"></label>
+        </div>
+        <label class="fl" style="margin-top:10px">소유자 이메일
+          <input type="email" id="aEmail" placeholder="구글 계정 이메일" autocomplete="off"
+                 autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+        <div class="hint" style="margin-top:4px">다음 단계에서 <b>이 이메일의 구글 계정</b>으로
+          인증합니다 — 다른 계정으로는 소유자가 될 수 없습니다.</div>
+        <div id="gErr" class="gate-err"></div>
+        <div class="row" style="gap:8px;margin-top:14px">
+          <button class="btn" id="gBack" style="flex:1">뒤로</button>
+          <button class="btn primary" id="aOk" style="flex:2">신청하기</button>
+        </div>
+      </div>`);
+
+    const collect=()=>{
+      const v = id => $(id).value.trim();
+      const country=v('#aCountry'), area=v('#aArea'), name=v('#aName'),
+            code=v('#aCode').toLowerCase(), ownerName=v('#aOwner'),
+            contact=v('#aContact'), ownerEmail=v('#aEmail').toLowerCase();
+      const err = $('#gErr');
+      if(!country || !name || !ownerName || !contact){
+        err.textContent='빈칸을 모두 채워 주세요'; return null;
+      }
+      if(!CODE_RE.test(code)){
+        err.textContent='동호회 코드는 영문 소문자·숫자·하이픈으로 2~31자여야 합니다'; return null;
+      }
+      if(!EMAIL_RE.test(ownerEmail)){
+        err.textContent='이메일 형식을 확인해 주세요'; return null;
+      }
+      return { country, area, name, code, ownerName, contact, ownerEmail };
+    };
+
+    $('#aOk').onclick=async()=>{
+      $('#gErr').textContent='';
+      const info=collect(); if(!info) return;
+      const btn=$('#aOk'); btn.disabled=true; $('#gErr').textContent='신청하는 중...';
+      const r=await Store.callFunction('createClub', {
+        id:info.code, name:info.name, country:info.country, area:info.area,
+        ownerName:info.ownerName, contact:info.contact, ownerEmail:info.ownerEmail
+      });
+      btn.disabled=false;
+      if(!r.ok){
+        Sound.play('error');
+        $('#gErr').textContent = FN_ERR[r.code] || r.error || '신청하지 못했습니다';
+        return;
+      }
+      Sound.play('confirm');
+      screenApplyVerify(info.code, info.ownerEmail, info.name);
+    };
+    $('#gBack').onclick=()=>{ Sound.play('tap'); screenLanding(); };
+  }
+
+  /* 신청서의 이메일로 구글 인증. 성공하면 서버가 그 계정을 이 동호회의
+     소유자로 확정한다(claimOwnership) — roles 문서는 클라이언트가 못
+     쓰므로 이 서버 확인이 유일한 문이다. */
+  function screenApplyVerify(code, ownerEmail, clubName){
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">소유자 이메일 인증</div>
+        <div class="gate-sub"><b>${esc(clubName)}</b>(<span class="doc-k">${esc(code)}</span>)이
+          열렸습니다. 신청서에 적은 <b>${esc(ownerEmail)}</b>의 구글 계정으로 인증해 주세요.</div>
+        <div id="gErr" class="gate-err"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="vGoogle" style="width:100%">Google로 인증하기</button>
+        </div>
+        <div class="hint" style="margin-top:14px;line-height:1.7">
+          나중에 인증해도 됩니다. 동호회는 이미 열려 있으니, 그동안은
+          <a href="/${esc(code)}/">동호회 주소</a>에서 운영자에게 비밀번호를 받아 둘러볼 수 있습니다
+          (아직 운영자 비밀번호가 없다면 이 인증부터 마쳐야 합니다).
+        </div>
+      </div>`);
+
+    $('#vGoogle').onclick=async()=>{
+      const btn=$('#vGoogle'); if(btn.disabled) return;
+      btn.disabled=true; $('#gErr').textContent='인증 중...';
+      const g=await Account.signInGoogle();
+      if(!g.ok){
+        btn.disabled=false; Sound.play('error');
+        $('#gErr').textContent=g.error; return;
+      }
+      const acc=Account.current();
+      // 서버가 최종 확인한다 — 여기서는 헛걸음을 줄이려고 미리 한 번 본다.
+      if(!acc || (acc.email||'').toLowerCase() !== ownerEmail){
+        btn.disabled=false; Sound.play('error');
+        $('#gErr').textContent = `로그인한 계정(${esc(acc?acc.email:'')})이 신청서의 이메일과 다릅니다. `
+          + `아래에서 로그아웃하고 ${esc(ownerEmail)} 계정으로 다시 인증해 주세요.`;
+        showSwitchAccount();
+        return;
+      }
+      const r=await Store.callFunction('claimOwnership', { club: code });
+      btn.disabled=false;
+      if(!r.ok){
+        Sound.play('error');
+        $('#gErr').textContent = r.code==='permission-denied'
+          ? '이 계정은 신청서에 적은 소유자 이메일과 다릅니다'
+          : (FN_ERR[r.code] || r.error || '인증하지 못했습니다');
+        showSwitchAccount();
+        return;
+      }
+      Sound.play('confirm');
+      screenApplyPassword(code, clubName);
+    };
+    function showSwitchAccount(){
+      if($('#vSwitch')) return;
+      const row=el('div','row'); row.style.marginTop='8px';
+      row.id='vSwitchRow';
+      row.innerHTML='<button class="btn" id="vSwitch" style="width:100%">다른 계정으로 다시 인증</button>';
+      $('#gErr').insertAdjacentElement('afterend', row);
+      $('#vSwitch').onclick=async()=>{ Sound.play('tap'); await Account.signOut(); screenApplyVerify(code, ownerEmail, clubName); };
+    }
+  }
+
+  /* 소유자 인증까지 끝났다 — Secret.setAdminPassword는 서버 규칙이
+     isOwner(club)만 확인하므로(roles 문서가 방금 생겼다) 앱 안의 역할
+     상태와 무관하게 바로 통과한다. 여기서 정하고 나면 그 자리에서
+     운영자로 들어가 시험 운영을 시작할 수 있다. */
+  function screenApplyPassword(code, clubName){
+    open(`
+      <div class="gate-card">
+        <div class="gate-title">운영자 비밀번호 정하기</div>
+        <div class="gate-sub">소유자 인증이 끝났습니다. <b>${esc(clubName)}</b>의 운영자 비밀번호를
+          정하면 바로 운영자로 들어가 시험 운영을 시작할 수 있습니다.</div>
+        <label class="fl">운영자 비밀번호(8자 이상)
+          <input type="password" id="pA" autocomplete="new-password"></label>
+        <label class="fl" style="margin-top:10px">한 번 더
+          <input type="password" id="pB" autocomplete="new-password"></label>
+        <div id="gErr" class="gate-err"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="pOk" style="width:100%">정하고 운영자로 입장</button>
+        </div>
+      </div>`);
+    const inp=$('#pA'); setTimeout(()=>inp&&inp.focus(),60);
+    const go=async()=>{
+      const btn=$('#pOk'); if(btn.disabled) return;
+      const a=$('#pA').value, b=$('#pB').value, err=$('#gErr');
+      if(a.length<8){ Sound.play('error'); err.textContent='8자 이상으로 정해 주세요'; return; }
+      if(a!==b){ Sound.play('error'); err.textContent='두 번 입력한 값이 다릅니다'; return; }
+      btn.disabled=true; err.textContent='설정하는 중...';
+      const r=await Secret.setAdminPassword(a);
+      btn.disabled=false;
+      if(!r.ok){
+        Sound.play('error');
+        err.textContent = r.reason==='denied'
+          ? '서버가 거절했습니다 — 소유자 인증이 이 기기에 아직 반영되지 않았을 수 있습니다. 새로고침 후 다시 시도해 주세요'
+          : '설정하지 못했습니다 — 연결을 확인해 주세요';
+        return;
+      }
+      // 방금 정한 비밀번호로 그대로 운영자 입장. 다시 입력하게 하지 않는다.
+      const res=await Auth.loginAdmin(a);
+      if(res.ok){
+        Sound.play('confirm'); close(); enter();
+        toast(`${clubName} — 운영자로 입장했습니다. 시험 운영을 시작하세요`);
+        return;
+      }
+      // 비밀번호는 정해졌는데 입장만 실패한 드문 경우 — 수동 입장으로 보낸다.
+      toast('비밀번호는 정해졌습니다 — 운영자 입장에서 로그인해 주세요');
+      screenAdmin();
+    };
+    $('#pOk').onclick=go;
+    $('#pB').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
   }
 
   function screenHome(){

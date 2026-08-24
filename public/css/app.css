@@ -568,7 +568,16 @@ td.res-cell.edit:hover{background:var(--court-soft)}
 }
 .doc-m{color:var(--md)} .doc-f{color:var(--wd)} .doc-u{color:var(--cork)}
 
-/* 따로 여는 manual.html 전용 — 앱 셸이 없으므로 페이지가 직접 스크롤한다 */
+/* 따로 여는 manual.html 전용 — 앱 셸이 없으므로 페이지가 직접 스크롤한다.
+
+   기본 규칙(위 44행)이 html과 body를 한꺼번에 overflow:hidden으로 잠근다 —
+   앱 화면(#app)이 자기 안에서 따로 스크롤하는 부분(.pad 등)을 두고 있어서다.
+   manual.html은 그런 내부 스크롤 컨테이너가 없는 밋밋한 페이지라서, body만
+   풀어 주면 될 것 같지만 그렇지 않다. html은 여전히 hidden인 채로 남아,
+   iOS Safari에서는 body가 overflow:auto여도 손가락으로 미는 스크롤 자체가
+   먹통이 된다(WebKit이 스크롤 여부를 <html>에 걸어 두는 경우가 있다) —
+   이 페이지에서 스크롤이 안 되던 진짜 원인이다. html에도 같이 풀어 준다. */
+html.docpage{height:auto;overflow:auto}
 body.docpage{height:auto;overflow:auto;padding:24px 18px}
 body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);
                         color:var(--muted2);font-size:13px}

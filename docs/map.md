@@ -34,6 +34,13 @@ CSS는 `public/css/app.css` 하나뿐. HTML은 `public/index.html`(앱)과
 `public/manual.html`(설명서 단독 페이지)뿐 — 마크업을 더할 새 HTML 파일은
 만들지 않는다.
 
+`functions/index.js`는 클라이언트 코드가 아니라 Cloud Functions다. 보안
+규칙이 못 하는 일(문서 개수 세기, 여러 문서를 트랜잭션으로 묶기)을
+Admin SDK로 대신한다 — `createClub`(동호회 신청), `claimOwnership`
+(구글 인증된 이메일로 소유자 확정). **Hosting과 별도로
+`firebase deploy --only functions`를 사람이 직접 돌려야 반영된다** —
+GitHub Actions는 Hosting만 배포한다.
+
 ## 2. 데이터가 어디 있는지
 
 Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
@@ -51,6 +58,8 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 | `kv/adminAuth` / `secret/adminPin` | 운영자 비밀번호(salt/hash 분리) | `firestore.rules` 머리말 |
 | `roles/{uid}` | 소유자·운영자 역할(실계정) | `firestore.rules` 해당 블록 |
 | `registry/clubs` | 전체 동호회 정원 | `firestore.rules` 해당 블록 |
+| `clubs/{id}/meta/club` | 동호회 신청서(나라·지역·소유자 정보), `status:'pending'` | `functions/index.js` `createClub` |
+| `clubCreators/{uid}` | 계정당 동호회 개설 수 제한 | `functions/index.js` `createClub` |
 
 **세션의 경기 기록(`S.matches[i]`)과 원장(`rec:*`)은 생김새가 다르다.**
 세션 쪽은 참가자가 출석자 id 배열(`A`/`B`)이고, 원장 쪽은 그 순간의
@@ -101,6 +110,15 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 가지뿐). `opts.onSave(result, roster)`로 콜백하며, 코트 종료·리매치·
 기록 화면 수정이 전부 이 함수를 공유한다.
 
+**새 동호회 신청**(`gate.js` `screenApply` → `screenApplyVerify` →
+`screenApplyPassword`)은 인증 없이 대표 주소에서 시작한다. 3단계 모두
+서버(Cloud Functions)를 부른다 — 클라이언트는 `Store.callFunction(name,
+data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상한·구글 인증
+이메일 일치)은 전부 `functions/index.js`에 있다. `roles/{uid}` 문서는
+클라이언트가 못 쓰므로(규칙) `claimOwnership`이 유일한 문이고, 그 조건은
+`req.auth.token.email`(구글이 검증, 클라이언트가 못 지어냄)과 신청서의
+`ownerEmail`이 같은 것뿐이다.
+
 **권한**은 `auth.js`의 `Auth.can(action)` 하나로 판정한다. action 이름과
 뜻은 그 함수 바로 위 주석에 표로 있다(`view`/`selfQueue`/`edit`/
 `courtAssign`/`membersBulk` 등). 새 조작을 추가하면 여기에 이름을 하나
@@ -145,6 +163,8 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 | `App Check` 사용 안 함(사용자 결정, 온라인 무차별 대입 미완화) | `firestore.rules` ⚠ 항목 |
 | 시계가 늦게 맞으면 그 전 startedAt을 소급 보정(한 번만) | `store.js` `onCalibrated` / `main.js` 등록부 |
 | 빈 코트·빈 대기 슬롯 더블탭은 자동 배치 설정과 무관하게 항상 채움 | `actions.js` `fillEmptyCourt`/`fillEmptyQueue` |
+| 새 동호회는 무인증으로 신청 즉시 열림(`status:'pending'`은 표시일 뿐) | `functions/index.js` `createClub` |
+| 소유자 자리는 신청서 이메일이 아니라 그 이메일의 구글 인증으로만 확정 | `functions/index.js` `claimOwnership` |
 
 이 표는 "무엇을, 어디서"만 담는다. 왜 그렇게 했는지는 표에 적힌 위치의
 주석을 읽을 것 — 중복해서 옮겨 적지 않는다(옮겨 적으면 코드가 바뀔 때

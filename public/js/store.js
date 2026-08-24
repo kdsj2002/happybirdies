@@ -245,6 +245,25 @@ const Store = (() => {
       }catch(e){ return { ok:false, error:String(e) }; }
     },
 
+    /* ── 서버만 할 수 있는 일 (Cloud Functions) ─────────────────────
+       새 동호회 신청, 소유자 이메일 확정 같은 조작은 클라이언트가 직접
+       Firestore에 쓸 수 없다(규칙이 막는다 — functions/index.js 머리말
+       참고). 대신 서버 함수를 부른다. 실패를 예외로 던지지 않고 값으로
+       돌려주는 이유는 이 앱의 다른 비동기 함수들과 같다 — 호출부가 매번
+       try/catch를 쓰지 않아도 되고, ok로 먼저 갈라 읽기 쉽다. */
+    async callFunction(name, data){
+      if(this.mode!=='firebase') return { ok:false, error:'클라우드에 연결되지 않았습니다' };
+      const fb=this._fb;
+      if(!fb.functions || !fb.httpsCallable) return { ok:false, error:'서버 기능을 불러오지 못했습니다' };
+      try{
+        const call = fb.httpsCallable(fb.functions, name);
+        const res = await call(data);
+        return { ok:true, ...(res.data||{}) };
+      }catch(e){
+        return { ok:false, error: (e && e.message) || String(e), code: e && e.code };
+      }
+    },
+
     /* ── 여러 기기가 같은 시계를 쓰게 한다 ──────────────────────────
        경기 시간은 "어느 기기가 세는가"의 문제가 아니다. 시작 시각
        (courts[].startedAt)은 세션 문서에 적혀 모든 기기가 나눠 갖고, 각

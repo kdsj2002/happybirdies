@@ -52,14 +52,30 @@ const PROMO_DAYS      = 30;    // 무료 체험 기간
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-/* ── 동호회 개설 ──────────────────────────────────────────────────
-   앱에서 httpsCallable('createClub')로 부른다.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/* ── 동호회 신청 ──────────────────────────────────────────────────
+   앱에서 httpsCallable('createClub')로 부른다. 대표 주소의 "새 동호회
+   신청하기"가 쓰는 길이다.
+
+   신청 즉시 clubs/{id}가 열리고 정상적으로 쓰인다 — 승인이 나기 전까지
+   막아 두는 것이 아니라, status:'pending' 표시만 남긴다. 사람이 나중에
+   콘솔에서 검토해 필요하면 status를 바꾸거나 지운다. 막지 않는 이유는
+   간단하다 — 신청자가 곧 소유자이고, 그 사람이 자기 동호회를 시험
+   운영해 보는 것을 막을 이유가 없다. status는 운영진이 참고하는
+   기록일 뿐이다.
+
+   소유자 자리는 여기서 주지 않는다. meta에 ownerEmail만 적어 두고,
+   그 이메일로 실제 구글 인증을 마쳐야(claimOwnership) roles 문서가
+   생긴다 — 신청서에 아무 이메일이나 적어 놓고 그 자리를 차지하는 것을
+   막기 위해서다.
+
    성공하면 { ok:true, id }. 실패는 HttpsError 로 올라가고, 앱은 code 로
    무엇이 문제였는지 구분한다.
      already-exists     이미 쓰이는 주소
      resource-exhausted 전체 정원이 참
      permission-denied  이 계정이 만들 수 있는 수를 넘음
-     invalid-argument   주소 규격이 맞지 않음
+     invalid-argument   입력값이 규격에 안 맞음
    ───────────────────────────────────────────────────────────── */
 exports.createClub = onCall(async (req) => {
   const uid = req.auth && req.auth.uid;
@@ -67,18 +83,25 @@ exports.createClub = onCall(async (req) => {
   // 만들었는지 셀 수가 없다.
   if (!uid) throw new HttpsError('unauthenticated', '로그인이 필요합니다');
 
-  const id      = str(req.data && req.data.id, 40).toLowerCase();
-  const name    = str(req.data && req.data.name, 40);
-  const contact = str(req.data && req.data.contact, 120);
-  const note    = str(req.data && req.data.note, 300);
+  const id         = str(req.data && req.data.id, 40).toLowerCase();
+  const name       = str(req.data && req.data.name, 40);
+  const country    = str(req.data && req.data.country, 60);
+  const area       = str(req.data && req.data.area, 60);
+  const ownerName  = str(req.data && req.data.ownerName, 40);
+  const contact    = str(req.data && req.data.contact, 60);
+  const ownerEmail = str(req.data && req.data.ownerEmail, 120).toLowerCase();
 
   if (!CLUB_ID.test(id))
     throw new HttpsError('invalid-argument',
-      '주소는 영문 소문자·숫자·하이픈으로 2~31자여야 합니다');
+      '동호회 코드는 영문 소문자·숫자·하이픈으로 2~31자여야 합니다');
   if (RESERVED.has(id))
-    throw new HttpsError('invalid-argument', '쓸 수 없는 주소입니다');
-  if (!name)
-    throw new HttpsError('invalid-argument', '동호회 이름을 입력하세요');
+    throw new HttpsError('invalid-argument', '쓸 수 없는 동호회 코드입니다');
+  if (!name)       throw new HttpsError('invalid-argument', '동호회 이름을 입력하세요');
+  if (!country)    throw new HttpsError('invalid-argument', '나라를 입력하세요');
+  if (!ownerName)  throw new HttpsError('invalid-argument', '소유자 이름을 입력하세요');
+  if (!contact)    throw new HttpsError('invalid-argument', '연락처를 입력하세요');
+  if (!EMAIL_RE.test(ownerEmail))
+    throw new HttpsError('invalid-argument', '이메일 형식이 올바르지 않습니다');
 
   const regRef     = db.doc('registry/clubs');
   const metaRef    = db.doc(`clubs/${id}/meta/club`);
@@ -92,7 +115,7 @@ exports.createClub = onCall(async (req) => {
     const creator = await tx.get(creatorRef);
 
     if (meta.exists)
-      throw new HttpsError('already-exists', '이미 쓰이고 있는 주소입니다');
+      throw new HttpsError('already-exists', '이미 쓰이고 있는 동호회 코드입니다');
 
     const regData = reg.exists ? (reg.data() || {}) : {};
     const count = Number(regData.count) || 0;
@@ -107,10 +130,10 @@ exports.createClub = onCall(async (req) => {
         '이 기기에서 만들 수 있는 동호회 수를 넘었습니다');
 
     tx.set(metaRef, {
-      name, nameEn: id, contact, note,
-      region: 'us',            // 요구사항 명세서의 프라이머리 리전
+      name, nameEn: id, country, area, ownerName, contact, ownerEmail,
+      region: 'us',             // 요구사항 명세서의 프라이머리 리전(GCP) — 신청자의 나라/지역과는 별개다
       plan: 'promo',
-      status: 'active',
+      status: 'pending',        // 사람이 검토해 승인 표시로 바꾸기 전까지의 상태 표시일 뿐, 이용을 막지 않는다
       promoUntil: now + PROMO_DAYS * 86400000,
       createdAt: now,
       createdBy: uid
@@ -121,6 +144,45 @@ exports.createClub = onCall(async (req) => {
     tx.set(creatorRef, { count: mine + 1, lastAt: now }, { merge: true });
   });
 
-  logger.info('동호회 개설', { id, uid });
+  logger.info('동호회 신청', { id, uid });
   return { ok: true, id };
+});
+
+/* ── 소유자 이메일 확정 ────────────────────────────────────────────
+   앱에서 httpsCallable('claimOwnership')로 부른다. 신청할 때 적어 둔
+   ownerEmail로 실제 구글 로그인을 마친 뒤 호출한다.
+
+   roles/{club}/{uid}는 클라이언트가 못 쓴다(규칙). 이 함수가 유일한
+   문 — 그리고 여는 조건은 하나뿐이다. 지금 로그인한 사람의 구글
+   이메일(req.auth.token.email, 구글이 검증했으므로 클라이언트가
+   지어낼 수 없다)이 신청서에 적힌 ownerEmail과 정확히 같아야 한다.
+
+   같은 사람이 두 번 눌러도 안전하다(멱등) — 이미 소유자면 그대로
+   돌려준다. 다만 처음 확정된 뒤에는 절대 다른 계정으로 바뀌지 않는다 —
+   그 조건을 만들려는 시도 자체가 없다(먼저 확정한 사람이 임자이고,
+   신청서의 ownerEmail은 그 뒤로도 클라이언트가 못 고친다). */
+exports.claimOwnership = onCall(async (req) => {
+  const uid   = req.auth && req.auth.uid;
+  const email = req.auth && req.auth.token && req.auth.token.email;
+  // 익명 계정에는 이메일이 없다 — 여기서 자연히 걸러진다. 구글 로그인만 통과한다.
+  if (!uid || !email) throw new HttpsError('unauthenticated', '구글 계정으로 로그인해 주세요');
+
+  const club = str(req.data && req.data.club, 40).toLowerCase();
+  if (!CLUB_ID.test(club))
+    throw new HttpsError('invalid-argument', '동호회 코드가 올바르지 않습니다');
+
+  const metaRef = db.doc(`clubs/${club}/meta/club`);
+  const roleRef = db.doc(`clubs/${club}/roles/${uid}`);
+
+  const meta = await metaRef.get();
+  if (!meta.exists) throw new HttpsError('not-found', '그 동호회를 찾지 못했습니다');
+
+  const declared = String((meta.data() || {}).ownerEmail || '').toLowerCase();
+  if (!declared || declared !== String(email).toLowerCase())
+    throw new HttpsError('permission-denied',
+      '이 계정은 신청서에 적은 소유자 이메일과 다릅니다');
+
+  await roleRef.set({ role: 'owner', email, claimedAt: Date.now() }, { merge: true });
+  logger.info('소유자 인증', { club, uid });
+  return { ok: true };
 });

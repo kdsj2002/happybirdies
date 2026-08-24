@@ -80,6 +80,11 @@ async function boot(){
        signInWithEmailAndPassword·GoogleAuthProvider 등이 필요하다. */
     const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
     const { getAuth, signInAnonymously, onAuthStateChanged } = A;
+    /* 새 동호회 신청 · 소유자 인증 확정처럼 "서버만 할 수 있는 일"은
+       Cloud Functions를 부른다(functions/index.js). 지역을 반드시
+       맞춰야 한다 — 다르면 함수를 찾지 못한 것처럼 실패한다. */
+    const FN = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-functions.js`);
+    const { getFunctions, httpsCallable } = FN;
 
     const app = initializeApp(cfg);
     let db;
@@ -106,8 +111,12 @@ async function boot(){
     }
     const authError = authErr ? String(authErr.code || authErr.message || authErr) : null;
 
+    // functions/index.js의 setGlobalOptions와 같은 지역이어야 한다.
+    const functions = getFunctions(app, 'asia-northeast2');
+
     // authFns는 따로 담는다. ...F(Firestore)와 이름이 섞이지 않게.
-    window.__fb = { ready:true, authFailed, authError, app, db, auth, authFns:A, source, ...F };
+    window.__fb = { ready:true, authFailed, authError, app, db, auth, authFns:A,
+                    functions, httpsCallable, source, ...F };
     window.dispatchEvent(new CustomEvent('fb-ready',{detail:{ready:true, authFailed, source}}));
   }catch(err){
     console.warn('Firebase 초기화 실패, 로컬 저장소로 폴백', err);
