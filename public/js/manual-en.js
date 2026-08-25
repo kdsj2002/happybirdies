@@ -50,8 +50,9 @@ window.MANUAL_CONTENT.en = (() => {
     </div>
 
     <h3>Changing the display language</h3>
-    <p>You can change the language of both this manual and the app screens from the top right (or the language button on the guest
-       screen). Korean, English, Chinese, and Japanese are supported. Once you choose, this device remembers it.</p>`;
+    <p>A button in the top right corner is always there to change the language — it is visible even on the very first
+       screen, before you have signed in as anything. Korean, English, Chinese, and Japanese are supported.
+       Once you choose, this device remembers it and opens in that language next time.</p>`;
 
   const member = `
     <h2 id="m-member">2. For Members</h2>

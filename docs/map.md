@@ -14,6 +14,8 @@
 | 파일 | 역할 | 찾아볼 이름 |
 |---|---|---|
 | `firebase-loader.js` | Firebase 초기화, 익명 로그인, `window.__fb` | — |
+| `lang.js` | 언어 선택·저장, 번역 조회(`t()`) | `Lang.get`/`Lang.set`/`Lang.onLangChange`, 전역 `t` |
+| `i18n-{ko,en,zh,ja}.js` | 화면 UI 문자열 사전(`window.I18N`) — `ko`가 원본 | — |
 | `sound.js` | 효과음·진동 | `Sound.play`, `Sound.buzz` |
 | `store.js` | 저장소 어댑터(Firestore/로컬), 클럽 식별자, 서버 시계 | `Store`, `CLUB`, `K()`, `clockSkew` |
 | `state.js` | 전역 상태 `S`, 기본 설정, 파워 계산, 경기 기록 스키마, 결과 강제 | `S`, `DEFAULTS`, `now()`, `applyResult`, `applyRoster`, `isHeld`, `pendingResults` |
@@ -21,7 +23,8 @@
 | `account.js` | 실계정 로그인(소유자용) | `Account.signInEmail`, `Account.roleIn` |
 | `records.js` | 날짜별 경기 원장(세션과 분리) | `Records.sync`, `Records.warmUp`, `Records.stats` |
 | `algo.js` | 자동 배치 알고리즘, 코트 시작/종료 | `autoAssign`, `startCourt`, `endCourt`, `poolIds` |
-| `manual.js` | 도움말 본문(앱·`manual.html` 공용) | `Manual` |
+| `manual.js` | 도움말 조립기(언어별 콘텐츠를 골라 조립) | `Manual.html`, `Manual.footer` |
+| `manual-{ko,en,zh,ja}.js` | 도움말 본문 — 언어별 콘텐츠 파일, `ko`가 원본 | `window.MANUAL_CONTENT` |
 | `ui.js` | 렌더링, 파워 게이지, 유휴 관리(화면잠금/타이머) | `render`, `renderCourts`, `powerGauge`, `syncIdle` |
 | `actions.js` | 상태 변경 트랜잭션, 이동/배치, 결과 기록 강제 훅 | `tx()`, `save()`, `moveTo`, `moveTeamTo`, `heldBlock`, `finishCourt` |
 | `auth.js` | 역할·권한 판정 | `Auth.can`, `Auth.denyMsg`, `requirePerm` |
@@ -119,6 +122,22 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 `req.auth.token.email`(구글이 검증, 클라이언트가 못 지어냄)과 신청서의
 `ownerEmail`이 같은 것뿐이다.
 
+**화면 언어(한/영/중/일)**는 두 층으로 나뉜다.
+  - UI 문자열(버튼·토스트·다이얼로그)은 `t('키')`(`lang.js`) → `window.I18N.ko/en/zh/ja`
+    (`i18n-*.js`)에서 찾는다. 새 문자열을 화면에 넣을 때는 **한국어를 직접 쓰지 말고**
+    `i18n-ko.js`에 키를 하나 추가한 뒤 `t('그키')`를 부를 것 — 그래야 나머지 세 언어도
+    빠짐없이 챙길 수 있다(빠뜨리면 그 언어에서만 한국어로 자동 대체되어 눈에 안 띄게 샌다).
+  - 도움말 본문은 `manual-{ko,en,zh,ja}.js`에 언어별로 통째로 있다(문장 단위 키가 아니라
+    섹션째 번역문) — `manual.js`가 `Lang.get()`에 맞는 파일을 골라 조립만 한다.
+  - `Lang.set()`은 `Lang.onLangChange` 콜백 하나를 부른다(`main.js`에 등록) — 정적
+    마크업(`index.html`의 `data-i18n`류)을 다시 채우고, `render()`와 지금 켜진 탭을
+    다시 그린다. 언어 전환 버튼은 `index.html`의 `#langSwitch`(위치:고정, `#gate`보다
+    z-index가 높다) 하나뿐 — 인증 여부와 무관하게 항상 뜬다.
+  - **주의**: 이 앱은 `t`를 타이머 id·현재 시각·DOM 엘리먼트 등 지역 변수 이름으로도
+    흔히 쓴다. 그런 함수 안에서 번역이 필요하면 지역 변수 쪽 이름을 바꿀 것 —
+    `const t=now()` 뒤에 `t('키')`를 부르면 "t is not a function"으로 죽는다
+    (실제로 한 번 났던 사고: `actions.js` `checkMatchTimeouts`).
+
 **권한**은 `auth.js`의 `Auth.can(action)` 하나로 판정한다. action 이름과
 뜻은 그 함수 바로 위 주석에 표로 있다(`view`/`selfQueue`/`edit`/
 `courtAssign`/`membersBulk` 등). 새 조작을 추가하면 여기에 이름을 하나
@@ -166,6 +185,8 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 새 동호회는 무인증으로 신청 즉시 열림(`status:'pending'`은 표시일 뿐) | `functions/index.js` `createClub` |
 | 소유자 자리는 신청서 이메일이 아니라 그 이메일의 구글 인증으로만 확정 | `functions/index.js` `claimOwnership` |
 | `#gate` 카드는 화면보다 길어질 수 있어 자신이 스크롤 컨테이너 | `app.css` `#gate` 규칙 |
+| 화면 언어는 4개(한/영/중/일), 기기별 저장, 기본은 브라우저 언어로 추측 | `lang.js` `detect()` |
+| UI 문자열은 키 기반(`t()`), 도움말은 언어별 파일 통째 번역 — 방식이 다른 이유는 전자가 잦은 수정에, 후자가 산문 번역 품질에 최적 | `lang.js` 머리말, `manual.js` 머리말 |
 
 이 표는 "무엇을, 어디서"만 담는다. 왜 그렇게 했는지는 표에 적힌 위치의
 주석을 읽을 것 — 중복해서 옮겨 적지 않는다(옮겨 적으면 코드가 바뀔 때

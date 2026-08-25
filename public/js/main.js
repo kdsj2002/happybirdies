@@ -10,8 +10,18 @@ function applyStaticI18n(){
   $$('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
   document.title = t('app.title');
 }
+/* 인증 여부와 무관하게 항상 떠 있는 언어 버튼(index.html #langSwitch,
+   #gate보다 z-index가 높다) — 현관(비인증)에서도 눌려야 하므로 개별
+   화면(gate.js 등)에 넣지 않고 여기 한 곳에서 그린다. */
+function drawLangSwitch(){
+  const box = $('#langSwitch'); if(!box) return;
+  box.innerHTML = Lang.SUPPORTED.map(l =>
+    `<button data-l="${l}"${l===Lang.get()?' class="on"':''}>${Lang.NAMES[l]}</button>`).join('');
+  box.querySelectorAll('[data-l]').forEach(b => b.onclick = () => Lang.set(b.dataset.l));
+}
 Lang.onLangChange(() => {
   applyStaticI18n();
+  drawLangSwitch();
   render();
   // 지금 열려 있는 탭이 board가 아니면 그 탭도 다시 그려야 한다 —
   // render()는 board만 맡는다. show()가 현재 탭을 다시 그리는 길이므로
@@ -25,6 +35,7 @@ Lang.onLangChange(() => {
    ===================================================================== */
 (async function boot(){
   applyStaticI18n();
+  drawLangSwitch();
   await Store.init();
 
   /* ── 시계가 늦게 맞춰지면 그 전에 찍은 시작 시각을 고쳐 쓴다 ──────
