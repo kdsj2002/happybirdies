@@ -1,7 +1,30 @@
 /* =====================================================================
+   언어 전환 — 정적 마크업(index.html의 data-i18n류) 적용 + 다시 그리기
+
+   동적으로 그려지는 부분(코트·대기열·탭 화면 내용)은 각자의 render 함수가
+   맡는다. 여기서는 그 render들을 부르는 것과, HTML에 미리 박혀 있어
+   JS가 매번 새로 쓰지 않는 정적 텍스트(탭 이름, 버튼 라벨 등)만 담당한다. */
+function applyStaticI18n(){
+  $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $$('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  $$('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.title = t('app.title');
+}
+Lang.onLangChange(() => {
+  applyStaticI18n();
+  render();
+  // 지금 열려 있는 탭이 board가 아니면 그 탭도 다시 그려야 한다 —
+  // render()는 board만 맡는다. show()가 현재 탭을 다시 그리는 길이므로
+  // 그대로 재호출한다(탭 전환 부작용은 없다 — 이미 그 탭에 있으므로).
+  const cur = ($$('.screen').find(s=>s.classList.contains('on')) || {}).id;
+  if(cur) show(cur.replace('scr-',''));
+});
+
+/* =====================================================================
    부팅
    ===================================================================== */
 (async function boot(){
+  applyStaticI18n();
   await Store.init();
 
   /* ── 시계가 늦게 맞춰지면 그 전에 찍은 시작 시각을 고쳐 쓴다 ──────
@@ -63,7 +86,7 @@
   const rSes = await Store.getSafe(K('session:'+S.date));
   // 가입 요청은 없는 것이 정상(아직 아무도 안 냈다)이라 strict를 걸지 않는다.
   S.joinRequests = (await Store.getSafe(K('joinRequests'))).value || [];
-  const failed = [!rSet.ok&&'설정', !rMem.ok&&'회원 명단', !rSes.ok&&'오늘 세션'].filter(Boolean);
+  const failed = [!rSet.ok&&t('main.boot.settings'), !rMem.ok&&t('main.boot.members'), !rSes.ok&&t('main.boot.session')].filter(Boolean);
 
   const st=rSet.value;
   if(st) S.settings=Object.assign(clone(DEFAULTS),st,{w:Object.assign({},DEFAULTS.w,st.w||{})});
@@ -82,9 +105,8 @@
     // 익명 로그인이 꺼져 있으면 보안 규칙이 전부 거부한다. 이 경우는
     // 새로고침해도 소용없으므로 무엇을 해야 하는지 정확히 알려 준다.
     setSafeMode(true, Store.fbState==='authFailed'
-      ? '익명 로그인이 되지 않아 클라우드를 읽지 못했습니다 — Firebase 콘솔 → Authentication'
-        + ' → 로그인 방법 → 익명을 켜 주세요. 저장은 잠갔습니다(데이터는 그대로입니다)'
-      : failed.join('·')+'을(를) 불러오지 못했습니다. 저장이 잠겼습니다 — 새로고침해 주세요');
+      ? t('main.boot.authFailed')
+      : t('main.boot.loadFailed', {list: failed.join('·')}));
   }
   const sess=rSes.value;
   if(sess&&sess.courts&&sess.courts.length===S.settings.courtCount&&sess.queues?.length===S.settings.queueSlotCount){
@@ -122,7 +144,7 @@
     if(untouched && !once){
       try{ sessionStorage.setItem('bmt:fbReloaded','1'); }catch{}
       location.reload();
-    } else toast('클라우드 연결이 늦게 완료되었습니다. 새로고침하면 동기화됩니다');
+    } else toast(t('main.fbLate'));
   });
 
   $$('.tab').forEach(t=>t.onclick=()=>show(t.dataset.scr));
@@ -142,7 +164,7 @@
   render();
   if(!restored && !joined) Gate.start();
   else if(Auth.isAdmin && !S.members.length){ show('mem');
-    setTimeout(()=>toast('회원을 먼저 등록하세요 — CSV 일괄등록이 빠릅니다'),500); }
+    setTimeout(()=>toast(t('main.noMembersYet')),500); }
 
   /* 승인을 기다리는 기기는 회원 문서를 지켜본다. 운영자가 승인하는 순간
      화면에서 바로 회원으로 바뀐다 — "승인했으니 새로고침하세요"라고
@@ -170,7 +192,7 @@
   // 아예 없어서 "설정 → 저장소로 가세요"가 갈 수 없는 곳을 가리켰다.
   if(Store.mode!=='firebase' && Auth.can('settings')){
     const cfg = window.__fbReadCfg && window.__fbReadCfg();
-    if(!cfg) setTimeout(()=>toast('설정 → 저장소에서 Firebase를 연결할 수 있습니다 (지금은 이 기기에만 저장됨)'),1200);
+    if(!cfg) setTimeout(()=>toast(t('main.connectFirebaseHint')),1200);
   }
 
   /* ── 다른 태블릿의 변경을 받는다 ────────────────────────────────
@@ -211,7 +233,7 @@
     sel=null; render();
     const nowPlaying = myPlayingCourt();
     if(nowPlaying && !prevPlaying) announceMyMatch(nowPlaying);
-    else toast('다른 기기에서 변경되어 화면을 갱신했습니다');
+    else toast(t('main.remoteChanged'));
   });
   window.addEventListener('beforeunload', ()=>unsub&&unsub());
 
@@ -261,10 +283,10 @@ function announceMyMatch(court){
                  .map(i=>(A(i)||{}).name).filter(Boolean);
   const el=$('#callout');
   el.innerHTML=`<div class="callout-in">
-      <div class="callout-court">${court.no}코트</div>
-      <div class="callout-msg">경기 시작입니다</div>
+      <div class="callout-court">${t('main.callout.court',{n:court.no})}</div>
+      <div class="callout-msg">${t('main.callout.started')}</div>
       <div class="callout-team">${esc(mate.join(' · ')||'—')} <span>vs</span> ${esc(foe.join(' · '))}</div>
-      <button class="btn primary" id="calloutOk">확인</button>
+      <button class="btn primary" id="calloutOk">${t('main.callout.ok')}</button>
     </div>`;
   el.classList.add('on');
   $('#calloutOk').onclick=()=>{ Sound.play('tap'); el.classList.remove('on'); };

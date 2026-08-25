@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>배드민턴 대진판</title>
-<link rel="stylesheet" href="/css/app.css?v=2026.08.19r">
+<link rel="stylesheet" href="/css/app.css?v=2026.08.19s">
 </head>
 <body>
 <div id="app">
@@ -13,21 +13,21 @@
     <div class="stat" id="statLbl"></div>
     <div class="spacer"></div>
     <div class="tabs">
-      <button class="tab on" data-scr="board">대진판</button>
-      <button class="tab" data-scr="att">출석</button>
-      <button class="tab" data-scr="mem">회원</button>
-      <button class="tab" data-scr="hist">기록</button>
-      <button class="tab" data-scr="set">설정</button>
-      <button class="tab" data-scr="help">도움말</button>
+      <button class="tab on" data-scr="board" data-i18n="app.tab.board">대진판</button>
+      <button class="tab" data-scr="att" data-i18n="app.tab.att">출석</button>
+      <button class="tab" data-scr="mem" data-i18n="app.tab.mem">회원</button>
+      <button class="tab" data-scr="hist" data-i18n="app.tab.hist">기록</button>
+      <button class="tab" data-scr="set" data-i18n="app.tab.set">설정</button>
+      <button class="tab" data-scr="help" data-i18n="app.tab.help">도움말</button>
     </div>
     <button class="btn" id="myBtn" style="display:none"></button>
     <!-- 게스트는 탭이 대진판 하나뿐이라 설정으로 갈 수 없다. 회원·운영자로
          다시 들어가는 길을 여기 하나 남겨 둔다. -->
-    <button class="btn primary" id="btnEnter" style="display:none">입장하기</button>
+    <button class="btn primary" id="btnEnter" style="display:none" data-i18n="app.btnEnter">입장하기</button>
     <span id="roleLbl"></span>
-    <span id="cloudDot" title="저장소 상태" style="width:8px;height:8px;border-radius:50%;background:var(--muted2)"></span>
-    <div class="toggle on" id="autoTgl"><span class="dot"></span><span>자동</span></div>
-    <button class="btn ghost" id="btnSort">정렬</button>
+    <span id="cloudDot" title="저장소 상태" data-i18n-title="app.cloudDotTitle" style="width:8px;height:8px;border-radius:50%;background:var(--muted2)"></span>
+    <div class="toggle on" id="autoTgl"><span class="dot"></span><span data-i18n="app.autoToggle">자동</span></div>
+    <button class="btn ghost" id="btnSort" data-i18n="app.btnSort">정렬</button>
     <button class="btn ghost" id="btnUndo">↩</button>
   </div>
 
@@ -36,20 +36,20 @@
     <div class="courts" id="courts"></div>
     <div class="lower">
       <div class="qwrap">
-        <div class="sec-h">대기열<span class="rule"></span></div>
+        <div class="sec-h" data-i18n="app.queueTitle">대기열<span class="rule"></span></div>
         <div id="queues"></div>
       </div>
       <div class="pool">
         <div class="pool-h">
-          <b style="color:var(--text)">대기 인원</b><span id="poolCnt"></span>
+          <b style="color:var(--text)" data-i18n="app.poolTitle">대기 인원</b><span id="poolCnt"></span>
           <div class="spacer"></div>
           <div class="seg" id="poolSort">
-            <button data-s="pri" class="on">순번</button>
-            <button data-s="game">게임수</button>
-            <button data-s="name">이름</button>
+            <button data-s="pri" class="on" data-i18n="app.sort.pri">순번</button>
+            <button data-s="game" data-i18n="app.sort.game">게임수</button>
+            <button data-s="name" data-i18n="app.sort.name">이름</button>
           </div>
           <div class="seg" id="poolSex">
-            <button data-x="" class="on">전체</button>
+            <button data-x="" class="on" data-i18n="app.sex.all">전체</button>
             <button data-x="M">♂</button>
             <button data-x="F">♀</button>
           </div>
@@ -63,20 +63,20 @@
   <div class="screen" id="scr-att">
     <div class="bar">
       <div class="seg" id="attSort">
-        <button data-s="name" class="on">ㄱㄴㄷ</button>
-        <button data-s="grade">급수</button>
-        <button data-s="recent">최근</button>
+        <button data-s="name" class="on" data-i18n="app.sort.alpha">ㄱㄴㄷ</button>
+        <button data-s="grade" data-i18n="app.sort.grade">급수</button>
+        <button data-s="recent" data-i18n="app.sort.recent">최근</button>
       </div>
       <div class="seg" id="attSex">
-        <button data-x="" class="on">전체</button>
-        <button data-x="M">♂ 남</button>
-        <button data-x="F">♀ 여</button>
+        <button data-x="" class="on" data-i18n="app.sex.all">전체</button>
+        <button data-x="M" data-i18n="app.sex.male">♂ 남</button>
+        <button data-x="F" data-i18n="app.sex.female">♀ 여</button>
       </div>
-      <input type="text" id="attQ" placeholder="이름 · 초성 검색" style="width:190px">
+      <input type="text" id="attQ" placeholder="이름 · 초성 검색" data-i18n-ph="app.att.searchPh" style="width:190px">
       <div class="spacer"></div>
       <div class="stat" id="attStat"></div>
-      <button class="btn" id="btnGuest">게스트 추가</button>
-      <button class="btn primary" data-scr="board">대진판 →</button>
+      <button class="btn" id="btnGuest" data-i18n="app.att.addGuest">게스트 추가</button>
+      <button class="btn primary" data-scr="board" data-i18n="app.att.toBoard">대진판 →</button>
     </div>
     <div class="pad"><div class="grid-att" id="attGrid"></div></div>
   </div>
@@ -84,14 +84,14 @@
   <!-- 회원 -->
   <div class="screen" id="scr-mem">
     <div class="bar">
-      <input type="text" id="memQ" placeholder="이름 검색" style="width:190px">
+      <input type="text" id="memQ" placeholder="이름 검색" data-i18n-ph="app.mem.searchPh" style="width:190px">
       <div class="spacer"></div>
       <span class="stat" id="memStat"></span>
-      <button class="btn" id="btnJoin" style="display:none">가입 요청</button>
-      <button class="btn" id="btnCsv">CSV 일괄등록</button>
-      <button class="btn" id="btnExport">백업</button>
-      <button class="btn" id="btnImport">복원</button>
-      <button class="btn primary" id="btnAddMem">＋ 회원 추가</button>
+      <button class="btn" id="btnJoin" style="display:none" data-i18n="app.mem.joinRequests">가입 요청</button>
+      <button class="btn" id="btnCsv" data-i18n="app.mem.csv">CSV 일괄등록</button>
+      <button class="btn" id="btnExport" data-i18n="app.mem.backup">백업</button>
+      <button class="btn" id="btnImport" data-i18n="app.mem.restore">복원</button>
+      <button class="btn primary" id="btnAddMem" data-i18n="app.mem.addMember">＋ 회원 추가</button>
     </div>
     <div class="pad"><table id="memTbl"></table></div>
   </div>
@@ -110,28 +110,37 @@
 <div id="ghost"></div>
 <div id="toast"></div>
 <input type="file" id="fileIn" accept="application/json" style="display:none">
-<div id="safeBar"><b>⚠</b><span></span><button class="btn sm" onclick="location.reload()">새로고침</button></div>
+<div id="safeBar"><b>⚠</b><span></span><button class="btn sm" onclick="location.reload()" data-i18n="app.reload">새로고침</button></div>
 <div id="gate"></div>
 <div id="callout"></div>
 
 <!-- Firebase 로더는 모듈, 나머지는 순서대로 읽히는 일반 스크립트다.
      한 파일에 다 몰아넣지 않고 역할별로 나눠 두면 한 군데만 고칠 때
      파일 전체를 다시 쓰지 않아도 된다. 로드 순서에 의존하므로 순서를 지킬 것. -->
-<script type="module" src="/js/firebase-loader.js?v=2026.08.19r"></script>
-<script src="/js/sound.js?v=2026.08.19r"></script>
-<script src="/js/store.js?v=2026.08.19r"></script>
-<script src="/js/state.js?v=2026.08.19r"></script>
-<script src="/js/secret.js?v=2026.08.19r"></script>
-<script src="/js/account.js?v=2026.08.19r"></script>
-<script src="/js/records.js?v=2026.08.19r"></script>
-<script src="/js/algo.js?v=2026.08.19r"></script>
-<script src="/js/manual.js?v=2026.08.19r"></script>
-<script src="/js/ui.js?v=2026.08.19r"></script>
-<script src="/js/actions.js?v=2026.08.19r"></script>
-<script src="/js/auth.js?v=2026.08.19r"></script>
-<script src="/js/gate.js?v=2026.08.19r"></script>
-<script src="/js/interact.js?v=2026.08.19r"></script>
-<script src="/js/screens.js?v=2026.08.19r"></script>
-<script src="/js/main.js?v=2026.08.19r"></script>
+<script type="module" src="/js/firebase-loader.js?v=2026.08.19s"></script>
+<script src="/js/lang.js?v=2026.08.19s"></script>
+<script src="/js/i18n-ko.js?v=2026.08.19s"></script>
+<script src="/js/i18n-en.js?v=2026.08.19s"></script>
+<script src="/js/i18n-zh.js?v=2026.08.19s"></script>
+<script src="/js/i18n-ja.js?v=2026.08.19s"></script>
+<script src="/js/sound.js?v=2026.08.19s"></script>
+<script src="/js/store.js?v=2026.08.19s"></script>
+<script src="/js/state.js?v=2026.08.19s"></script>
+<script src="/js/secret.js?v=2026.08.19s"></script>
+<script src="/js/account.js?v=2026.08.19s"></script>
+<script src="/js/records.js?v=2026.08.19s"></script>
+<script src="/js/algo.js?v=2026.08.19s"></script>
+<script src="/js/manual-ko.js?v=2026.08.19s"></script>
+<script src="/js/manual-en.js?v=2026.08.19s"></script>
+<script src="/js/manual-zh.js?v=2026.08.19s"></script>
+<script src="/js/manual-ja.js?v=2026.08.19s"></script>
+<script src="/js/manual.js?v=2026.08.19s"></script>
+<script src="/js/ui.js?v=2026.08.19s"></script>
+<script src="/js/actions.js?v=2026.08.19s"></script>
+<script src="/js/auth.js?v=2026.08.19s"></script>
+<script src="/js/gate.js?v=2026.08.19s"></script>
+<script src="/js/interact.js?v=2026.08.19s"></script>
+<script src="/js/screens.js?v=2026.08.19s"></script>
+<script src="/js/main.js?v=2026.08.19s"></script>
 </body>
 </html>

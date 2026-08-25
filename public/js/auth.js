@@ -156,8 +156,8 @@ const Auth = (() => {
     get isAdmin(){ return role === 'admin' || role === 'owner'; },
     get isMember(){ return role === 'member'; },
     get isViewer(){ return role === 'viewer'; },
-    roleLabel(){ return role==='owner'?'소유자' : role==='admin'?'운영자'
-                      : role==='member'?'회원' : '뷰어'; },
+    roleLabel(){ return role==='owner'?t('auth.role.owner') : role==='admin'?t('auth.role.admin')
+                      : role==='member'?t('auth.role.member') : t('auth.role.viewer'); },
 
     /* 저장된 역할 복원. 운영자는 자리를 다시 확보해야 하므로 재확인한다. */
     async restore(){
@@ -264,14 +264,14 @@ const Auth = (() => {
       return action === 'view';
     },
     denyMsg(action){
-      if(role === 'viewer') return '보기 전용으로 입장했습니다';
-      if(action === 'selfQueue')   return '대기열에는 본인 이름만 올리고 뺄 수 있습니다';
-      if(action === 'courtAssign') return '코트 배정은 운영자만 할 수 있습니다';
-      if(action === 'settings')    return '설정 변경은 운영자만 할 수 있습니다';
-      if(action === 'membersEdit') return '회원 정보 수정은 운영자만 할 수 있습니다';
-      if(action === 'closeSess')   return '세션 마감은 운영자만 할 수 있습니다';
-      if(action === 'membersBulk') return '회원 명단을 통째로 바꾸는 것은 소유자만 할 수 있습니다';
-      return '경기 운영은 운영자만 할 수 있습니다';
+      if(role === 'viewer') return t('auth.deny.viewer');
+      if(action === 'selfQueue')   return t('auth.deny.selfQueue');
+      if(action === 'courtAssign') return t('auth.deny.courtAssign');
+      if(action === 'settings')    return t('auth.deny.settings');
+      if(action === 'membersEdit') return t('auth.deny.membersEdit');
+      if(action === 'closeSess')   return t('auth.deny.closeSess');
+      if(action === 'membersBulk') return t('auth.deny.membersBulk');
+      return t('auth.deny.default');
     },
 
     /* 이 출석자가 나인가 (회원이 자기 이름만 다루도록 판별) */

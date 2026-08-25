@@ -582,6 +582,13 @@ body.docpage{height:auto;overflow:auto;padding:24px 18px}
 body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);
                         color:var(--muted2);font-size:13px}
 
+/* manual.html 전용 언어 전환 바. 앱 안 도움말 탭에는 설정 화면에 이미
+   언어 선택이 있으므로(gate.js/screens.js) 여기 이 바를 넣지 않는다. */
+.doc-lang{max-width:720px;margin:0 auto 8px;display:flex;gap:6px;justify-content:flex-end}
+.doc-lang button{border:1px solid var(--line);background:var(--surface2);border-radius:8px;
+  padding:5px 11px;font-size:13px;color:var(--muted)}
+.doc-lang button.on{background:var(--court);color:#fff;border-color:var(--court);font-weight:700}
+
 @media (max-width:780px){
   .doc{font-size:15px;padding-bottom:30px}
   .doc h1{font-size:22px}
@@ -753,6 +760,14 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
 .gate-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);
            border-radius:18px;padding:24px 22px;box-shadow:0 18px 44px rgba(22,33,29,.16)}
 .gate-card.wide{max-width:520px}
+
+/* 언어 전환 — 게이트 카드 위(고정 코너)와 설정 화면(인라인) 둘 다에서 쓴다.
+   manual.html의 .doc-lang과 같은 생김새로 통일했다. */
+.lang-switch{display:flex;gap:6px;flex-wrap:wrap}
+.lang-switch button{border:1px solid var(--line);background:var(--surface2);border-radius:8px;
+  padding:5px 11px;font-size:13px;color:var(--muted)}
+.lang-switch button.on{background:var(--court);color:#fff;border-color:var(--court);font-weight:700}
+.lang-switch-corner{position:fixed;top:14px;right:14px;z-index:201}
 .gate-title{font-size:24px;font-weight:800;letter-spacing:-.02em}
 .gate-sub{color:var(--muted);font-size:14px;margin:6px 0 18px;line-height:1.5}
 .gate-btn{display:block;width:100%;text-align:left;margin-bottom:10px;padding:15px 16px;

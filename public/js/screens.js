@@ -23,12 +23,12 @@ function renderHelp(){
   $('#helpBody').innerHTML = Manual.html({role:Auth.role})
     + `<div class="doc" style="padding-top:0">
          <div class="doc-note">
-           이 설명서는 따로 열어 링크로 보낼 수도 있습니다 —
+           ${t('screens.help.shareIntro')}
            <!-- 절대 경로여야 한다. 동호회 주소(/hanul/) 아래에서 상대 경로로
                 걸면 /hanul/manual.html이 되는데, 그건 실제 파일이 아니라
                 호스팅 rewrite가 대진판(index.html)으로 되돌려 버린다. -->
-           <a href="/manual.html" target="_blank" rel="noopener"><b>설명서만 새 창으로 열기 →</b></a><br>
-           단톡방에 붙여 두거나 인쇄해서 체육관에 붙여 두세요.
+           <a href="/manual.html" target="_blank" rel="noopener"><b>${t('screens.help.openManual')}</b></a><br>
+           ${t('screens.help.shareHint')}
          </div>
        </div>`;
 }
@@ -50,8 +50,7 @@ function renderAtt(){
      (applyRole) 화면 함수에서도 한 번 더 막는다 — CSS나 탭이 어떤 이유로
      반영되지 않아도 명단이 새지 않게. */
   if(!Auth.can('members')){
-    box.innerHTML='<div class="hint">회원 명단은 회원과 운영자만 볼 수 있습니다.<br>'
-      + '본인 이름으로 입장하면 출석을 직접 관리할 수 있습니다.</div>';
+    box.innerHTML='<div class="hint">'+t('screens.att.membersOnlyHint')+'</div>';
     $('#attStat').textContent='';
     return;
   }
@@ -66,7 +65,7 @@ function renderAtt(){
     const c=el('div','acard'+(a?' in':''));
     c.innerHTML=`<div class="ck">✓</div>
       <div class="nm">${esc(m.name)}</div>
-      ${a?`<div class="sub">${a.games}게임</div>`:''}`;
+      ${a?`<div class="sub">${t('screens.att.gamesCount',{n:a.games})}</div>`:''}`;
     c.onclick=()=>toggleAtt(m);
     box.appendChild(c);
   }
@@ -74,23 +73,23 @@ function renderAtt(){
   Object.values(S.att).filter(a=>a.guest).forEach(a=>{
     const c=el('div','acard in');
     c.innerHTML=`<div class="ck">✓</div><div class="nm">${esc(a.name)}</div>
-      <div class="sub" style="color:var(--gold)">게스트 · ${a.games}게임</div>`;
-    c.onclick=()=>{ if(confirm(`${a.name} 게스트를 삭제할까요?`)) tx(()=>{removeFrom(a.id); delete S.att[a.id];}); renderAtt(); };
+      <div class="sub" style="color:var(--gold)">${t('screens.att.guestGames',{n:a.games})}</div>`;
+    c.onclick=()=>{ if(confirm(t('screens.att.confirmDeleteGuest',{name:a.name}))) tx(()=>{removeFrom(a.id); delete S.att[a.id];}); renderAtt(); };
     box.appendChild(c);
   });
   const all=Object.values(S.att);
-  $('#attStat').innerHTML=`출석 <b>${all.length}</b> (♂${all.filter(isM).length} · ♀${all.filter(isF).length}) / 회원 ${S.members.filter(m=>m.active!==false).length}`;
+  $('#attStat').innerHTML=t('screens.att.statLine',{n:all.length,m:all.filter(isM).length,f:all.filter(isF).length,mem:S.members.filter(m=>m.active!==false).length});
 }
 function toggleAtt(m){
   // 운영자는 전원을, 회원은 본인만 출석 처리할 수 있다.
   if(!Auth.can('edit')){
     if(!(Auth.can('selfCheckIn') && m.id === Auth.memberId)){
-      Sound.play('error'); toast('본인 출석만 변경할 수 있습니다'); return;
+      Sound.play('error'); toast(t('screens.att.selfOnly')); return;
     }
   }
   const a=attendeeOf(m.id);
   if(a){
-    if(a.state==='PLAYING'&&!confirm(`${m.name} 님은 경기 중입니다. 출석을 해제하면 코트에서 빠집니다. 진행할까요?`)) return;
+    if(a.state==='PLAYING'&&!confirm(t('screens.att.confirmUnattendPlaying',{name:m.name}))) return;
     tx(()=>{ removeFrom(a.id); delete S.att[a.id]; });
   } else {
     Sound.play('tap');
@@ -104,13 +103,13 @@ function toggleAtt(m){
 $('#attQ').oninput=e=>{attQ=e.target.value;renderAtt();};
 $('#btnGuest').onclick=()=>{
   if(!requirePerm('edit')) return;
-  openModal(`<h3>게스트 추가</h3><div class="sub">당일만 사용하고 회원 명단에는 저장하지 않습니다.</div>
-    <div class="row"><label class="fl" style="flex:1">이름<input type="text" id="gN"></label>
-    <label class="fl">성별<select id="gS"><option value="M">♂ 남</option><option value="F">♀ 여</option></select></label>
-    <label class="fl">급수<select id="gG">${S.settings.grades.map(g=>`<option value="${g.code}" ${g.code==='C'?'selected':''}>${g.code} ${g.label}</option>`).join('')}</select></label></div>
-    <div class="row end"><button class="btn" onclick="closeModal()">취소</button>
-    <button class="btn primary" id="gOk">추가</button></div>`);
-  $('#gOk').onclick=()=>{ const n=$('#gN').value.trim(); if(!n) return toast('이름을 입력하세요');
+  openModal(`<h3>${t('screens.att.guestAddTitle')}</h3><div class="sub">${t('screens.att.guestAddHint')}</div>
+    <div class="row"><label class="fl" style="flex:1">${t('screens.shared.name')}<input type="text" id="gN"></label>
+    <label class="fl">${t('screens.shared.gender')}<select id="gS"><option value="M">${t('screens.shared.male')}</option><option value="F">${t('screens.shared.female')}</option></select></label>
+    <label class="fl">${t('screens.shared.grade')}<select id="gG">${S.settings.grades.map(g=>`<option value="${g.code}" ${g.code==='C'?'selected':''}>${g.code} ${g.label}</option>`).join('')}</select></label></div>
+    <div class="row end"><button class="btn" onclick="closeModal()">${t('screens.shared.cancel')}</button>
+    <button class="btn primary" id="gOk">${t('screens.att.guestAddBtn')}</button></div>`);
+  $('#gOk').onclick=()=>{ const n=$('#gN').value.trim(); if(!n) return toast(t('screens.shared.nameRequired'));
     closeModal(); tx(()=>{ const id=uid('a');
       S.att[id]={id,memberId:null,name:n,grade:$('#gG').value,gender:$('#gS').value,birthYear:null,
                  guest:true,games:0,lastEnd:null,state:'POOL',jit:Math.random()}; }); renderAtt(); };
@@ -121,18 +120,18 @@ let memQ='';
 function renderMem(){
   if(!Auth.can('members')){
     $('#memTbl').innerHTML=''; $('#memStat').textContent='';
-    $('#scr-mem').querySelector('.pad').innerHTML='<div class="hint">회원 명단은 회원/운영자만 볼 수 있습니다.</div>';
+    $('#scr-mem').querySelector('.pad').innerHTML='<div class="hint">'+t('screens.mem.membersOnlyHint')+'</div>';
     return;
   }
-  const t=$('#memTbl');
+  const tbl=$('#memTbl');
   let list=S.members.filter(m=>matchQ(m.name,memQ.trim()));
   list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-  t.innerHTML=`<tr><th>이름</th><th>성별</th><th>출생년도</th><th>급수</th><th>상태</th><th></th></tr>`
+  tbl.innerHTML=`<tr><th>${t('screens.shared.name')}</th><th>${t('screens.shared.gender')}</th><th>${t('screens.mem.birthYear')}</th><th>${t('screens.shared.grade')}</th><th>${t('screens.mem.status')}</th><th></th></tr>`
     + list.map(m=>`<tr><td style="font-weight:700;font-size:16px">${esc(m.name)}</td>
       <td>${sexIcon(m.gender)}</td><td class="num">${m.birthYear||'—'}</td>
       <td><b style="color:${G(m.grade).color}">${esc(m.grade)}</b> <span style="color:var(--muted)">${esc(G(m.grade).label)}</span></td>
-      <td style="color:${m.active===false?'var(--muted2)':'var(--court)'}">${m.active===false?'비활성':'활성'}</td>
-      <td style="text-align:right"><button class="btn sm" data-edit="${m.id}">수정</button></td></tr>`).join('');
+      <td style="color:${m.active===false?'var(--muted2)':'var(--court)'}">${m.active===false?t('screens.mem.inactive'):t('screens.mem.active')}</td>
+      <td style="text-align:right"><button class="btn sm" data-edit="${m.id}">${t('screens.mem.editBtn')}</button></td></tr>`).join('');
   // 복원 버튼은 설정을 덮어쓰므로 운영자에게만 보인다
   const imp=$('#btnImport'); if(imp) imp.style.display = Auth.can('settings')? '' : 'none';
   renderJoinBtn();
@@ -140,9 +139,9 @@ function renderMem(){
     if(b) b.style.display = Auth.can('membersEdit')? '' : 'none'; });
   const act=S.members.filter(m=>m.active!==false);
   const noG=S.members.filter(m=>m.gender!=='M'&&m.gender!=='F').length;
-  $('#memStat').innerHTML=`전체 <b>${S.members.length}</b> · 활성 <b>${act.length}</b> (♂${act.filter(isM).length} · ♀${act.filter(isF).length})`
-    + (noG?` · <span style="color:var(--cork)">성별 미입력 ${noG}</span>`:'');
-  t.onclick=e=>{ const b=e.target.closest('[data-edit]'); if(!b) return;
+  $('#memStat').innerHTML=t('screens.mem.statLine',{total:S.members.length,active:act.length,m:act.filter(isM).length,f:act.filter(isF).length})
+    + (noG?t('screens.mem.noGenderWarn',{n:noG}):'');
+  tbl.onclick=e=>{ const b=e.target.closest('[data-edit]'); if(!b) return;
     if(!requirePerm('membersEdit')) return;
     memDialog(S.members.find(m=>m.id===b.dataset.edit)); };
 }
@@ -153,35 +152,35 @@ function renderJoinBtn(){
   const b=$('#btnJoin'); if(!b) return;
   const n=(S.joinRequests||[]).length;
   b.style.display = (Auth.can('membersEdit') && n) ? '' : 'none';
-  b.textContent = `가입 요청 ${n}`;
+  b.textContent = t('screens.mem.joinReqBtn',{n});
   b.classList.toggle('warn', n>0);
 }
 function joinDialog(){
   if(!requirePerm('membersEdit')) return;
   const list=(S.joinRequests||[]).slice().sort((a,b)=>a.at-b.at);
-  if(!list.length){ closeModal(); return toast('대기 중인 가입 요청이 없습니다'); }
-  openModal(`<h3>가입 요청 ${list.length}건</h3>
-    <div class="sub">승인하면 회원 명단에 올라가고, 그 사람 기기는 자동으로 회원으로 전환됩니다.</div>
+  if(!list.length){ closeModal(); return toast(t('screens.mem.noJoinReq')); }
+  openModal(`<h3>${t('screens.mem.joinReqTitle',{n:list.length})}</h3>
+    <div class="sub">${t('screens.mem.joinReqHint')}</div>
     ${list.map(r=>`<div class="opt" style="cursor:default">
       <div style="flex:1">
         <div class="t">${esc(r.name)} <span style="color:${G(r.grade).color}">${esc(r.grade)}</span></div>
-        <div class="d">${r.gender==='M'?'♂ 남':'♀ 여'}${r.birthYear?' · '+r.birthYear:''}
+        <div class="d">${r.gender==='M'?t('screens.shared.male'):t('screens.shared.female')}${r.birthYear?' · '+r.birthYear:''}
           · ${new Date(r.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
       </div>
-      <button class="btn sm" data-rej="${esc(r.id)}">거절</button>
-      <button class="btn sm primary" data-app="${esc(r.id)}">승인</button>
+      <button class="btn sm" data-rej="${esc(r.id)}">${t('screens.mem.rejectBtn')}</button>
+      <button class="btn sm primary" data-app="${esc(r.id)}">${t('screens.mem.approveBtn')}</button>
     </div>`).join('')}
-    <div class="row end"><button class="btn" onclick="closeModal()">닫기</button></div>`);
+    <div class="row end"><button class="btn" onclick="closeModal()">${t('screens.shared.close')}</button></div>`);
   $$('#modal [data-app]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
     const m=await approveJoinRequest(b.dataset.app);
     Sound.play('confirm');
-    if(m) toast(`${m.name} 님을 회원으로 등록했습니다`);
+    if(m) toast(t('screens.mem.approvedToast',{name:m.name}));
     renderMem(); joinDialog();
   });
   $$('#modal [data-rej]').forEach(b=>b.onclick=async()=>{
     const r=(S.joinRequests||[]).find(x=>x.id===b.dataset.rej);
-    if(!confirm(`${r?r.name:'이 요청'} 님의 가입 요청을 거절할까요?`)) return;
+    if(!confirm(t('screens.mem.confirmReject',{name:r?r.name:t('screens.mem.thisRequest')}))) return;
     b.disabled=true;
     await rejectJoinRequest(b.dataset.rej);
     Sound.play('tap'); renderMem(); joinDialog();
@@ -192,43 +191,40 @@ $('#memQ').oninput=e=>{memQ=e.target.value;renderMem();};
 $('#btnAddMem').onclick=()=>{ if(!requirePerm('membersEdit')) return; Sound.play('tap'); memDialog(null); };
 function memDialog(m){
   const isNew=!m;
-  openModal(`<h3>${isNew?'회원 추가':'회원 수정'}</h3><div class="sub">성별은 경기 유형 판정에 쓰이므로 필수입니다.</div>
-    <div class="row"><label class="fl" style="flex:1">이름<input type="text" id="mN" value="${esc(m?.name||'')}"></label>
-    <label class="fl">성별<select id="mS">
-      <option value="">선택</option>
-      <option value="M" ${m?.gender==='M'?'selected':''}>♂ 남</option>
-      <option value="F" ${m?.gender==='F'?'selected':''}>♀ 여</option></select></label>
-    <label class="fl">출생년도<input type="number" id="mY" style="width:110px" value="${m?.birthYear||''}" placeholder="1985"></label>
-    <label class="fl">급수<select id="mG">${S.settings.grades.map(g=>`<option value="${g.code}" ${m?.grade===g.code?'selected':''}>${g.code} ${g.label}</option>`).join('')}</select></label></div>
-    ${isNew?'':`<label class="row" style="margin-top:14px;cursor:pointer"><input type="checkbox" id="mA" ${m.active!==false?'checked':''} style="width:20px;height:20px"> 활성 (해제하면 출석 목록에서 숨겨집니다)</label>`}
-    <div class="row end">${isNew?'':'<button class="btn ghost" id="mDel" style="margin-right:auto;color:var(--cork)">삭제</button>'}
-    <button class="btn" onclick="closeModal()">취소</button><button class="btn primary" id="mOk">저장</button></div>`);
+  openModal(`<h3>${isNew?t('screens.mem.addTitle'):t('screens.mem.editTitle')}</h3><div class="sub">${t('screens.mem.genderRequiredHint')}</div>
+    <div class="row"><label class="fl" style="flex:1">${t('screens.shared.name')}<input type="text" id="mN" value="${esc(m?.name||'')}"></label>
+    <label class="fl">${t('screens.shared.gender')}<select id="mS">
+      <option value="">${t('screens.mem.selectOpt')}</option>
+      <option value="M" ${m?.gender==='M'?'selected':''}>${t('screens.shared.male')}</option>
+      <option value="F" ${m?.gender==='F'?'selected':''}>${t('screens.shared.female')}</option></select></label>
+    <label class="fl">${t('screens.mem.birthYear')}<input type="number" id="mY" style="width:110px" value="${m?.birthYear||''}" placeholder="1985"></label>
+    <label class="fl">${t('screens.shared.grade')}<select id="mG">${S.settings.grades.map(g=>`<option value="${g.code}" ${m?.grade===g.code?'selected':''}>${g.code} ${g.label}</option>`).join('')}</select></label></div>
+    ${isNew?'':`<label class="row" style="margin-top:14px;cursor:pointer"><input type="checkbox" id="mA" ${m.active!==false?'checked':''} style="width:20px;height:20px"> ${t('screens.mem.activeLabel')}</label>`}
+    <div class="row end">${isNew?'':`<button class="btn ghost" id="mDel" style="margin-right:auto;color:var(--cork)">${t('screens.mem.deleteBtn')}</button>`}
+    <button class="btn" onclick="closeModal()">${t('screens.shared.cancel')}</button><button class="btn primary" id="mOk">${t('screens.mem.saveBtn')}</button></div>`);
   $('#mOk').onclick=()=>{
     const n=$('#mN').value.trim(), g=$('#mS').value;
-    if(!n) return toast('이름을 입력하세요');
-    if(!g) return toast('성별을 선택하세요');
+    if(!n) return toast(t('screens.shared.nameRequired'));
+    if(!g) return toast(t('screens.mem.genderRequired'));
     const y=parseInt($('#mY').value)||null;
     if(isNew) S.members.push({id:uid('m'),name:n,gender:g,birthYear:y,grade:$('#mG').value,active:true,lastSeen:0});
     else Object.assign(m,{name:n,gender:g,birthYear:y,grade:$('#mG').value,active:$('#mA').checked});
-    closeModal(); save(); renderMem(); toast('저장했습니다');
+    closeModal(); save(); renderMem(); toast(t('screens.mem.savedToast'));
   };
   /* 한 명 삭제는 이름을 눈으로 확인하고 지우는 조작이라 비밀번호까지는 받지 않는다.
      대신 기준선을 같이 내려 준다 — 그래야 save()의 회원 삭제 방지 잠금을 통과한다.
      (여러 명이 한꺼번에 사라지는 저장은 그 잠금에 걸려 아예 올라가지 않는다.) */
   if(!isNew) $('#mDel').onclick=()=>{
-    if(!confirm(`${m.name} 님을 클럽 명단에서 삭제할까요?\n\n`
-      + '· 클라우드에서 지워지고 모든 기기에 반영됩니다\n'
-      + '· 되돌리기(↩)로는 되돌아가지 않습니다\n'
-      + "· 기록 보존을 위해 보통은 '활성' 해제를 권합니다")) return;
+    if(!confirm(t('screens.mem.confirmDelete',{name:m.name}))) return;
     S.members=S.members.filter(x=>x.id!==m.id);
     setMembersBaseline(S.members);
     closeModal(); save(); renderMem(); };
 }
 $('#btnCsv').onclick=()=>{
   if(!requirePerm('membersEdit')) return;
-  openModal(`<h3>CSV 일괄 등록</h3><div class="sub">헤더 포함. 형식: 이름,출생년도,급수,성별</div>
-    <textarea id="csv" rows="12" placeholder="이름,출생년도,급수,성별&#10;김철수,1982,B,M&#10;박영희,1990,C,여"></textarea>
-    <div class="row end"><button class="btn" onclick="closeModal()">취소</button><button class="btn primary" id="csvOk">가져오기</button></div>`);
+  openModal(`<h3>${t('screens.mem.csvTitle')}</h3><div class="sub">${t('screens.mem.csvHint')}</div>
+    <textarea id="csv" rows="12" placeholder="${t('screens.mem.csvPlaceholder')}"></textarea>
+    <div class="row end"><button class="btn" onclick="closeModal()">${t('screens.shared.cancel')}</button><button class="btn primary" id="csvOk">${t('screens.mem.csvImportBtn')}</button></div>`);
   $('#csvOk').onclick=()=>{
     const lines=$('#csv').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     const add=[], err=[];
@@ -237,24 +233,24 @@ $('#btnCsv').onclick=()=>{
       if(i===0&&/이름/.test(ln)) return;
       const p=ln.split(',').map(x=>x.trim());
       const [name,by,gr,sx]=p;
-      if(!name) return err.push(`${i+1}행: 이름 없음`);
+      if(!name) return err.push(t('screens.mem.csvNoName',{n:i+1}));
       const gender = /^(M|m|남)/.test(sx||'')?'M' : /^(F|f|여)/.test(sx||'')?'F' : null;
-      if(!gender) return err.push(`${i+1}행 ${name}: 성별 없음`);
+      if(!gender) return err.push(t('screens.mem.csvNoGender',{n:i+1,name}));
       let grade=(gr||'').toUpperCase();
       if(!codes.includes(grade)){ const byLabel=S.settings.grades.find(g=>g.label===gr); grade=byLabel?byLabel.code:'C'; }
       const dup = m => m.name===name && String(m.birthYear||'')===String(by||'');
-      if(S.members.some(dup)||add.some(dup)) return err.push(`${i+1}행 ${name}: 중복`);
+      if(S.members.some(dup)||add.some(dup)) return err.push(t('screens.mem.csvDup',{n:i+1,name}));
       add.push({id:uid('m'),name,gender,birthYear:parseInt(by)||null,grade,active:true,lastSeen:0});
     });
     closeModal();
     const showErr = ()=>{ if(!err.length) return;
-      setTimeout(()=>openModal(`<h3>가져오기 결과</h3><div class="sub">등록 ${add.length}건 · 오류 ${err.length}건</div>
+      setTimeout(()=>openModal(`<h3>${t('screens.mem.csvResultTitle')}</h3><div class="sub">${t('screens.mem.csvResultHint',{add:add.length,err:err.length})}</div>
         <div class="hint">${err.map(esc).join('<br>')}</div>
-        <div class="row end"><button class="btn primary" onclick="closeModal()">확인</button></div>`),300); };
-    if(!add.length){ toast(`등록할 회원이 없습니다${err.length?` / 오류 ${err.length}건`:''}`); return showErr(); }
+        <div class="row end"><button class="btn primary" onclick="closeModal()">${t('screens.shared.confirm')}</button></div>`),300); };
+    if(!add.length){ toast(t('screens.mem.noneToRegister')+(err.length?t('screens.mem.errSuffix',{n:err.length}):'')); return showErr(); }
     // 여러 명을 한 번에 회원 문서에 쓰는 조작이므로 비밀번호 확인을 거친다.
     bulkOverwriteMembers(S.members.concat(add),
-      { source:`CSV 일괄등록 — ${add.length}명 추가`, after:showErr });
+      { source:t('screens.mem.csvSource',{n:add.length}), after:showErr });
   };
 };
 /* 백업 내려받기. 덮어쓰기 확인 창에서도 부르므로 이름을 붙여 둔다. */
@@ -264,7 +260,7 @@ async function exportBackup(){
   for(const d of idx) sessions[d]=await Store.get(K('session:'+d));
   const blob=new Blob([JSON.stringify({v:1,club:CLUB,settings:S.settings,members:S.members,sessions},null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=`배드민턴_백업_${todayStr()}.json`; a.click(); toast('백업 파일을 내려받았습니다');
+  a.download=t('screens.mem.backupFilename',{date:todayStr()}); a.click(); toast(t('screens.mem.backupDownloadedToast'));
 }
 $('#btnExport').onclick=exportBackup;
 $('#btnImport').onclick=()=>{
@@ -277,11 +273,11 @@ $('#fileIn').onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{ try{
     const d=JSON.parse(r.result);
-    if(!d || !Array.isArray(d.members)) return toast('회원 명단이 들어 있는 백업 파일이 아닙니다');
+    if(!d || !Array.isArray(d.members)) return toast(t('screens.mem.notBackupFile'));
     /* 복원은 회원 문서를 파일 내용으로 통째로 갈아끼우는 조작이다.
        비밀번호 확인을 통과한 뒤에야 설정·세션까지 함께 적용한다. */
     bulkOverwriteMembers(d.members, {
-      source:`백업 파일 복원 — ${f.name}`,
+      source:t('screens.mem.restoreSource',{file:f.name}),
       async applyExtra(){
         S.settings=Object.assign(clone(DEFAULTS),d.settings||{});
         settingsTrusted = true;                 // 파일에서 통째로 받은 값이다
@@ -291,9 +287,9 @@ $('#fileIn').onchange=e=>{
         const cur=d.sessions?.[S.date];
         if(cur) Object.assign(S,{att:cur.att||{},courts:cur.courts,queues:cur.queues,matches:cur.matches||[],hist:cur.hist||[]});
       },
-      after(){ renderSet(); toast('복원했습니다 — 설정과 세션 기록도 파일 내용으로 바뀌었습니다'); }
+      after(){ renderSet(); toast(t('screens.mem.restoredToast')); }
     });
-  }catch(err){ toast('파일을 읽을 수 없습니다'); } };
+  }catch(err){ toast(t('screens.mem.fileReadError')); } };
   r.readAsText(f); e.target.value='';
 };
 
@@ -321,16 +317,16 @@ function winBarHtml(w, l){
 /* 경기 유형 분포 — 한 줄짜리 누적 막대. 색은 배지(.mt)와 같은 것을 쓴다.
    좁은 조각에는 글자가 안 들어가므로 8% 미만이면 범례에만 남긴다. */
 function typeStackHtml(byType, total){
-  const ts = ['MD','WD','XD','MX','UNKNOWN'].filter(t=>byType[t]);
+  const ts = ['MD','WD','XD','MX','UNKNOWN'].filter(ty=>byType[ty]);
   if(!ts.length || !total) return '';
   return `<div style="margin-bottom:22px">
     <div class="mstack">
-      ${ts.map(t=>{ const p = 100*byType[t]/total; return `<i style="width:${p.toFixed(1)}%;background:${MT_COLOR[t]}">${
-        p>=8?`<span>${MT_LBL[t]} ${Math.round(p)}%</span>`:''}</i>`; }).join('')}
+      ${ts.map(ty=>{ const p = 100*byType[ty]/total; return `<i style="width:${p.toFixed(1)}%;background:${MT_COLOR[ty]}">${
+        p>=8?`<span>${MT_LBL[ty]} ${Math.round(p)}%</span>`:''}</i>`; }).join('')}
     </div>
     <div class="mlegend">
-      ${ts.map(t=>`<span><b style="background:${MT_COLOR[t]}"></b>${MT_LBL[t]} ${byType[t]}경기
-        · ${Math.round(100*byType[t]/total)}%</span>`).join('')}
+      ${ts.map(ty=>`<span><b style="background:${MT_COLOR[ty]}"></b>${MT_LBL[ty]} ${t('screens.shared.matchCount',{n:byType[ty]})}
+        · ${Math.round(100*byType[ty]/total)}%</span>`).join('')}
     </div></div>`;
 }
 
@@ -339,8 +335,7 @@ function renderHist(){
   /* 기록에는 출석자 전원의 이름과 게임 수가 그대로 있다. 게스트에게는
      탭도 감추지만(applyRole) 화면 함수에서도 한 번 더 막는다. */
   if(Auth.isViewer){
-    $('#histBody').innerHTML='<div class="hint">경기 기록은 회원과 운영자만 볼 수 있습니다.<br>'
-      + '본인 이름으로 입장하면 내 게임 수를 확인할 수 있습니다.</div>';
+    $('#histBody').innerHTML='<div class="hint">'+t('screens.hist.membersOnlyHint')+'</div>';
     return;
   }
   const done=S.matches.filter(m=>m.endedAt);

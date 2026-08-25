@@ -55,7 +55,7 @@ function abortMatch(c){
 function undo(){
   if(!undoStack.length) return;
   const s=JSON.parse(undoStack.pop());
-  Object.assign(S,s); sel=null; save(); render(); toast('되돌렸습니다');
+  Object.assign(S,s); sel=null; save(); render(); toast(t('actions.undo.done'));
 }
 let saveT;
 /* 마지막으로 저장한 내용을 기억해 두고 바뀐 것만 쓴다.
@@ -87,12 +87,11 @@ function save(){
       const gone = droppedMembers(S.members);
       if(gone===null){
         console.warn('회원 명단 기준선이 없어 저장을 막았습니다');
-        setSafeMode(true, '회원 명단을 확인하지 못한 상태입니다. 덮어쓰기를 막았습니다 — 새로고침해 주세요');
+        setSafeMode(true, t('actions.save.safeModeNoBaseline'));
       }else if(gone.length){
         console.warn('승인되지 않은 회원 삭제 — 저장을 막았습니다', gone.map(m=>m.name));
-        setSafeMode(true, `회원 ${gone.length}명이 화면에서 사라진 채로 저장되려 했습니다`
-          + ` (${loadedMembersCount}명 → ${S.members.length}명). 덮어쓰기를 막았습니다`
-          + ' — 새로고침하거나 설정 → 데이터 복구를 쓰세요');
+        setSafeMode(true, t('actions.save.safeModeMembersGone',
+          {count:gone.length, from:loadedMembersCount, to:S.members.length}));
       }else{
         await Store.set(K('members'),S.members); lastWritten.members=mem;
         setMembersBaseline(S.members);          // 방금 쓴 내용이 곧 DB의 내용
@@ -146,14 +145,11 @@ async function bulkOverwriteMembers(nextList, opt={}){
   const r = opt.dbRead || await Store.getSafe(K('members'), {strict:true});
   if(!r.ok){
     Sound.play('error');
-    openModal(`<h3>덮어쓸 수 없습니다</h3>
-      <div class="sub">${esc(opt.source||'회원 명단 덮어쓰기')}</div>
+    openModal(`<h3>${t('actions.bulk.readFailTitle')}</h3>
+      <div class="sub">${esc(opt.source||t('actions.bulk.defaultSource'))}</div>
       <div class="hint" style="line-height:1.8">
-        클라우드에 지금 어떤 명단이 들어 있는지 확인하지 못했습니다
-        (${esc(r.error||'읽기 실패')}).<br>
-        무엇을 덮어쓰게 되는지 모르는 상태에서는 회원 명단을 바꾸지 않습니다.
-        연결을 확인하고 다시 시도해 주세요.</div>
-      <div class="row end"><button class="btn primary" onclick="closeModal()">확인</button></div>`);
+        ${t('actions.bulk.readFailBody',{error:esc(r.error||t('actions.bulk.readFailDefault'))})}</div>
+      <div class="row end"><button class="btn primary" onclick="closeModal()">${t('actions.common.confirm')}</button></div>`);
     return;
   }
   const cur = r.value || [];
@@ -180,24 +176,19 @@ async function bulkOverwriteMembers(nextList, opt={}){
     if(!who.ok || who.role !== 'owner'){
       Sound.play('error');
       const acc = Account.current();
-      openModal(`<h3>소유자 계정이 필요합니다</h3>
-        <div class="sub">${esc(opt.source||'회원 명단 덮어쓰기')}</div>
+      const roleMsg = !who.ok
+        ? t('actions.bulk.roleUnknown')
+        : acc
+          ? t('actions.bulk.notOwnerAccount', {email: esc(acc.email||acc.name)})
+          : t('actions.bulk.notLoggedIn');
+      openModal(`<h3>${t('actions.bulk.ownerRequiredTitle')}</h3>
+        <div class="sub">${esc(opt.source||t('actions.bulk.defaultSource'))}</div>
         <div class="hint" style="line-height:1.8">
-          회원이 <b style="color:var(--cork)">${d.from}명 → ${d.to}명</b>으로 크게 줄어드는
-          교체입니다. 이런 조작은 서버가 <b>소유자 계정</b>에게만 허용합니다.<br><br>
-          ${!who.ok
-            ? '지금은 역할을 확인하지 못했습니다 — 연결을 확인하고 다시 시도해 주세요.'
-            : acc
-              ? `지금 로그인된 계정(<b>${esc(acc.email||acc.name)}</b>)은 이 동호회의 소유자가 아닙니다.`
-              : '지금은 계정으로 로그인되어 있지 않습니다. 상단 <b>입장하기</b> → 소유자 → '
-                + '<b>계정으로 로그인</b>으로 들어온 뒤 다시 시도해 주세요.'}
-          <br><br>
-          <b style="color:var(--text)">소유자 비밀번호만으로는 되지 않습니다.</b>
-          비밀번호는 앱 안에서만 확인되고, 서버는 그것을 볼 수 없기 때문입니다.
+          ${t('actions.bulk.ownerRequiredBody',{from:d.from,to:d.to,roleMsg})}
         </div>
         <div class="row end">
-          <button class="btn" id="bulkBackup">백업 내려받기</button>
-          <button class="btn primary" onclick="closeModal()">확인</button></div>`);
+          <button class="btn" id="bulkBackup">${t('actions.bulk.downloadBackup')}</button>
+          <button class="btn primary" onclick="closeModal()">${t('actions.common.confirm')}</button></div>`);
       const b=$('#bulkBackup'); if(b) b.onclick=()=>exportBackup();
       return;
     }
@@ -205,63 +196,55 @@ async function bulkOverwriteMembers(nextList, opt={}){
 
   // 2) 결과 명기
   const names = arr => arr.slice(0,8).map(m=>esc(m.name)).join(', ')
-                     + (arr.length>8 ? ` 외 ${arr.length-8}명` : '');
+                     + (arr.length>8 ? t('actions.bulk.andMore',{n:arr.length-8}) : '');
   const attHit = Object.values(S.att)
     .filter(a=>a.memberId && d.removed.some(m=>m.id===a.memberId));
   const offline = Store.mode==='firebase' && r.cached;
   const local   = Store.mode!=='firebase';
 
   const rows = [
-    ['현재 클라우드', `<b class="num">${d.from}</b>명`],
-    ['덮어쓴 뒤',     `<b class="num">${d.to}</b>명`],
-    ['삭제',  d.removed.length
-        ? `<b class="num" style="color:var(--cork)">${d.removed.length}</b>명 — ${names(d.removed)}`
-        : '<span style="color:var(--muted2)">없음</span>'],
-    ['추가',  d.added.length
-        ? `<b class="num" style="color:var(--court)">${d.added.length}</b>명 — ${names(d.added)}`
-        : '<span style="color:var(--muted2)">없음</span>'],
-    ['정보 변경', d.changed.length
-        ? `<b class="num">${d.changed.length}</b>명 — ${names(d.changed)}`
-        : '<span style="color:var(--muted2)">없음</span>']
+    [t('actions.bulk.rowCurrentCloud'), t('actions.bulk.peopleCountPlain',{n:d.from})],
+    [t('actions.bulk.rowAfterOverwrite'), t('actions.bulk.peopleCountPlain',{n:d.to})],
+    [t('actions.bulk.rowRemoved'),  d.removed.length
+        ? t('actions.bulk.peopleCountRemoved',{n:d.removed.length, names:names(d.removed)})
+        : t('actions.bulk.noneStyled')],
+    [t('actions.bulk.rowAdded'),  d.added.length
+        ? t('actions.bulk.peopleCountAdded',{n:d.added.length, names:names(d.added)})
+        : t('actions.bulk.noneStyled')],
+    [t('actions.bulk.rowChanged'), d.changed.length
+        ? t('actions.bulk.peopleCountChanged',{n:d.changed.length, names:names(d.changed)})
+        : t('actions.bulk.noneStyled')]
   ];
 
   const results = [
-    `클라우드의 회원 문서(<span class="num">clubs/${esc(CLUB)}/kv/members</span>)가
-     <b>통째로 교체</b>됩니다. 지금 값은 남지 않습니다.`,
+    t('actions.bulk.resultReplace',{club:esc(CLUB)}),
     d.removed.length
-      ? `회원 <b style="color:var(--cork)">${d.removed.length}명</b>이 DB에서 사라집니다.
-         출석 목록·회원 화면·입장 화면에서 더 이상 고를 수 없게 됩니다.`
-      : '삭제되는 회원은 없습니다.',
-    `같은 클럽에 접속한 <b>모든 기기</b>(태블릿·휴대폰)에 그대로 반영됩니다.
-     이 기기에서만 되돌릴 수 있는 조작이 아닙니다.`,
-    `대진판의 <b>되돌리기(↩)로는 되돌아가지 않습니다.</b>
-     되돌리려면 회원 화면의 <b>백업</b> 파일이 있어야 합니다.`,
-    `지난 세션의 경기 기록은 지워지지 않지만, 삭제된 회원은 기록에 이름으로만 남고
-     회원 정보와의 연결이 끊깁니다.`
+      ? t('actions.bulk.resultRemoved',{n:d.removed.length})
+      : t('actions.bulk.resultNoneRemoved'),
+    t('actions.bulk.resultAllDevices'),
+    t('actions.bulk.resultNoUndo'),
+    t('actions.bulk.resultHistoryKept')
   ];
   if(attHit.length) results.push(
-    `<b style="color:var(--cork)">오늘 출석 중인 ${attHit.length}명(${names(attHit)})이 삭제 대상입니다.</b>
-     이미 출석한 사람은 오늘 세션에서 그대로 뛰지만, 다음 세션부터는 명단에 없습니다.`);
+    t('actions.bulk.resultAttHit',{n:attHit.length, names:names(attHit)}));
   if(offline) results.push(
-    `<b style="color:var(--cork)">지금 오프라인입니다.</b> 이 덮어쓰기는 일단 이 기기에만 적용되고,
-     연결이 돌아오는 순간 위 내용 그대로 클라우드에 올라갑니다. 그 사이 다른 기기에서
-     바뀐 내용이 있으면 그것까지 덮어씁니다.`);
+    t('actions.bulk.resultOffline'));
   if(local) results.push(
-    `Firebase에 연결돼 있지 않아 이 기기에만 적용됩니다.`);
+    t('actions.bulk.resultLocalOnly'));
 
   const bodyHtml = `
     <div class="kv" style="grid-template-columns:92px 1fr;gap:9px 12px;margin-bottom:14px">
       ${rows.map(([k,v])=>`<div class="k">${k}</div><div>${v}</div>`).join('')}
     </div>
     <div class="hint" style="margin-bottom:14px">
-      <b style="color:var(--text)">이 동작의 결과</b>
+      <b style="color:var(--text)">${t('actions.bulk.resultHeading')}</b>
       <ul style="margin:6px 0 0;padding-left:18px">
-        ${results.map(t=>`<li style="margin-bottom:4px">${t}</li>`).join('')}
+        ${results.map(x=>`<li style="margin-bottom:4px">${x}</li>`).join('')}
       </ul>
     </div>
     <div class="row" style="margin-bottom:12px">
-      <button class="btn sm" id="pinBackup">먼저 백업 내려받기</button>
-      <span class="hint">되돌릴 수단은 이 백업 파일뿐입니다.</span>
+      <button class="btn sm" id="pinBackup">${t('actions.bulk.downloadBackupFirst')}</button>
+      <span class="hint">${t('actions.bulk.onlyBackupUndo')}</span>
     </div>`;
 
   /* 3) 마지막 확인
@@ -271,12 +254,12 @@ async function bulkOverwriteMembers(nextList, opt={}){
      위의 서버 확인). 비밀번호를 한 번 더 묻는 것은 확인이 아니라 의식이다.
 
      대신 무엇이 사라지는지 보여 주는 일은 그대로 둔다. 그게 진짜 확인이다. */
-  openModal(`<h3>회원 명단 덮어쓰기</h3>
-    <div class="sub">${esc(opt.source || '회원 명단 전체를 바꿉니다')}</div>
+  openModal(`<h3>${t('actions.bulk.title')}</h3>
+    <div class="sub">${esc(opt.source || t('actions.bulk.defaultSourceFull'))}</div>
     ${bodyHtml}
     <div class="row end">
-      <button class="btn" id="bulkCancel">취소</button>
-      <button class="btn warn" id="bulkOk">덮어쓰기</button></div>`);
+      <button class="btn" id="bulkCancel">${t('actions.common.cancel')}</button>
+      <button class="btn warn" id="bulkOk">${t('actions.bulk.overwriteBtn')}</button></div>`);
   const bk=$('#pinBackup'); if(bk) bk.onclick=()=>exportBackup();
   $('#bulkCancel').onclick=closeModal;
   $('#bulkOk').onclick=async()=>{
@@ -289,7 +272,7 @@ async function bulkOverwriteMembers(nextList, opt={}){
     save(); render();
     if(typeof renderMem==='function') renderMem();
     Sound.play('confirm');
-    toast(`회원 명단을 덮어썼습니다 (${d.from}명 → ${d.to}명)`);
+    toast(t('actions.bulk.overwriteDone',{from:d.from, to:d.to}));
     if(opt.after) opt.after();
   };
 }
@@ -336,10 +319,10 @@ function pushQueueToCourt(q, c){
   const held = q.members.find(i=>isHeld(i));
   if(held && heldBlock(held)) return false;
   c = c || firstEmptyCourt();
-  if(!c){ Sound.play('error'); toast('빈 코트가 없습니다'); return false; }
-  if(c.disabled){ Sound.play('error'); toast(`${c.no}코트는 사용하지 않습니다`); return false; }
-  if(c.status==='PLAYING'){ Sound.play('error'); toast('경기 중인 코트에는 넣을 수 없습니다'); return false; }
-  if(c.members.length){ Sound.play('error'); toast(`${c.no}코트가 이미 차 있습니다`); return false; }
+  if(!c){ Sound.play('error'); toast(t('actions.queue.noEmptyCourt')); return false; }
+  if(c.disabled){ Sound.play('error'); toast(t('actions.queue.courtDisabled',{no:c.no})); return false; }
+  if(c.status==='PLAYING'){ Sound.play('error'); toast(t('actions.queue.courtPlaying')); return false; }
+  if(c.members.length){ Sound.play('error'); toast(t('actions.queue.courtFull',{no:c.no})); return false; }
   q.members.forEach(flash);            // 네 명 모두 착지 애니메이션 (render 전에 걸어야 한다)
   tx(()=>{
     c.members=q.members; c.teams=q.teams; c.matchType=q.matchType; c.typeSource=q.typeSource;
@@ -371,12 +354,11 @@ function fillEmptyCourt(c){
   askOneOffAutoFill(c.no);
 }
 function askOneOffAutoFill(no){
-  openModal(`<h3>${no}코트 자동 배정</h3>
-    <div class="sub">대기열에 다 채워진 팀이 없습니다. 대기 인원에서
-      지금 한 번만 자동으로 팀을 짜서 이 코트에 넣을까요?</div>
+  openModal(`<h3>${t('actions.fill.autoTitle',{no})}</h3>
+    <div class="sub">${t('actions.fill.confirmOnce')}</div>
     <div class="row end">
-      <button class="btn" id="fillCancel">취소</button>
-      <button class="btn primary" id="fillOk">자동 배정</button>
+      <button class="btn" id="fillCancel">${t('actions.common.cancel')}</button>
+      <button class="btn primary" id="fillOk">${t('actions.fill.autoAssignBtn')}</button>
     </div>`);
   $('#fillCancel').onclick = closeModal;
   $('#fillOk').onclick = ()=>{ closeModal(); composeIntoCourt(no); };
@@ -386,23 +368,23 @@ function askOneOffAutoFill(no){
 function composeIntoCourt(no){
   const c = S.courts.find(x=>x.no===no);
   if(!c || c.disabled || c.status!=='EMPTY' || c.members.length){
-    toast('그 사이 코트 상태가 바뀌어 넣지 못했습니다'); return;
+    toast(t('actions.fill.courtChanged')); return;
   }
   const all=Object.values(S.att);
   const maxG=Math.max(...all.map(a=>a.games),0);
   const pool=poolIds();
-  if(pool.length<4){ Sound.play('error'); toast('대기 인원이 4명이 안 됩니다'); return; }
+  if(pool.length<4){ Sound.play('error'); toast(t('actions.fill.notEnoughPool')); return; }
   // 조건이 빡빡해 못 찾으면 후보를 넓혀 한 번 더(fillQueues와 같은 순서).
   let best=bestCombination(topCandidates(pool,maxG,S.settings.candidateK),4,[],null,maxG);
   if(!best) best=bestCombination(topCandidates(pool,maxG,20),4,[],null,maxG);
-  if(!best){ Sound.play('error'); toast('조건에 맞는 조합을 찾지 못했습니다'); return; }
+  if(!best){ Sound.play('error'); toast(t('actions.fill.noCombination')); return; }
   best.picked.forEach(flash);
   tx(()=>{
     c.members=best.picked; c.teams=best.teams; c.matchType=best.matchType; c.typeSource='AUTO';
     c.status='FILLING'; best.picked.forEach(i=>A(i).state='FILLING');
   });
   Sound.play('move');
-  toast(`${no}코트에 한 번만 자동으로 팀을 짜 넣었습니다`);
+  toast(t('actions.fill.oneOffDone',{no}));
 }
 
 /* 빈 대기 슬롯을 두드렸을 때 — 대기 인원에서 곧바로 한 팀을 짜 넣는다.
@@ -414,10 +396,10 @@ function fillEmptyQueue(q){
   const all=Object.values(S.att);
   const maxG=Math.max(...all.map(a=>a.games),0);
   const pool=eligibleFor(poolIds(), q);
-  if(pool.length<4){ Sound.play('error'); toast('대기 인원이 4명이 안 됩니다'); return; }
+  if(pool.length<4){ Sound.play('error'); toast(t('actions.fill.notEnoughPool')); return; }
   let best=bestCombination(topCandidates(pool,maxG,S.settings.candidateK),4,[],q.pinnedType,maxG);
   if(!best) best=bestCombination(topCandidates(pool,maxG,20),4,[],q.pinnedType,maxG);
-  if(!best){ Sound.play('error'); toast('조건에 맞는 조합을 찾지 못했습니다'); return; }
+  if(!best){ Sound.play('error'); toast(t('actions.fill.noCombination')); return; }
   best.picked.forEach(flash);
   tx(()=>{
     q.members=best.picked; q.teams=best.teams; q.matchType=best.matchType;

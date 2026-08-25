@@ -4,7 +4,17 @@
 const $  = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const el = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
-const MT_LBL = {MD:'남복',WD:'여복',XD:'혼복',MX:'혼성',UNKNOWN:'미정'};
+// getter로 두는 이유: 언어가 바뀌면 다시 그려지는데(Lang.onLangChange),
+// 이 값을 한 번만 계산해 캐시해 두면 그 순간 이미 굳어 버려 언어 전환이
+// 반영되지 않는다. 다른 파일(interact.js·actions.js·screens.js)도
+// `MT_LBL[key]`로 값만 읽으므로 일반 객체처럼 보이는 형태를 유지해야 한다.
+const MT_LBL = {
+  get MD(){ return t('ui.court.matchType.md'); },
+  get WD(){ return t('ui.court.matchType.wd'); },
+  get XD(){ return t('ui.court.matchType.xd'); },
+  get MX(){ return t('ui.court.matchType.mx'); },
+  get UNKNOWN(){ return t('ui.court.matchType.unknown'); },
+};
 // 배지(.mt.MD 등)에 쓰는 색과 같은 값. 기록 화면의 막대가 배지와 같은 색이어야
 // "이 색이 남복"이라는 규칙을 화면마다 다시 배우지 않는다.
 const MT_COLOR = {MD:'var(--md)',WD:'var(--wd)',XD:'var(--xd)',MX:'var(--mx)',UNKNOWN:'var(--unk)'};
@@ -71,7 +81,7 @@ function chipEl(id, ctx){
   e.innerHTML=`${pw}
     <div class="chip-nm${g}">${esc(shownName(a.name))}${a.guest?'<span class="gst">G</span>':''}</div>
     <div class="chip-badge ${a.games===0?'zero':''}">${a.games}G</div>
-    ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${w}분</div>`:''}`;
+    ${w!==null?`<div class="chip-wait ${w>=10?'long':''}">${t('ui.court.waitMinutes',{n:w})}</div>`:''}`;
   if(sel===id) e.classList.add('sel');
   if(flashSet.has(id)) e.classList.add('hl');
   /* 결과를 안 적어 묶인 사람. 붉은 테두리가 깜박인다 — 왜 안 움직이는지
@@ -86,8 +96,8 @@ function mtBadge(o, kind, key){
   if(o.pinnedType && !o.members.length)
     return `<span class="mt ${o.pinnedType} pin" data-mt="${kind}:${key}">📌 ${MT_LBL[o.pinnedType]}</span>`;
   if(o.members.length!==4) return '';
-  const t=o.matchType||'UNKNOWN';
-  return `<span class="mt ${t}${o.pinnedType?' pin':''}" data-mt="${kind}:${key}">${o.pinnedType?'📌 ':''}${MT_LBL[t]}${o.typeSource==='MANUAL'?' ✎':''}</span>`;
+  const mtype=o.matchType||'UNKNOWN';
+  return `<span class="mt ${mtype}${o.pinnedType?' pin':''}" data-mt="${kind}:${key}">${o.pinnedType?'📌 ':''}${MT_LBL[mtype]}${o.typeSource==='MANUAL'?' ✎':''}</span>`;
 }
 
 /* ── 방금 배정된 코트 ───────────────────────────────────────────
@@ -184,17 +194,17 @@ function renderCourts(){
     // 다음 단계로 가고, 끌면 원하는 곳으로 옮긴다.
     if(c.members.length && Auth.can('courtAssign')) card.dataset.team=`court:${c.no}`;
     card.innerHTML=`<div class="court-h">
-        <span class="court-no">${c.no}코트</span>
+        <span class="court-no">${t('ui.court.no',{n:c.no})}</span>
         ${mtBadge(c,'court',c.no)}
         <span class="spacer"></span>
-        ${ce?`<span class="timer num">${ce.label}</span>`:`<span class="stat">${c.disabled?'사용 안 함':c.members.length?`${c.members.length}/4`:'비어 있음'}</span>`}
+        ${ce?`<span class="timer num">${ce.label}</span>`:`<span class="stat">${c.disabled?t('ui.court.disabled'):c.members.length?`${c.members.length}/4`:t('ui.court.empty')}</span>`}
       </div>
       ${hasTeams(c)? powerGauge(c,ce) : ''}`;
 
     const net=el('div','net');
     ['A','B'].forEach((side,si)=>{
       const sd=el('div','side');
-      sd.appendChild(el('div','side-tag',`${side}팀`));
+      sd.appendChild(el('div','side-tag',t('ui.court.sideTeam',{side})));
       const arr=c.teams[side]||[];
       for(let k=0;k<2;k++){
         const id=arr[k];
@@ -246,9 +256,9 @@ function renderQueues(){
         <span class="slot-no">Q${q.index}</span>
         ${mtBadge(q,'queue',q.index)}
         ${(q.origin==='REMATCH'||q.origin==='REVENGE')
-          ?'<span class="stat" style="color:var(--gold)">리매치</span>':''}
+          ?`<span class="stat" style="color:var(--gold)">${t('ui.queue.rematch')}</span>`:''}
         <span class="spacer"></span>
-        ${q.members.length?`<span class="ic" data-clear="${q.index}" title="비우기">✕</span>`:''}
+        ${q.members.length?`<span class="ic" data-clear="${q.index}" title="${t('ui.queue.clearTitle')}">✕</span>`:''}
       </div>
       ${hasTeams(q)? powerGauge(q,null) : ''}`;
     const grid=el('div','slot-grid');
@@ -273,7 +283,7 @@ function renderPool(){
   if(poolSort==='pri')       ids.sort((x,y)=>priority(A(y),maxG)-priority(A(x),maxG));
   else if(poolSort==='game') ids.sort((x,y)=>A(x).games-A(y).games||A(x).name.localeCompare(A(y).name,'ko'));
   else                       ids.sort((x,y)=>A(x).name.localeCompare(A(y).name,'ko'));
-  if(!ids.length) box.appendChild(el('div','pool-empty','대기 인원이 없습니다.'));
+  if(!ids.length) box.appendChild(el('div','pool-empty',t('ui.pool.empty')));
   ids.forEach(i=>box.appendChild(chipEl(i,'pool')));
   const p=poolAllIds();
   const m=p.filter(i=>isM(A(i))).length, f=p.filter(i=>isF(A(i))).length;
@@ -281,8 +291,8 @@ function renderPool(){
      결과를 적게 한다. 붉게 깜박이는 칩만으로는 "무엇을 해야 푸는지"가
      안 보인다 — 막는 화면에는 푸는 길이 함께 있어야 한다. */
   const pend = pendingResults();
-  $('#poolCnt').innerHTML=`<b>${p.length}명</b> <span style="color:var(--muted2)">♂${m} ♀${f}</span>`
-    + (pend.length ? ` <button class="btn sm warn" id="btnHeld">결과 대기 ${pend.length}경기</button>` : '');
+  $('#poolCnt').innerHTML=`${t('ui.pool.count',{n:p.length})} <span style="color:var(--muted2)">♂${m} ♀${f}</span>`
+    + (pend.length ? ` <button class="btn sm warn" id="btnHeld">${t('ui.pool.heldButton',{n:pend.length})}</button>` : '');
   const hb=$('#btnHeld');
   if(hb) hb.onclick=()=>{ Sound.play('tap');
     if(!requirePerm('edit')) return;
@@ -297,7 +307,7 @@ function renderTop(){
   const playing=S.courts.filter(c=>c.status==='PLAYING').length;
   $('#clubName').firstChild.textContent=S.settings.clubName;
   $('#dateLbl').textContent=' '+S.date.slice(5).replace('-','/');
-  $('#statLbl').innerHTML=`출석 <b>${all.length}</b> <span style="color:var(--muted2)">(♂${m}·♀${f})</span> · 진행 <b>${playing}</b> · 총 <b>${S.matches.filter(x=>x.endedAt).length}</b>경기`;
+  $('#statLbl').innerHTML=t('ui.top.stats',{total:all.length,m,f,playing,done:S.matches.filter(x=>x.endedAt).length});
   $('#autoTgl').classList.toggle('on',S.settings.autoMode);
   // 경기 운영 버튼은 CSS만 믿지 않는다. CSS가 캐시 등으로 반영되지 않아도
   // 눌리지 않도록 JS에서 직접 비활성화하고 숨긴다.
@@ -314,7 +324,7 @@ function renderTop(){
     if(Auth.isMember){
       const a=Auth.myAttendee();
       my.style.display='';
-      my.textContent = a? '출석 중' : '출석하기';
+      my.textContent = a? t('ui.my.attending') : t('ui.my.notAttending');
       my.classList.toggle('primary', !a);
       my.classList.toggle('ghost', !!a);
     } else my.style.display='none';
@@ -325,10 +335,10 @@ function renderTop(){
     dot.style.background = bad ? 'var(--cork)'
       : Store.mode==='firebase' ? 'var(--court)' : 'var(--muted2)';
     dot.title = Store.fbState==='authFailed'
-        ? '익명 로그인이 되지 않았습니다 — 콘솔에서 Authentication → 익명을 켜세요'
-      : Store.fbState==='error' ? 'Firebase 연결 실패'
-      : Store.mode==='firebase' ? 'Firebase 연결됨'
-      : 'Firebase 미연결 (이 기기에만 저장)';
+        ? t('ui.cloud.authFailed')
+      : Store.fbState==='error' ? t('ui.cloud.error')
+      : Store.mode==='firebase' ? t('ui.cloud.connected')
+      : t('ui.cloud.disconnected');
   }
 }
 

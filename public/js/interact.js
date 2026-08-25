@@ -86,8 +86,9 @@
       const o = k==='court' ? S.courts.find(c=>c.no===+n) : S.queues.find(q=>q.index===+n);
       const ids=(o.teams.A.length?[...o.teams.A,...o.teams.B]:o.members);
       const names=ids.map(i=>(A(i)||{}).name).filter(Boolean);
+      const label = k==='court' ? t('interact.drag.courtLabel',{n}) : 'Q'+n;
       const g=el('div','ghost-team',
-        `<b>${k==='court'?n+'코트':'Q'+n} · ${names.length}명</b>`
+        `<b>${label} · ${t('interact.drag.peopleCount',{count:names.length})}</b>`
         +`<span>${names.map(esc).join(' · ')}</span>`);
       ghost.appendChild(g);
     }else{
@@ -258,7 +259,7 @@ $('#btnSort').onclick=()=>{ if(!requirePerm('edit')) return; Sound.play('confirm
     Object.assign(q,{members:[],teams:{A:[],B:[]},matchType:null,typeSource:'AUTO',origin:'AUTO',notice:null});
     n++;
   });
-  toast(n? `대기 ${n}개 팀을 다시 구성했습니다` : '다시 구성할 자동 슬롯이 없습니다');
+  toast(n? t('interact.board.resortDone',{n}) : t('interact.board.resortNone'));
 }); };
 /* 회원 본인 출석/퇴장 */
 $('#myBtn').onclick=()=>{
@@ -266,13 +267,13 @@ $('#myBtn').onclick=()=>{
   const id=Auth.memberId; if(!id) return;
   const a=Auth.myAttendee();
   if(a){
-    if(a.state==='PLAYING') return toast('경기 중에는 퇴장할 수 없습니다');
-    if(!confirm('출석을 취소할까요? 대기열에서도 빠집니다.')) return;
+    if(a.state==='PLAYING') return toast(t('interact.board.cannotLeaveWhilePlaying'));
+    if(!confirm(t('interact.board.confirmCheckOut'))) return;
     Sound.play('tap'); tx(()=>checkOutMember(id));
-    toast('출석을 취소했습니다');
+    toast(t('interact.board.checkedOut'));
   }else{
     Sound.play('confirm'); tx(()=>checkInMember(id));
-    toast('출석했습니다');
+    toast(t('interact.board.checkedIn'));
   }
 };
 
@@ -286,14 +287,16 @@ function openModal(html){ $('#modal').innerHTML=html; $('#mask').classList.add('
 function closeModal(){ $('#mask').classList.remove('on'); }
 
 /* 비밀번호 확인이 실패한 이유별 안내. 게이트와 모달이 같이 쓴다. */
+/* 게터로 둔다 — 값을 한 번만 굳히면 언어를 바꿔도(Lang.set) 이미 읽어 둔
+   문구가 그대로 남는다. 접근할 때마다 t()를 다시 불러야 언어 전환이 먹는다. */
 const ADMIN_ERR = {
-  wrong:  '비밀번호가 맞지 않습니다',
-  offline:'클라우드에 연결되지 않아 확인할 수 없습니다 — 연결을 확인해 주세요',
-  unset:  '운영자 비밀번호가 아직 설정되지 않았습니다',
-  full:   '운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.',
-  locked: '여러 번 틀려서 이 기기에서 잠겼습니다'
+  get wrong()  { return t('interact.pin.errWrong'); },
+  get offline(){ return t('interact.pin.errOffline'); },
+  get unset()  { return t('interact.pin.errUnset'); },
+  get full()   { return t('interact.pin.errFull'); },
+  get locked() { return t('interact.pin.errLocked'); }
 };
-const mmss = ms => { const t=Math.ceil(ms/1000); return `${Math.floor(t/60)}분 ${t%60}초`; };
+const mmss = ms => { const secs=Math.ceil(ms/1000); return t('interact.pin.duration',{m:Math.floor(secs/60), s:secs%60}); };
 
 /* 되돌릴 수 없는 조작 앞에 관리 비밀번호를 묻는다. 맞으면 onOk()를 부른다.
    opts.bodyHtml : 비밀번호 칸 위에 넣을 설명(이 조작이 어떤 결과를 낳는지).
@@ -304,7 +307,7 @@ const mmss = ms => { const t=Math.ceil(ms/1000); return `${Math.floor(t/60)}분 
 function askPin(title, desc, onOk, opts={}){
   openModal(`<h3>${esc(title)}</h3><div class="sub">${esc(desc)}</div>
     ${opts.bodyHtml||''}
-    <div class="hint" style="text-align:center;margin-bottom:4px">확인하려면 운영자 비밀번호를 입력하세요</div>
+    <div class="hint" style="text-align:center;margin-bottom:4px">${t('interact.pin.prompt')}</div>
     <!-- 네 자리 숫자 시절의 흔적(maxlength=8, 숫자 키패드)을 걷어냈다.
          그대로 두면 여덟 자를 넘는 비밀번호가 소리 없이 잘려서, 맞게 넣어도
          계속 "틀렸다"고 나온다. -->
@@ -313,8 +316,8 @@ function askPin(title, desc, onOk, opts={}){
              style="width:260px;height:56px;font-size:20px;text-align:center">
     </div>
     <div id="pinErr" style="text-align:center;color:var(--cork);font-size:13px;font-weight:700;min-height:20px"></div>
-    <div class="row end"><button class="btn" id="pinCancel">취소</button>
-      <button class="btn warn" id="pinOk">${esc(opts.okLabel||'확인')}</button></div>`);
+    <div class="row end"><button class="btn" id="pinCancel">${t('interact.pin.cancel')}</button>
+      <button class="btn warn" id="pinOk">${esc(opts.okLabel||t('interact.pin.confirm'))}</button></div>`);
   if(opts.onReady) opts.onReady();
   const inp=$('#pinIn');
   setTimeout(()=>inp&&inp.focus(),50);
@@ -323,7 +326,7 @@ function askPin(title, desc, onOk, opts={}){
      틀렸다"고 거짓말을 하게 되고, 운영자가 멀쩡한 비번을 의심한다. */
   const submit=async()=>{
     const btn=$('#pinOk'); if(btn.disabled) return;
-    btn.disabled=true; $('#pinErr').textContent='확인 중...';
+    btn.disabled=true; $('#pinErr').textContent=t('interact.pin.checking');
     const v = await Secret.verify(inp.value);
     btn.disabled=false;
     if(v.ok){ closeModal(); onOk(); return; }
@@ -332,10 +335,10 @@ function askPin(title, desc, onOk, opts={}){
        모르고 "비밀번호가 틀렸나" 하며 애먼 비번을 의심한다. */
     if(v.reason==='locked'){
       btn.disabled=true;
-      $('#pinErr').textContent = `${ADMIN_ERR.locked} — ${mmss(v.ms||0)} 뒤에 다시 시도하세요`;
+      $('#pinErr').textContent = t('interact.pin.lockedRetry',{locked:ADMIN_ERR.locked, time:mmss(v.ms||0)});
       return;
     }
-    $('#pinErr').textContent = ADMIN_ERR[v.reason] || '확인하지 못했습니다';
+    $('#pinErr').textContent = ADMIN_ERR[v.reason] || t('interact.pin.errGeneric');
     inp.value=''; inp.focus();
   };
   $('#pinOk').onclick=submit;
@@ -403,7 +406,7 @@ function resultDialog(m, opts={}){
   const swOf = () => lose==null ? null : winnerScore(lose, target);
   const nameLine = arr => arr.map(p=>esc(p.name)).join(' · ') || '—';
 
-  const head = sub => `<h3>${esc(opts.title||'경기 결과')}</h3>
+  const head = sub => `<h3>${esc(opts.title||t('interact.result.defaultTitle'))}</h3>
                        <div class="sub">${sub}</div>`;
 
   /* 몇 단계짜리 흐름인가. 20점 이하로 졌을 때만 '몇 점 경기' 단계가 끼므로
