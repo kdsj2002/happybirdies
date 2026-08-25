@@ -28,6 +28,10 @@ Lang.onLangChange(() => {
   // 그대로 재호출한다(탭 전환 부작용은 없다 — 이미 그 탭에 있으므로).
   const cur = ($$('.screen').find(s=>s.classList.contains('on')) || {}).id;
   if(cur) show(cur.replace('scr-',''));
+  // 인증 전(현관) 화면은 render()/show()가 안 건드린다 — #gate는 완전히
+  // 별개 오버레이라서다. 지금 열린 게이트 카드가 있으면 같은 화면을
+  // 새 언어로 다시 그린다(gate.js redrawForLang).
+  Gate.redrawForLang();
 });
 
 /* =====================================================================

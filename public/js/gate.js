@@ -7,6 +7,17 @@ const Gate = (() => {
   function open(html){ box().innerHTML = html; box().classList.add('on'); }
   function close(){ box().classList.remove('on'); }
 
+  /* 언어를 바꿔도 이 게이트 카드는 저절로 안 바뀐다 — open()은 그 순간의
+     번역문을 한 번 구운 HTML일 뿐이고, 언어가 바뀌었다고 다시 불러 주는
+     사람이 없다. 그래서 각 screenXxx는 자기 자신을 다시 그리는 법을
+     여기 남겨 둔다(remember). Lang.onLangChange가 이걸 불러 지금 열린
+     카드를 새 언어로 다시 그린다. 입력 중이던 폼(신청서 등)은 다시
+     그리며 값이 비워지는 대가를 치르지만, 그래도 "버튼을 눌렀는데 화면이
+     그대로다"보다는 낫다. */
+  let lastRedraw = null;
+  function remember(fn){ lastRedraw = fn; }
+  function redrawForLang(){ if(box().classList.contains('on') && lastRedraw) lastRedraw(); }
+
   /* ── 회원 입장 보호 ───────────────────────────────────────────────
      예전에는 이 화면이 회원 명단을 이름 그대로 펼쳐 놓았다. 게스트가
      들어와 명단을 통째로 읽을 수 있었고, 아무 이름이나 눌러 남의 이름으로
@@ -48,6 +59,7 @@ const Gate = (() => {
 
      주소를 잘못 친 사람이 대부분이므로 문책하는 말투를 쓰지 않는다. */
   function screenUnknownClub(){
+    remember(screenUnknownClub);
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.unknownClub.title')}</div>
@@ -76,6 +88,7 @@ const Gate = (() => {
      여기서는 동호회를 만들지 않는다. 코드가 맞는지 확인해서 보내 줄 뿐이다 —
      주소를 치면 동호회가 생기던 예전 동작이 남용의 통로였다. */
   function screenLanding(){
+    remember(screenLanding);
     const recent = (typeof recentClubs==='function') ? recentClubs() : [];
     open(`
       <div class="gate-card wide">
@@ -162,6 +175,7 @@ const Gate = (() => {
   const fnErr = code => FN_ERR[code] ? t(FN_ERR[code]) : null;
 
   function screenApply(){
+    remember(screenApply);
     open(`
       <div class="gate-card wide">
         <div class="gate-title">${t('gate.apply.title')}</div>
@@ -232,6 +246,7 @@ const Gate = (() => {
      소유자로 확정한다(claimOwnership) — roles 문서는 클라이언트가 못
      쓰므로 이 서버 확인이 유일한 문이다. */
   function screenApplyVerify(code, ownerEmail, clubName){
+    remember(() => screenApplyVerify(code, ownerEmail, clubName));
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.applyVerify.title')}</div>
@@ -289,6 +304,7 @@ const Gate = (() => {
      상태와 무관하게 바로 통과한다. 여기서 정하고 나면 그 자리에서
      운영자로 들어가 시험 운영을 시작할 수 있다. */
   function screenApplyPassword(code, clubName){
+    remember(() => screenApplyPassword(code, clubName));
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.applyPassword.title')}</div>
@@ -334,6 +350,7 @@ const Gate = (() => {
   }
 
   function screenHome(){
+    remember(screenHome);
     open(`
       <div class="gate-card">
         <div class="gate-title">${esc(S.settings.clubName || t('gate.home.defaultClubName'))}</div>
@@ -361,6 +378,7 @@ const Gate = (() => {
      화면마다 세면 한 군데가 우회로가 된다). 여기서는 잠긴 동안 남은 시간을
      보여 주기만 한다. 무엇을 막고 못 막는지는 secret.js에 적어 뒀다. */
   function screenPinLocked(){
+    remember(screenPinLocked);
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.pinLocked.title')}</div>
@@ -393,6 +411,7 @@ const Gate = (() => {
      사람이 운영자 자리를 차지할 수 있다는 뜻이었다. 이제 아직 정해지지
      않았으면 소유자에게 요청하라고 안내하고 끝낸다. */
   async function screenAdmin(){
+    remember(screenAdmin);
     if(Secret.lockLeft() > 0) return screenPinLocked();
     open(`<div class="gate-card"><div class="gate-title">${t('gate.admin.title')}</div>
       <div class="gate-sub">${t('gate.admin.checking')}</div></div>`);
@@ -472,6 +491,7 @@ const Gate = (() => {
      비밀번호 경로를 없애지 않고 나란히 둔 이유는 account.js 머리말에 적었다 —
      roles 문서가 아직 없는 동호회의 운영자가 잠기면 안 된다. */
   async function screenAccount(){
+    remember(screenAccount);
     // 이미 로그인돼 있으면 비밀번호를 다시 묻지 않는다.
     if(Account.current()) return accountEnter();
 
@@ -511,6 +531,7 @@ const Gate = (() => {
 
   /* 로그인은 됐다. 이 동호회에서 무슨 역할인지 서버에 묻고 들여보낸다. */
   async function accountEnter(){
+    remember(accountEnter);
     const acc=Account.current();
     open(`<div class="gate-card"><div class="gate-title">${t('gate.accountEnter.title')}</div>
       <div class="gate-sub">${esc(acc?acc.email||acc.name:'')}</div></div>`);
@@ -555,6 +576,7 @@ const Gate = (() => {
 
 
   function screenMember(){
+    remember(screenMember);
     if(lockLeftMs() > 0) return screenLocked();
     const list=S.members.filter(m=>m.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     if(!list.length){
@@ -602,6 +624,7 @@ const Gate = (() => {
 
   /* 가려진 마지막 글자를 확인한다. 맞아야만 그 사람으로 입장한다. */
   function screenVerify(masked, group){
+    remember(() => screenVerify(masked, group));
     if(lockLeftMs() > 0) return screenLocked();
     // 한 글자 이름은 가릴 것이 없으니 확인할 것도 없다.
     if(group.length===1 && chars(group[0].name).length < 2) return passGate(group[0]);
@@ -646,6 +669,7 @@ const Gate = (() => {
 
   /* 3번 틀린 뒤의 잠금 화면. 남은 시간을 세어 보여 주고 0이 되면 스스로 풀린다. */
   function screenLocked(){
+    remember(screenLocked);
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.locked.title')}</div>
@@ -671,6 +695,7 @@ const Gate = (() => {
   /* 입장 직후 출석 여부를 묻는다. 와서 앱을 여는 사람은 대개 지금 치러 온 사람이라
      기본을 "출석"으로 두되, 구경만 하러 온 경우도 있으니 고르게 한다. */
   function screenCheckIn(memberId){
+    remember(() => screenCheckIn(memberId));
     const m = S.members.find(x=>x.id===memberId) || {};
     const already = Object.values(S.att).some(a=>a.memberId===memberId);
     if(already){ close(); enter(); setTimeout(()=>toast(t('gate.checkin.alreadyIn', {name: m.name})),200); return; }
@@ -691,6 +716,7 @@ const Gate = (() => {
   }
 
   function screenGuest(){
+    remember(screenGuest);
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.guest.title')}</div>
@@ -707,6 +733,7 @@ const Gate = (() => {
   }
 
   function screenRegister(){
+    remember(screenRegister);
     open(`
       <div class="gate-card">
         <div class="gate-title">${t('gate.register.title')}</div>
@@ -791,6 +818,7 @@ const Gate = (() => {
   /* 승인 대기 화면. 여기서 기다릴 필요는 없고, 뷰어로 구경하고 있으면
      승인되는 순간 이 기기가 알아채고 회원으로 바꿔 준다(checkJoinApproved). */
   function screenPending(name){
+    remember(() => screenPending(name));
     Auth.loginViewer();
     open(`
       <div class="gate-card">
@@ -815,7 +843,8 @@ const Gate = (() => {
   return { start(){ screenHome(); }, close, enter,
            unknownClub(){ screenUnknownClub(); },
            landing(){ screenLanding(); },
-           reopen(){ screenHome(); } };
+           reopen(){ screenHome(); },
+           redrawForLang };
 })();
 
 /* ── 역할별로 볼 수 있는 화면 ────────────────────────────────────
