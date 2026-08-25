@@ -505,8 +505,8 @@ let timeoutBusy = false;
 function checkMatchTimeouts(){
   const max = S.settings.maxMatchMinutes;
   if(!max || max<=0 || timeoutBusy) return false;
-  const limit = max*60000, t = now();
-  const over = S.courts.filter(c=>c.status==='PLAYING' && c.startedAt && t-c.startedAt >= limit);
+  const limit = max*60000, nowMs = now();
+  const over = S.courts.filter(c=>c.status==='PLAYING' && c.startedAt && nowMs-c.startedAt >= limit);
   if(!over.length) return false;
   timeoutBusy = true;                 // tx가 render를 부르고 render가 다시 여기로 오는 것을 막는다
   try{
