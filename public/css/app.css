@@ -640,6 +640,9 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
   .toggle{padding:0 10px; height:38px}
   .toggle span:last-child{display:none}         /* "자동" 글자 생략, 점만 남김 */
   .btn{padding:0 10px; font-size:14px; height:38px; min-width:0}
+  /* 모바일 상단바는 높이가 safe-area-inset-top만큼 늘어난다 — 그만큼
+     더 내려서 겹치지 않게 한다(위 .topbar 규칙과 같은 계산). */
+  .lang-switch-corner{top:calc(7px + env(safe-area-inset-top) + 50px + 8px); right:8px}
 
   /* 탭: 하단 고정 내비게이션 */
   .tabs{
@@ -761,13 +764,30 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
            border-radius:18px;padding:24px 22px;box-shadow:0 18px 44px rgba(22,33,29,.16)}
 .gate-card.wide{max-width:520px}
 
-/* 언어 전환 — 게이트 카드 위(고정 코너)와 설정 화면(인라인) 둘 다에서 쓴다.
-   manual.html의 .doc-lang과 같은 생김새로 통일했다. */
-.lang-switch{display:flex;gap:6px;flex-wrap:wrap}
-.lang-switch button{border:1px solid var(--line);background:var(--surface2);border-radius:8px;
-  padding:5px 11px;font-size:13px;color:var(--muted)}
-.lang-switch button.on{background:var(--court);color:#fff;border-color:var(--court);font-weight:700}
-.lang-switch-corner{position:fixed;top:14px;right:14px;z-index:201}
+/* 언어 전환 — 앱 화면 오른쪽 위 고정 코너에서 쓴다.
+   처음에는 4개 버튼을 나란히 뒀는데, 상단바(탭·역할표시·자동/정렬 버튼)와
+   같은 줄에 겹쳐 자리를 너무 먹었다. 그래서 지금 언어 하나만 보이는
+   작은 버튼 + 눌렀을 때만 펼쳐지는 드롭다운으로 바꿨다. */
+.lang-switch{position:relative}
+/* 상단바(.topbar, 58px)와 같은 줄에 두면 오른쪽 끝 버튼들(자동·정렬·↩)과
+   자리싸움이 난다. #gate는 상단바를 완전히 덮는 별도 오버레이라 상단바
+   플렉스 안에 넣을 수도 없다(게스트 화면에서 안 보이게 된다) — 그래서
+   fixed로 띄우되, 상단바 아래로 내려서 겹치지 않게 한다. */
+.lang-switch-corner{position:fixed;top:70px;right:12px;z-index:201}
+.lang-switch .lang-cur{border:1px solid var(--line);background:var(--surface2);border-radius:8px;
+  padding:6px 10px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.lang-switch .lang-cur:after{content:'▾';font-size:10px}
+.lang-switch .lang-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 10px 26px rgba(22,33,29,.16);padding:6px;min-width:110px;flex-direction:column;gap:2px}
+.lang-switch .lang-menu.on{display:flex}
+.lang-switch .lang-menu button{width:100%;text-align:left;padding:7px 10px;border-radius:7px;
+  background:transparent;font-size:14px;color:var(--text)}
+.lang-switch .lang-menu button:active{background:var(--surface2)}
+.lang-switch .lang-menu button.on{background:var(--court);color:#fff;font-weight:700}
+
+/* manual.html 전용 언어 바(.doc-lang, 위쪽)는 상단바와 겹칠 일이 없어
+   그대로 가로 나열을 쓴다 — 여기 드롭다운으로 바꿀 이유가 없다. */
 .gate-title{font-size:24px;font-weight:800;letter-spacing:-.02em}
 .gate-sub{color:var(--muted);font-size:14px;margin:6px 0 18px;line-height:1.5}
 .gate-btn{display:block;width:100%;text-align:left;margin-bottom:10px;padding:15px 16px;

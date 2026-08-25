@@ -15,9 +15,22 @@ function applyStaticI18n(){
    화면(gate.js 등)에 넣지 않고 여기 한 곳에서 그린다. */
 function drawLangSwitch(){
   const box = $('#langSwitch'); if(!box) return;
-  box.innerHTML = Lang.SUPPORTED.map(l =>
-    `<button data-l="${l}"${l===Lang.get()?' class="on"':''}>${Lang.NAMES[l]}</button>`).join('');
-  box.querySelectorAll('[data-l]').forEach(b => b.onclick = () => Lang.set(b.dataset.l));
+  box.innerHTML = `
+    <button class="lang-cur" id="langCur">${Lang.NAMES[Lang.get()]}</button>
+    <div class="lang-menu" id="langMenu">
+      ${Lang.SUPPORTED.map(l =>
+        `<button data-l="${l}"${l===Lang.get()?' class="on"':''}>${Lang.NAMES[l]}</button>`).join('')}
+    </div>`;
+  const menu = $('#langMenu');
+  $('#langCur').onclick = e => {
+    e.stopPropagation();
+    const opening = !menu.classList.contains('on');
+    menu.classList.toggle('on', opening);
+    // 열 때마다 바깥 클릭 리스너를 새로 하나 단다 — once라서 한 번 닫히면
+    // 스스로 없어지므로, 다음에 열 때 여기서 다시 달아 줘야 또 닫힌다.
+    if(opening) document.addEventListener('click', () => menu.classList.remove('on'), { once:true });
+  };
+  menu.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { menu.classList.remove('on'); Lang.set(b.dataset.l); });
 }
 Lang.onLangChange(() => {
   applyStaticI18n();
