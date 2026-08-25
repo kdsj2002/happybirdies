@@ -557,121 +557,98 @@ function renderSet(){
   const s=S.settings;
   $('#setBody').innerHTML=`
     <div class="kv">
-      <div class="h">기본</div>
-      <div class="k">클럽 이름</div><div><input type="text" id="s_club" value="${esc(s.clubName)}" style="width:240px"></div>
-      <div class="k">코트 수</div><div><input type="number" id="s_courts" value="${s.courtCount}" min="1" max="8" style="width:90px">
-        <span class="hint">대진판은 초기화되지 않습니다 — 뒤에서 코트를 더하거나 뺍니다.
-          줄일 때 그 코트에 사람이 있으면 무엇이 어떻게 되는지 먼저 보여 드립니다</span></div>
-      <div class="k">대기 슬롯 수</div><div><input type="number" id="s_slots" value="${s.queueSlotCount}" min="2" max="12" style="width:90px"></div>
-      <div class="k">풀 최소 확보 인원</div><div><input type="number" id="s_minpool" value="${s.minPool}" min="0" max="12" style="width:90px">
-        <span class="hint">대기 슬롯을 끝까지 채우지 않고 이만큼은 대기 인원으로 남깁니다. 0으로 두면 방금 같이 친 4명이 그대로 다시 묶입니다</span></div>
-      <div class="k">경기 시간 경고</div><div><input type="number" id="s_warn" value="${s.matchWarnMinutes}" min="5" max="60" style="width:90px"> 분 초과 시 코트가 붉게 표시</div>
-      <div class="k">최대 경기 시간</div><div><input type="number" id="s_maxmin" value="${s.maxMatchMinutes==null?30:s.maxMatchMinutes}" min="0" max="120" style="width:90px">
-        <span class="hint">이 시간에 닿으면 <b>경기를 자동으로 마칩니다</b> — 네 명 모두 게임 수가 1 오르고
-          기록에 남으며 대기 인원으로 내려갑니다. 승패는 비워 둡니다(나중에 기록 화면에서 넣을 수 있습니다).
-          <b>0이면 사용하지 않습니다.</b></span></div>
-      <div class="k">결과 기록 강제</div><div>
+      <div class="h">${t('screens.set.sectionBasic')}</div>
+      <div class="k">${t('screens.set.clubName')}</div><div><input type="text" id="s_club" value="${esc(s.clubName)}" style="width:240px"></div>
+      <div class="k">${t('screens.set.courtCount')}</div><div><input type="number" id="s_courts" value="${s.courtCount}" min="1" max="8" style="width:90px">
+        <span class="hint">${t('screens.set.courtCountHint')}</span></div>
+      <div class="k">${t('screens.set.slotCount')}</div><div><input type="number" id="s_slots" value="${s.queueSlotCount}" min="2" max="12" style="width:90px"></div>
+      <div class="k">${t('screens.set.minPoolLabel')}</div><div><input type="number" id="s_minpool" value="${s.minPool}" min="0" max="12" style="width:90px">
+        <span class="hint">${t('screens.set.minPoolHint')}</span></div>
+      <div class="k">${t('screens.set.matchWarnMinutes')}</div><div><input type="number" id="s_warn" value="${s.matchWarnMinutes}" min="5" max="60" style="width:90px">${t('screens.set.matchWarnSuffix')}</div>
+      <div class="k">${t('screens.set.maxMatchMinutes')}</div><div><input type="number" id="s_maxmin" value="${s.maxMatchMinutes==null?30:s.maxMatchMinutes}" min="0" max="120" style="width:90px">
+        <span class="hint">${t('screens.set.maxMatchHint')}</span></div>
+      <div class="k">${t('screens.set.requireResult')}</div><div>
         <label class="row"><input type="checkbox" id="s_reqres" ${s.requireResult?'checked':''} style="width:20px;height:20px">
-          결과를 적을 때까지 그 네 명을 묶어 둡니다</label>
-        <div class="hint" style="margin-top:6px">켜면 경기가 끝날 때 <b>결과 창이 뜨지 않습니다.</b>
-          대신 그 네 명의 칩이 <b style="color:var(--cork)">붉게 깜박이며 아무 데로도 움직이지 않습니다</b> —
-          자동 배치에서도 빠집니다. 다음 판에 넣으려면 결과부터 적어야 합니다.<br>
-          창을 띄워 봐야 '나중에'를 누르게 되고, 그 '나중에'가 결국 결과가 안 남는 이유였습니다.
-          정말 아무도 모르는 판은 결과 창의 <b>모름 — 기록 없이 풀기</b>로 넘길 수 있습니다.</div></div>
-      <div class="k">한 게임 점수</div><div><input type="number" id="s_wp" value="${s.winPoint||21}" min="5" max="31" style="width:90px">
-        <span class="hint">결과를 넣을 때 <b>진 팀 점수</b>만 받고 이긴 팀 점수는 여기서 계산합니다
-          (${s.winPoint||21}점제 · 듀스는 2점 차 · 상한 ${(s.winPoint||21)+9}점)</span></div>
+          ${t('screens.set.requireResultCheckboxLabel')}</label>
+        <div class="hint" style="margin-top:6px">${t('screens.set.requireResultHint')}</div></div>
+      <div class="k">${t('screens.set.winPoint')}</div><div><input type="number" id="s_wp" value="${s.winPoint||21}" min="5" max="31" style="width:90px">
+        <span class="hint">${t('screens.set.winPointHint',{wp:s.winPoint||21,cap:(s.winPoint||21)+9})}</span></div>
 
-      <div class="h">자동화</div>
-      <div class="k">자동 배치</div><div><label class="row"><input type="checkbox" id="s_auto" ${s.autoMode?'checked':''} style="width:20px;height:20px"> 켜기</label></div>
-      <div class="k">코트 자동 투입</div><div><label class="row"><input type="checkbox" id="s_push" ${s.autoPushToCourt?'checked':''} style="width:20px;height:20px"> 코트가 비면 대기 1번 팀을 바로 올림</label></div>
+      <div class="h">${t('screens.set.sectionAutomation')}</div>
+      <div class="k">${t('screens.set.autoAssign')}</div><div><label class="row"><input type="checkbox" id="s_auto" ${s.autoMode?'checked':''} style="width:20px;height:20px"> ${t('screens.set.autoAssignCheckboxLabel')}</label></div>
+      <div class="k">${t('screens.set.autoPush')}</div><div><label class="row"><input type="checkbox" id="s_push" ${s.autoPushToCourt?'checked':''} style="width:20px;height:20px"> ${t('screens.set.autoPushCheckboxLabel')}</label></div>
 
-      <div class="h">성별 정책</div>
-      <div class="k">정책</div><div><select id="s_pol" style="width:280px">${POLICY.map(([v,l])=>`<option value="${v}" ${s.genderPolicy===v?'selected':''}>${l}</option>`).join('')}</select>
-        <div class="hint" style="margin-top:6px">${POLICY.find(p=>p[0]===s.genderPolicy)[2]}</div></div>
-      <div class="k">3:1 감점</div><div><input type="number" id="s_odd" value="${s.w.odd}" step="10" style="width:110px">
-        <span class="hint">−250이면 남3여1 조합을 사실상 차단합니다</span></div>
-      <div class="k">감점 면제 기준</div><div><input type="number" id="s_relax" value="${s.oddRelaxThreshold}" min="1" max="5" style="width:90px">
-        <span class="hint">게임 이상 뒤처진 사람이 있으면 3:1 감점을 면제 (소수 성별이 대기에 갇히는 것을 방지)</span></div>
+      <div class="h">${t('screens.set.genderPolicy')}</div>
+      <div class="k">${t('screens.set.policyLabel')}</div><div><select id="s_pol" style="width:280px">${POLICY.map(([v,l])=>`<option value="${v}" ${s.genderPolicy===v?'selected':''}>${t(l)}</option>`).join('')}</select>
+        <div class="hint" style="margin-top:6px">${t(POLICY.find(p=>p[0]===s.genderPolicy)[2])}</div></div>
+      <div class="k">${t('screens.set.oddPenalty')}</div><div><input type="number" id="s_odd" value="${s.w.odd}" step="10" style="width:110px">
+        <span class="hint">${t('screens.set.oddPenaltyHint')}</span></div>
+      <div class="k">${t('screens.set.oddRelaxLabel')}</div><div><input type="number" id="s_relax" value="${s.oddRelaxThreshold}" min="1" max="5" style="width:90px">
+        <span class="hint">${t('screens.set.oddRelaxHint')}</span></div>
 
-      <div class="h">배치 가중치</div>
-      <div class="k">게임 수 격차</div><div><input type="number" id="s_wgame" value="${s.w.game}" step="10" style="width:110px"> <span class="hint">클수록 공정성 우선</span></div>
-      <div class="k">대기 시간 (분당)</div><div><input type="number" id="s_wwait" value="${s.w.wait}" style="width:110px"></div>
-      <div class="k">중복 회피</div><div><input type="number" id="s_wrep" value="${s.w.repeat}" style="width:110px">
-        <span class="hint">최근 <input type="number" id="s_look" value="${s.repeatLookback}" min="0" max="10" style="width:60px;height:32px"> 경기 내 같은 조 회피</span></div>
-      <div class="k">지난 기록 참고</div><div><input type="number" id="s_hist" value="${s.historyDays||0}" min="0" max="60" style="width:90px">
-        <span class="hint">지난 <b>운동일</b>을 이만큼 불러와 "같은 팀이었던 횟수"를 중복 회피에 더합니다
-          (달력 날짜가 아니라 기록이 있는 날 기준). 오늘 안의 이력보다 절반 무게로 셉니다 —
-          방금 친 사람과 또 붙는 것이 지난주보다 무겁기 때문입니다.
-          <b>0이면 지금까지처럼 오늘 안만 봅니다.</b></span></div>
-      <div class="k">급수 밸런스</div><div><input type="number" id="s_wbal" value="${s.w.balance}" style="width:110px"></div>
-      <div class="k">연령 고려</div><div><input type="number" id="s_wage" value="${s.w.age}" style="width:110px"> <span class="hint">0이면 사용 안 함</span></div>
+      <div class="h">${t('screens.set.sectionWeights')}</div>
+      <div class="k">${t('screens.set.weightGame')}</div><div><input type="number" id="s_wgame" value="${s.w.game}" step="10" style="width:110px"> <span class="hint">${t('screens.set.weightGameHint')}</span></div>
+      <div class="k">${t('screens.set.weightWait')}</div><div><input type="number" id="s_wwait" value="${s.w.wait}" style="width:110px"></div>
+      <div class="k">${t('screens.set.weightRepeat')}</div><div><input type="number" id="s_wrep" value="${s.w.repeat}" style="width:110px">
+        <span class="hint">${t('screens.set.weightRepeatHint',{lookInput:`<input type="number" id="s_look" value="${s.repeatLookback}" min="0" max="10" style="width:60px;height:32px">`})}</span></div>
+      <div class="k">${t('screens.set.historyDaysLabel')}</div><div><input type="number" id="s_hist" value="${s.historyDays||0}" min="0" max="60" style="width:90px">
+        <span class="hint">${t('screens.set.historyDaysHint')}</span></div>
+      <div class="k">${t('screens.set.weightBalance')}</div><div><input type="number" id="s_wbal" value="${s.w.balance}" style="width:110px"></div>
+      <div class="k">${t('screens.set.weightAge')}</div><div><input type="number" id="s_wage" value="${s.w.age}" style="width:110px"> <span class="hint">${t('screens.set.weightAgeHint')}</span></div>
 
-      <div class="h">소리 · 계정</div>
-      <div class="k">효과음</div><div><label class="row"><input type="checkbox" id="s_sound" ${s.sound!==false?'checked':''} style="width:20px;height:20px"> 버튼과 경기 시작 알림에 소리를 냅니다</label></div>
-      <div class="k">현재 역할</div><div><b>${esc(Auth.roleLabel())}</b>
-        <button class="btn sm" id="s_relogin" style="margin-left:10px">다시 입장하기</button></div>
+      <div class="h">${t('screens.set.sectionSoundAccount')}</div>
+      <div class="k">${t('screens.set.sound')}</div><div><label class="row"><input type="checkbox" id="s_sound" ${s.sound!==false?'checked':''} style="width:20px;height:20px"> ${t('screens.set.soundCheckboxLabel')}</label></div>
+      <div class="k">${t('screens.set.currentRole')}</div><div><b>${esc(Auth.roleLabel())}</b>
+        <button class="btn sm" id="s_relogin" style="margin-left:10px">${t('screens.set.reenterBtn')}</button></div>
 
-      <div class="h">버전</div>
-      <div class="k">앱 버전</div><div><b class="num">${esc(APP_VERSION)}</b>
-        <div class="hint" style="margin-top:6px">재배포했는데 화면이 그대로면 이 숫자를 확인하세요.
-          바뀌지 않았다면 브라우저가 옛 파일을 쓰고 있는 것이니 새로고침(모바일은 탭을 닫았다 열기)하세요.</div></div>
+      <div class="h">${t('screens.set.sectionVersion')}</div>
+      <div class="k">${t('screens.set.appVersion')}</div><div><b class="num">${esc(APP_VERSION)}</b>
+        <div class="hint" style="margin-top:6px">${t('screens.set.versionHint')}</div></div>
 
-      <div class="h">데이터 복구</div>
-      <div class="k">클라우드에서 다시 불러오기</div><div>
-        <button class="btn sm" id="s_reload">지금 다시 불러오기</button>
-        <div class="hint" style="margin-top:6px">화면의 회원·기록이 비어 보이면 저장하지 말고 이 버튼을 먼저 누르세요.
-          클라우드(Firestore)에 있는 원본을 그대로 다시 읽어 옵니다.</div></div>
-      <div class="k">운영자 비밀번호</div><div>
-        <b id="adminPwState" style="color:var(--muted)">확인 중...</b>
+      <div class="h">${t('screens.set.sectionDataRecovery')}</div>
+      <div class="k">${t('screens.set.reloadCloudLabel')}</div><div>
+        <button class="btn sm" id="s_reload">${t('screens.set.reloadNowBtn')}</button>
+        <div class="hint" style="margin-top:6px">${t('screens.set.reloadHint')}</div></div>
+      <div class="k">${t('screens.set.adminPwLabel')}</div><div>
+        <b id="adminPwState" style="color:var(--muted)">${t('screens.set.checking')}</b>
         <div id="adminPwBox" style="margin-top:8px"></div>
-        <div class="hint" style="margin-top:6px">운영자는 아이디 <span class="doc-k">${esc(CLUB)}</span>와
-          이 비밀번호로 들어옵니다. <b>정하는 사람은 소유자입니다.</b><br>
-          운영자가 바뀌거나 비밀번호가 샜다고 생각되면 여기서 새로 정하세요 —
-          정하는 즉시 옛 비밀번호는 통하지 않습니다. 콘솔을 열 필요가 없습니다.</div></div>
-      <div class="k">회원 명단 보호</div><div>
-        <div class="hint">회원 명단을 통째로 바꾸는 조작(백업 복원 · CSV 일괄등록 · 클라우드에서 다시 불러오기)은
-          <b>소유자 계정</b>으로 로그인해야 합니다. 확인 창에서 누가 사라지고 누가 생기는지,
-          그 결과가 무엇인지 먼저 보여 줍니다.<br>
-          비밀번호를 거치지 않은 채 회원이 사라지는 저장(명단을 못 불러와 화면이 빈 경우 등)은
-          자동으로 차단되고 화면 위에 붉은 띠가 뜹니다. 그때는 아무것도 만지지 말고 새로고침하세요.<br>
-          현재 기준 명단: <b>${loadedMembersCount==null?'확인 안 됨':loadedMembersCount+'명'}</b></div></div>
+        <div class="hint" style="margin-top:6px">${t('screens.set.adminPwHint',{club:esc(CLUB)})}</div></div>
+      <div class="k">${t('screens.set.memberProtectionLabel')}</div><div>
+        <div class="hint">${t('screens.set.memberProtectionHint',{count:loadedMembersCount==null?t('screens.set.notChecked'):loadedMembersCount+t('screens.set.countUnit')})}</div></div>
 
-      <div class="h">저장소</div>
-      <div class="k">서버 시계와의 차이</div><div>${clockLabel()}
-        <div class="hint" style="margin-top:6px">경기 시간은 이 기기의 시계가 아니라
-          <b>서버 시계</b>를 기준으로 셉니다. 그래야 어느 태블릿에서 봐도 같은 시간이 나옵니다.
-          차이가 몇 분씩 난다면 이 기기의 날짜·시간 설정을 확인하세요
-          (앱은 알아서 보정하지만, 다른 앱의 시간도 틀리게 됩니다).</div></div>
-      <div class="k">현재 모드</div><div><b id="storeMode" style="color:${Store.mode==='firebase'?'var(--court)':'var(--muted)'}">${storeModeLabel()}</b>
-        <div class="hint" style="margin-top:6px">Firebase를 연결하면 클라우드에 저장되고 다른 태블릿과 실시간으로 맞춰집니다. 연결이 끊겨도 이 기기에서 계속 조작할 수 있고, 돌아오면 자동으로 동기화됩니다. 연결하지 않으면 이 기기에만 저장되니 회원 화면의 <b>백업</b>을 주기적으로 받아 두세요.</div></div>
-      <div class="k">Firebase 프로젝트</div><div>${fbConfigSectionHtml()}</div>
+      <div class="h">${t('screens.set.sectionStorage')}</div>
+      <div class="k">${t('screens.set.clockDiffLabel')}</div><div>${clockLabel()}
+        <div class="hint" style="margin-top:6px">${t('screens.set.clockDiffHint')}</div></div>
+      <div class="k">${t('screens.set.currentModeLabel')}</div><div><b id="storeMode" style="color:${Store.mode==='firebase'?'var(--court)':'var(--muted)'}">${storeModeLabel()}</b>
+        <div class="hint" style="margin-top:6px">${t('screens.set.storageModeHint')}</div></div>
+      <div class="k">${t('screens.set.fbProjectLabel')}</div><div>${fbConfigSectionHtml()}</div>
     </div>
-    <div class="row" style="margin-top:24px"><button class="btn primary" id="s_save">설정 저장</button>
-      <button class="btn" id="s_reset">기본값으로</button></div>`;
+    <div class="row" style="margin-top:24px"><button class="btn primary" id="s_save">${t('screens.set.saveBtn')}</button>
+      <button class="btn" id="s_reset">${t('screens.set.resetBtn')}</button></div>`;
   /* 이 기기 시계가 서버보다 얼마나 빠르거나 느린가. 앱은 이 차이를 보정해
      쓰므로 화면의 경기 시간은 어느 기기에서나 같다 — 이 값은 "왜 그런가"를
      확인하고 기기 시계가 크게 틀어진 것을 알아채기 위한 것이다. */
   function clockLabel(){
     if(Store.mode!=='firebase') return '<b style="color:var(--muted)">—</b> '
-      + '<span class="hint">Firebase 미연결 — 이 기기 시계를 그대로 씁니다</span>';
-    if(!Store.clockKnown()) return '<b style="color:var(--muted)">확인 중...</b> '
-      + '<span class="hint">첫 동기화가 오면 잽니다</span>';
+      + '<span class="hint">'+t('screens.set.fbNotConnected')+'</span>';
+    if(!Store.clockKnown()) return '<b style="color:var(--muted)">'+t('screens.set.checking')+'</b> '
+      + '<span class="hint">'+t('screens.set.waitingFirstSync')+'</span>';
     const ms = Store.clockSkew(), s = Math.abs(ms)/1000;
     const big = s >= 60;
-    const txt = s < 1 ? '거의 없음'
-              : s < 60 ? `${s.toFixed(1)}초 ${ms<0?'빠름':'느림'}`
-              : `${Math.round(s/60)}분 ${ms<0?'빠름':'느림'}`;
+    const dir = ms<0?t('screens.set.fast'):t('screens.set.slow');
+    const txt = s < 1 ? t('screens.set.clockNegligible')
+              : s < 60 ? t('screens.set.clockSecDiff',{s:s.toFixed(1),dir})
+              : t('screens.set.clockMinDiff',{m:Math.round(s/60),dir});
     return `<b style="color:${big?'var(--cork)':'var(--court)'}">${txt}</b>`
-         + (big?' <span class="hint">이 기기 시계가 많이 틀어져 있습니다</span>':'');
+         + (big?' <span class="hint">'+t('screens.set.clockSkewedWarn')+'</span>':'');
   }
   function storeModeLabel(){
     if(Store.mode==='firebase'){
-      const src = window.__fbConfigSource==='file' ? '설정 파일' : '수동 입력';
-      return `🔥 Firebase 연결됨 (${src}) · 실시간 동기화`;
+      const src = window.__fbConfigSource==='file' ? t('screens.set.configSourceFile') : t('screens.set.configSourceManual');
+      return t('screens.set.fbConnectedLabel',{src});
     }
-    if(Store.fbState==='error') return '⚠ Firebase 연결 실패 — 이 기기에만 저장 중';
-    return (Store.mode==='window.storage'?'앱 내장 저장소':'이 기기(브라우저)') + ' — Firebase 미연결';
+    if(Store.fbState==='error') return t('screens.set.fbConnectFailed');
+    return (Store.mode==='window.storage'?t('screens.set.builtinStorage'):t('screens.set.thisDeviceBrowser')) + t('screens.set.storageModeSuffix');
   }
   /* 설정 소스에 따라 세 가지 화면을 보여준다.
      file : firebase-config.json으로 자동 연결됨 — 손댈 게 없으니 수동 입력칸 대신 상태만 보여준다.
@@ -681,12 +658,10 @@ function renderSet(){
     const src = window.__fbConfigSource || 'none';
     if(src==='file' && Store.mode==='firebase'){
       return `<div class="opt on" style="cursor:default;margin-bottom:0">
-          <div><div class="t">📄 firebase-config.json 파일로 연결됨</div>
-          <div class="d">경로: ${esc(window.__fbConfigFile||'./firebase-config.json')} · projectId: ${esc(window.__fb?.app?.options?.projectId||'')}</div></div></div>
+          <div><div class="t">${t('screens.set.fbFileConnectedTitle')}</div>
+          <div class="d">${t('screens.set.fbFileConnectedDetail',{path:esc(window.__fbConfigFile||'./firebase-config.json'),pid:esc(window.__fb?.app?.options?.projectId||'')})}</div></div></div>
         <div class="hint" style="margin-top:10px;max-width:520px;line-height:1.7">
-          이 기기가 아니라 <b>배포 폴더</b>의 설정 파일을 읽어 자동으로 연결된 상태입니다. 모든 태블릿이 같은 파일을 보므로
-          여기서 개별로 바꿀 필요가 없습니다. 값을 바꾸려면 배포 폴더의 firebase-config.json 파일을 수정한 뒤
-          새로고침하세요.</div>`;
+          ${t('screens.set.fbFileConnectedHint')}</div>`;
     }
     const fbCfg = window.__fbReadCfg && window.__fbReadCfg();
     const fileTried = src==='none' || src==='local';
@@ -700,13 +675,11 @@ function renderSet(){
           <input type="text" id="fb_appId" placeholder="appId" value="${esc(fbCfg?.appId||'')}" style="width:180px">
         </div>
         <div class="row" style="margin-top:10px">
-          <button class="btn sm primary" id="fb_save">저장하고 연결</button>
-          ${fbCfg?'<button class="btn sm" id="fb_clear">연결 해제</button>':''}
+          <button class="btn sm primary" id="fb_save">${t('screens.set.fbSaveConnectBtn')}</button>
+          ${fbCfg?`<button class="btn sm" id="fb_clear">${t('screens.set.fbDisconnectBtn')}</button>`:''}
         </div>
         <div class="hint" style="margin-top:8px;max-width:520px;line-height:1.7">
-          Firebase 콘솔(console.firebase.google.com) → 프로젝트 생성 → Firestore Database(테스트 모드로 시작) →
-          프로젝트 설정 → "웹 앱 추가"에서 위 네 값을 복사해 넣으세요. Authentication에서
-          <b>익명 로그인</b>을 켜 두면 앱이 자동으로 로그인합니다. 저장 후 페이지를 새로고침합니다.
+          ${t('screens.set.fbSetupHint')}
         </div>
         ${fileTried?fileDiagHtml():''}`;
   }
@@ -714,38 +687,37 @@ function renderSet(){
     const d = window.__fbFileDiag;
     const box = (title,body,color)=>`<div class="hint" style="margin-top:10px;max-width:560px;line-height:1.7;${color?'color:'+color+';':''}">${body}</div>`;
     if(!d || !d.attempts || !d.attempts.length){
-      return box('', `매번 기기마다 입력하는 대신, 배포 폴더에 <b>firebase-config.json</b> 파일을
-        두면 자동으로 연결됩니다. (아직 파일 조회를 시도하지 않았습니다 — 페이지를 새로고침해 보세요.)`);
+      return box('', t('screens.set.fbDiagNotTried'));
     }
     const rows = d.attempts.map(a=>{
       const ok = a.result==='OK';
       const line = `<div style="margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid ${ok?'var(--court)':'var(--line)'}">
-        <div style="font-weight:700;color:${ok?'var(--court)':'var(--cork)'}">${ok?'✓ 성공':'✗ 실패'} — <span class="num">${esc(a.url)}</span></div>
+        <div style="font-weight:700;color:${ok?'var(--court)':'var(--cork)'}">${ok?t('screens.set.diagSuccess'):t('screens.set.diagFail')} — <span class="num">${esc(a.url)}</span></div>
         <div style="margin-top:3px">${esc(a.result||'')}${a.status!=null?` (HTTP ${a.status})`:''}</div>
         ${a.hint?`<div style="margin-top:5px;color:var(--muted)">${esc(a.hint)}</div>`:''}
-        ${a.snippet?`<div style="margin-top:5px;color:var(--muted2);font-family:monospace;font-size:12px;white-space:pre-wrap">응답 미리보기: ${esc(a.snippet)}</div>`:''}
+        ${a.snippet?`<div style="margin-top:5px;color:var(--muted2);font-family:monospace;font-size:12px;white-space:pre-wrap">${t('screens.set.diagPreview',{snippet:esc(a.snippet)})}</div>`:''}
       </div>`;
       return line;
     }).join('');
-    return box('', `배포 폴더의 <b>firebase-config.json</b>을 자동으로 찾아본 결과입니다:
+    return box('', `${t('screens.set.diagResultIntro')}
       ${rows}
-      <div style="margin-top:8px">모든 시도가 실패해 이 기기의 수동 입력(위)이나 기본 저장소로 동작합니다.
-      <button class="btn sm ghost" id="fb_recheck" style="margin-left:6px">다시 확인</button></div>`);
+      <div style="margin-top:8px">${t('screens.set.diagAllFailed')}
+      <button class="btn sm ghost" id="fb_recheck" style="margin-left:6px">${t('screens.set.recheckBtn')}</button></div>`);
   }
   $('#fb_save')?.addEventListener('click',()=>{
     const cfg={ apiKey:$('#fb_apiKey').value.trim(), projectId:$('#fb_projectId').value.trim(),
       authDomain:$('#fb_authDomain').value.trim()||($('#fb_projectId').value.trim()+'.firebaseapp.com'),
       appId:$('#fb_appId').value.trim() };
-    if(!cfg.apiKey||!cfg.projectId) return toast('apiKey와 projectId는 필수입니다');
+    if(!cfg.apiKey||!cfg.projectId) return toast(t('screens.set.fbRequiredToast'));
     localStorage.setItem(window.__fbConfigKey, JSON.stringify(cfg));
-    toast('저장했습니다. 새로고침합니다...');
+    toast(t('screens.set.fbSavedReloadToast'));
     setTimeout(()=>location.reload(),700);
   });
   $('#fb_clear')?.addEventListener('click',()=>{
-    if(!confirm('Firebase 연결을 해제할까요? 데이터는 이 기기 저장소로 되돌아갑니다.')) return;
+    if(!confirm(t('screens.set.confirmFbDisconnect'))) return;
     localStorage.removeItem(window.__fbConfigKey); setTimeout(()=>location.reload(),300);
   });
-  $('#fb_recheck')?.addEventListener('click',()=>{ toast('다시 확인합니다...'); setTimeout(()=>location.reload(),300); });
+  $('#fb_recheck')?.addEventListener('click',()=>{ toast(t('screens.set.recheckingToast')); setTimeout(()=>location.reload(),300); });
   /* ── 운영자 비밀번호 — 소유자만 정할 수 있다 ────────────────────
      화면을 그린 뒤 비동기로 채운다. 소유자가 아니면 상태만 보여 주고
      입력칸은 내지 않는다. 내 봐야 서버가 거절하므로, 누를 수 있는 버튼을
@@ -754,47 +726,47 @@ function renderSet(){
     const el=$('#adminPwState'), box=$('#adminPwBox');
     if(!el) return;
     const st=await Secret.state();
-    if(st==='set'){ el.textContent='설정됨'; el.style.color='var(--court)'; }
-    else if(st==='unset'){ el.textContent='아직 없음 — 운영자가 들어올 수 없습니다';
+    if(st==='set'){ el.textContent=t('screens.set.pwSet'); el.style.color='var(--court)'; }
+    else if(st==='unset'){ el.textContent=t('screens.set.pwUnset');
                            el.style.color='var(--cork)'; }
-    else { el.textContent='확인하지 못했습니다(연결 확인)'; return; }
+    else { el.textContent=t('screens.set.pwCheckFailed'); return; }
 
     if(!Auth.isOwner){
-      if(box) box.innerHTML='<div class="hint">바꾸려면 <b>소유자 계정</b>으로 로그인해야 합니다.</div>';
+      if(box) box.innerHTML='<div class="hint">'+t('screens.set.pwOwnerOnlyHint')+'</div>';
       return;
     }
     box.innerHTML=`
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input type="password" id="s_apw"  placeholder="새 비밀번호(8자 이상)"
+        <input type="password" id="s_apw"  placeholder="${t('screens.set.pwPlaceholderNew')}"
                autocomplete="new-password" style="width:210px">
-        <input type="password" id="s_apw2" placeholder="한 번 더"
+        <input type="password" id="s_apw2" placeholder="${t('screens.set.pwPlaceholderAgain')}"
                autocomplete="new-password" style="width:150px">
-        <button class="btn sm primary" id="s_apwSet">${st==='set'?'바꾸기':'설정'}</button>
+        <button class="btn sm primary" id="s_apwSet">${st==='set'?t('screens.set.pwChangeBtn'):t('screens.set.pwSetBtn')}</button>
       </div>
       <div id="s_apwErr" class="hint" style="margin-top:6px;color:var(--cork);min-height:18px"></div>`;
     $('#s_apwSet').onclick=async()=>{
       const err=$('#s_apwErr'), a=$('#s_apw').value, b=$('#s_apw2').value;
-      if(a.length<8){ Sound.play('error'); return err.textContent='8자 이상으로 정해 주세요'; }
-      if(a!==b){ Sound.play('error'); return err.textContent='두 번 입력한 값이 다릅니다'; }
-      const btn=$('#s_apwSet'); btn.disabled=true; err.textContent='설정 중...';
+      if(a.length<8){ Sound.play('error'); return err.textContent=t('screens.set.pwTooShort'); }
+      if(a!==b){ Sound.play('error'); return err.textContent=t('screens.set.pwMismatch'); }
+      const btn=$('#s_apwSet'); btn.disabled=true; err.textContent=t('screens.set.pwSettingInProgress');
       const r=await Secret.setAdminPassword(a);
       btn.disabled=false;
       if(!r.ok){
         Sound.play('error');
         err.textContent = r.reason==='denied'
-          ? '서버가 거절했습니다 — 소유자 계정으로 로그인했는지, 보안 규칙이 배포됐는지 확인해 주세요'
-          : '설정하지 못했습니다 — 연결을 확인해 주세요';
+          ? t('screens.set.pwDenied')
+          : t('screens.set.pwFailed');
         return;
       }
       Sound.play('confirm');
       $('#s_apw').value=''; $('#s_apw2').value='';
-      err.style.color='var(--court)'; err.textContent='새 비밀번호가 적용됐습니다';
-      el.textContent='설정됨'; el.style.color='var(--court)';
-      toast('운영자 비밀번호를 설정했습니다');
+      err.style.color='var(--court)'; err.textContent=t('screens.set.pwApplied');
+      el.textContent=t('screens.set.pwSet'); el.style.color='var(--court)';
+      toast(t('screens.set.pwSetToast'));
     };
   })();
   $('#s_pol').onchange=renderSetHint;
-  function renderSetHint(){ $('#s_pol').parentElement.querySelector('.hint').textContent=POLICY.find(p=>p[0]===$('#s_pol').value)[2]; }
+  function renderSetHint(){ $('#s_pol').parentElement.querySelector('.hint').textContent=t(POLICY.find(p=>p[0]===$('#s_pol').value)[2]); }
   $('#s_save').onclick=()=>{
     const nc=Math.max(1,+$('#s_courts').value||3), ns=Math.max(2,+$('#s_slots').value||7);
     const sized = nc!==s.courtCount || ns!==s.queueSlotCount;
@@ -809,14 +781,14 @@ function renderSet(){
       const playing = goneC.filter(c=>c.status==='PLAYING');
       if(goneC.length || goneQ.length){
         const lines = [];
-        if(goneC.length) lines.push(`${goneC.map(c=>c.no+'코트').join('·')}의 `
-          + `${goneC.reduce((n,c)=>n+c.members.length,0)}명이 대기 인원으로 내려갑니다`);
-        if(playing.length) lines.push(`그중 ${playing.map(c=>c.no+'코트').join('·')}는 경기 중입니다 — `
-          + `한 판 친 것으로 쳐서 게임 수가 오르고 기록에 남습니다(승패는 비워 둡니다)`);
-        if(goneQ.length) lines.push(`${goneQ.map(q=>'Q'+q.index).join('·')}의 `
-          + `${goneQ.reduce((n,q)=>n+q.members.length,0)}명이 대기 인원으로 흩어집니다`);
-        if(!confirm(`없어지는 자리에 사람이 있습니다.\n\n· ${lines.join('\n· ')}\n\n`
-                  + `나머지 코트와 대기열은 그대로 유지됩니다. 진행할까요?`)) return;
+        if(goneC.length) lines.push(t('screens.set.resizeGoneCourtsLine',
+          {courts:goneC.map(c=>c.no+t('screens.set.courtSuffix')).join('·'), n:goneC.reduce((n,c)=>n+c.members.length,0)}));
+        if(playing.length) lines.push(t('screens.set.resizePlayingLine',
+          {courts:playing.map(c=>c.no+t('screens.set.courtSuffix')).join('·')}));
+        if(goneQ.length) lines.push(t('screens.set.resizeGoneQueueLine',
+          {queues:goneQ.map(q=>'Q'+q.index).join('·'), n:goneQ.reduce((n,q)=>n+q.members.length,0)}));
+        if(!confirm(t('screens.set.resizeConfirmHeader')+'\n\n· '+lines.join('\n· ')+'\n\n'
+                  + t('screens.set.resizeConfirmFooter'))) return;
       }
     }
 
@@ -828,7 +800,7 @@ function renderSet(){
     if($('#s_reqres').checked && !s.requireResult)
       S.matches.forEach(m=>{ if(resultPending(m)) m.skipped = true; });
 
-    Object.assign(s,{clubName:$('#s_club').value.trim()||'대진판',courtCount:nc,queueSlotCount:ns,
+    Object.assign(s,{clubName:$('#s_club').value.trim()||t('screens.set.defaultClubName'),courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
       winPoint:Math.max(5,Math.min(31,+$('#s_wp').value||21)),
       requireResult:$('#s_reqres').checked,
@@ -849,22 +821,22 @@ function renderSet(){
        되돌리기 이력을 버린다. 되돌려서 옛 코트 배열이 돌아오면 화면과
        설정이 서로 다른 코트 수를 말하게 된다. */
     if(sized) undoStack.length=0;
-    renderSet(); toast('설정을 저장했습니다');
+    renderSet(); toast(t('screens.set.settingsSavedToast'));
   };
   $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
   $('#s_reload').onclick=async()=>{
     Sound.play('tap');
-    const btn=$('#s_reload'); btn.disabled=true; btn.textContent='불러오는 중...';
+    const btn=$('#s_reload'); btn.disabled=true; btn.textContent=t('screens.stats.loading');
     const rMem=await Store.getSafe(K('members'), {strict:true});
     const rSet=await Store.getSafe(K('settings'), {strict:true});
-    btn.disabled=false; btn.textContent='지금 다시 불러오기';
+    btn.disabled=false; btn.textContent=t('screens.set.reloadNowBtn');
     if(!rMem.ok){ Sound.play('error');
-      return toast(`클라우드를 읽지 못했습니다 (${rMem.error||'읽기 실패'}). 연결을 확인하세요`); }
+      return toast(t('screens.set.cloudReadFailed',{err:rMem.error||t('screens.set.readFailedFallback')})); }
     const list=rMem.value||[];
-    if(!list.length) return toast('클라우드에도 회원 명단이 없습니다');
+    if(!list.length) return toast(t('screens.set.cloudNoMembers'));
     // 방금 읽은 결과를 그대로 넘겨 준다(같은 문서를 두 번 읽지 않게).
     bulkOverwriteMembers(list, {
-      source:`클라우드에서 다시 불러오기 — ${list.length}명`,
+      source:t('screens.set.reloadSource',{n:list.length}),
       dbRead:rMem,
       applyExtra(){
         if(rSet.ok && rSet.value){
@@ -875,6 +847,6 @@ function renderSet(){
       after(){ renderSet(); }
     });
   };
-  $('#s_reset').onclick=()=>{ if(!confirm('설정을 기본값으로 되돌릴까요? 회원과 출석 정보는 유지됩니다.')) return;
+  $('#s_reset').onclick=()=>{ if(!confirm(t('screens.set.confirmReset'))) return;
     S.settings=clone(DEFAULTS); tx(()=>initBoard()); renderSet(); };
 }

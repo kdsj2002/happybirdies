@@ -50,25 +50,21 @@ const Gate = (() => {
   function screenUnknownClub(){
     open(`
       <div class="gate-card">
-        <div class="gate-title">없는 주소입니다</div>
-        <div class="gate-sub"><span class="doc-k">${esc(CLUB)}</span> 라는 동호회를 찾지 못했습니다.
-          주소를 다시 확인해 주세요.</div>
+        <div class="gate-title">${t('gate.unknownClub.title')}</div>
+        <div class="gate-sub">${t('gate.unknownClub.sub', {club: esc(CLUB)})}</div>
         <div class="hint" style="line-height:1.7;margin-bottom:14px">
-          동호회 주소는 운영자에게 받은 링크를 그대로 여는 것이 가장 확실합니다.<br>
-          새 동호회를 열고 싶으시면 대표 주소에서 신청할 수 있습니다.
+          ${t('gate.unknownClub.hint')}
         </div>
         <div id="quotaNote"></div>
         <a class="gate-btn" href="/" style="text-decoration:none;display:block">
-          <b>대표 주소로 가기</b><span>여기서 동호회를 찾거나 새로 신청합니다</span></a>
+          <b>${t('gate.unknownClub.homeLink')}</b><span>${t('gate.unknownClub.homeLinkSub')}</span></a>
       </div>`);
     /* 정원이 찼으면 헛걸음하지 않게 미리 알려 준다. */
     Store.clubQuota().then(q=>{
       const el=$('#quotaNote'); if(!el || !q.ok) return;
       el.innerHTML = q.full
-        ? `<div class="hint" style="color:var(--cork);font-weight:700;margin-bottom:12px">
-             지금은 신규 동호회 정원(${q.limit}개)이 다 찼습니다. 자리가 나면 다시 열립니다.</div>`
-        : `<div class="hint" style="margin-bottom:12px">
-             현재 <b>${q.count}</b> / ${q.limit}개 동호회가 열려 있습니다.</div>`;
+        ? `<div class="hint" style="color:var(--cork);font-weight:700;margin-bottom:12px">${t('gate.unknownClub.quotaFull', {limit:q.limit})}</div>`
+        : `<div class="hint" style="margin-bottom:12px">${t('gate.unknownClub.quotaOpen', {count:q.count, limit:q.limit})}</div>`;
     });
   }
 
@@ -83,28 +79,27 @@ const Gate = (() => {
     const recent = (typeof recentClubs==='function') ? recentClubs() : [];
     open(`
       <div class="gate-card wide">
-        <div class="gate-title">배드민턴 대진판</div>
-        <div class="gate-sub">동호회 코드를 입력하시면 그 동호회 대진판으로 갑니다.</div>
-        <input type="text" id="cCode" placeholder="예: teambailey" autocomplete="off"
+        <div class="gate-title">${t('gate.landing.title')}</div>
+        <div class="gate-sub">${t('gate.landing.sub')}</div>
+        <input type="text" id="cCode" placeholder="${t('gate.landing.codePlaceholder')}" autocomplete="off"
                autocapitalize="off" autocorrect="off" spellcheck="false"
                style="width:100%;height:52px;font-size:20px;text-align:center">
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="margin-top:12px">
-          <button class="btn primary" id="cGo" style="width:100%">들어가기</button>
+          <button class="btn primary" id="cGo" style="width:100%">${t('gate.landing.enterBtn')}</button>
         </div>
-        ${recent.length?`<div class="gate-sub" style="margin:16px 0 6px">최근에 들어간 동호회</div>
+        ${recent.length?`<div class="gate-sub" style="margin:16px 0 6px">${t('gate.landing.recentLabel')}</div>
           <div class="gate-list">${recent.map(c=>
             `<button class="gate-name" data-c="${esc(c.id)}">${esc(c.name||c.id)}</button>`).join('')}</div>`:''}
         <div class="hint" style="margin-top:18px;line-height:1.7">
-          코드는 운영자에게 받은 링크의 주소 조각입니다
-          (<span class="doc-k">happybirdies.web.app/<b>teambailey</b>/</span>).<br>
+          ${t('gate.landing.hint')}<br>
           <span id="quotaNote"></span>
         </div>
         <div class="row" style="margin-top:18px">
-          <button class="btn" id="cApply" style="width:100%">새 동호회 신청하기</button>
+          <button class="btn" id="cApply" style="width:100%">${t('gate.landing.applyBtn')}</button>
         </div>
         <div class="hint" style="margin-top:10px">
-          <a href="/manual.html">사용 설명서 보기 →</a>
+          <a href="/manual.html">${t('gate.landing.manualLink')}</a>
         </div>
       </div>`);
 
@@ -114,7 +109,7 @@ const Gate = (() => {
       const btn=$('#cGo'); if(btn.disabled) return;
       const code=(inp.value||'').trim().toLowerCase();
       if(!code) return;
-      btn.disabled=true; $('#gErr').textContent='찾는 중...';
+      btn.disabled=true; $('#gErr').textContent=t('gate.landing.searching');
       const r=await Store.lookupClub(code);
       btn.disabled=false;
       if(r.ok && r.found){
@@ -125,9 +120,9 @@ const Gate = (() => {
       Sound.play('error');
       // 못 찾은 것과 못 물어본 것은 다르다. 오프라인에서 "없는 동호회"라고
       // 말하면 멀쩡한 코드를 의심하게 된다.
-      $('#gErr').textContent = r.bad ? '영문 소문자·숫자·하이픈만 쓸 수 있습니다'
-                              : r.ok ? '그런 동호회를 찾지 못했습니다'
-                                     : '지금은 확인할 수 없습니다 — 연결을 확인해 주세요';
+      $('#gErr').textContent = r.bad ? t('gate.landing.errBadCode')
+                              : r.ok ? t('gate.landing.errNotFound')
+                                     : t('gate.landing.errOffline');
     };
     $('#cGo').onclick=go;
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
@@ -138,8 +133,8 @@ const Gate = (() => {
     Store.clubQuota().then(q=>{
       const el=$('#quotaNote'); if(!el || !q.ok) return;
       el.innerHTML = q.full
-        ? `새 동호회는 지금 정원(${q.limit}개)이 다 차서 받지 못합니다.`
-        : `아래 버튼으로 새 동호회를 신청할 수 있습니다 (현재 <b>${q.count}</b>/${q.limit}개).`;
+        ? t('gate.landing.quotaFull', {limit:q.limit})
+        : t('gate.landing.quotaOpen', {count:q.count, limit:q.limit});
     });
   }
 
@@ -156,42 +151,42 @@ const Gate = (() => {
   const CODE_RE = /^[a-z0-9][a-z0-9-]{1,30}$/;
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const FN_ERR = {
-    'already-exists':     '이미 쓰이고 있는 동호회 코드입니다',
-    'resource-exhausted': '지금은 신규 동호회 정원이 다 찼습니다',
-    'permission-denied':  '이 기기에서 만들 수 있는 동호회 수를 넘었습니다',
-    'invalid-argument':   '입력값을 다시 확인해 주세요',
-    'unauthenticated':    '연결을 확인하고 다시 시도해 주세요'
+    'already-exists':     'gate.apply.err.alreadyExists',
+    'resource-exhausted': 'gate.apply.err.resourceExhausted',
+    'permission-denied':  'gate.apply.err.permissionDenied',
+    'invalid-argument':   'gate.apply.err.invalidArgument',
+    'unauthenticated':    'gate.apply.err.unauthenticated'
   };
+  // FN_ERR는 코드→번역키 매핑이다. t()는 보여줄 때마다 새로 부르므로
+  // 나중에 언어를 바꿔도 그 순간의 언어로 나온다.
+  const fnErr = code => FN_ERR[code] ? t(FN_ERR[code]) : null;
 
   function screenApply(){
     open(`
       <div class="gate-card wide">
-        <div class="gate-title">새 동호회 신청</div>
-        <div class="gate-sub">신청하면 곧바로 동호회가 열립니다. 이어서 소유자 이메일을
-          구글로 인증하면 운영자 비밀번호를 정해 바로 시험 운영해 볼 수 있습니다.</div>
+        <div class="gate-title">${t('gate.apply.title')}</div>
+        <div class="gate-sub">${t('gate.apply.sub')}</div>
         <div class="row" style="gap:10px">
-          <label class="fl" style="flex:1">나라<input type="text" id="aCountry" placeholder="예: 대한민국"></label>
-          <label class="fl" style="flex:1">지역<input type="text" id="aArea" placeholder="예: 서울 강남구"></label>
+          <label class="fl" style="flex:1">${t('gate.apply.countryLabel')}<input type="text" id="aCountry" placeholder="${t('gate.apply.countryPlaceholder')}"></label>
+          <label class="fl" style="flex:1">${t('gate.apply.areaLabel')}<input type="text" id="aArea" placeholder="${t('gate.apply.areaPlaceholder')}"></label>
         </div>
-        <label class="fl" style="margin-top:10px">동호회 이름<input type="text" id="aName" placeholder="예: 팀베일리"></label>
-        <label class="fl" style="margin-top:10px">동호회 코드(영문)
-          <input type="text" id="aCode" placeholder="예: teambailey" autocomplete="off"
+        <label class="fl" style="margin-top:10px">${t('gate.apply.nameLabel')}<input type="text" id="aName" placeholder="${t('gate.apply.namePlaceholder')}"></label>
+        <label class="fl" style="margin-top:10px">${t('gate.apply.codeLabel')}
+          <input type="text" id="aCode" placeholder="${t('gate.apply.codePlaceholder')}" autocomplete="off"
                  autocapitalize="off" autocorrect="off" spellcheck="false"></label>
-        <div class="hint" style="margin-top:4px">주소 <span class="doc-k">happybirdies.web.app/<b>코드</b>/</span>가
-          됩니다. 영문 소문자·숫자·하이픈만, 2~31자.</div>
+        <div class="hint" style="margin-top:4px">${t('gate.apply.codeHint')}</div>
         <div class="row" style="gap:10px;margin-top:10px">
-          <label class="fl" style="flex:1">소유자 이름<input type="text" id="aOwner" placeholder="이름"></label>
-          <label class="fl" style="flex:1">연락처<input type="text" id="aContact" placeholder="휴대폰 번호"></label>
+          <label class="fl" style="flex:1">${t('gate.apply.ownerNameLabel')}<input type="text" id="aOwner" placeholder="${t('gate.apply.ownerNamePlaceholder')}"></label>
+          <label class="fl" style="flex:1">${t('gate.apply.contactLabel')}<input type="text" id="aContact" placeholder="${t('gate.apply.contactPlaceholder')}"></label>
         </div>
-        <label class="fl" style="margin-top:10px">소유자 이메일
-          <input type="email" id="aEmail" placeholder="구글 계정 이메일" autocomplete="off"
+        <label class="fl" style="margin-top:10px">${t('gate.apply.emailLabel')}
+          <input type="email" id="aEmail" placeholder="${t('gate.apply.emailPlaceholder')}" autocomplete="off"
                  autocapitalize="off" autocorrect="off" spellcheck="false"></label>
-        <div class="hint" style="margin-top:4px">다음 단계에서 <b>이 이메일의 구글 계정</b>으로
-          인증합니다 — 다른 계정으로는 소유자가 될 수 없습니다.</div>
+        <div class="hint" style="margin-top:4px">${t('gate.apply.emailHint')}</div>
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="aOk" style="flex:2">신청하기</button>
+          <button class="btn" id="gBack" style="flex:1">${t('gate.apply.backBtn')}</button>
+          <button class="btn primary" id="aOk" style="flex:2">${t('gate.apply.submitBtn')}</button>
         </div>
       </div>`);
 
@@ -202,13 +197,13 @@ const Gate = (() => {
             contact=v('#aContact'), ownerEmail=v('#aEmail').toLowerCase();
       const err = $('#gErr');
       if(!country || !name || !ownerName || !contact){
-        err.textContent='빈칸을 모두 채워 주세요'; return null;
+        err.textContent=t('gate.apply.errEmpty'); return null;
       }
       if(!CODE_RE.test(code)){
-        err.textContent='동호회 코드는 영문 소문자·숫자·하이픈으로 2~31자여야 합니다'; return null;
+        err.textContent=t('gate.apply.errCodeFormat'); return null;
       }
       if(!EMAIL_RE.test(ownerEmail)){
-        err.textContent='이메일 형식을 확인해 주세요'; return null;
+        err.textContent=t('gate.apply.errEmailFormat'); return null;
       }
       return { country, area, name, code, ownerName, contact, ownerEmail };
     };
@@ -216,7 +211,7 @@ const Gate = (() => {
     $('#aOk').onclick=async()=>{
       $('#gErr').textContent='';
       const info=collect(); if(!info) return;
-      const btn=$('#aOk'); btn.disabled=true; $('#gErr').textContent='신청하는 중...';
+      const btn=$('#aOk'); btn.disabled=true; $('#gErr').textContent=t('gate.apply.submitting');
       const r=await Store.callFunction('createClub', {
         id:info.code, name:info.name, country:info.country, area:info.area,
         ownerName:info.ownerName, contact:info.contact, ownerEmail:info.ownerEmail
@@ -224,7 +219,7 @@ const Gate = (() => {
       btn.disabled=false;
       if(!r.ok){
         Sound.play('error');
-        $('#gErr').textContent = FN_ERR[r.code] || r.error || '신청하지 못했습니다';
+        $('#gErr').textContent = fnErr(r.code) || r.error || t('gate.apply.errGeneric');
         return;
       }
       Sound.play('confirm');
@@ -239,23 +234,20 @@ const Gate = (() => {
   function screenApplyVerify(code, ownerEmail, clubName){
     open(`
       <div class="gate-card">
-        <div class="gate-title">소유자 이메일 인증</div>
-        <div class="gate-sub"><b>${esc(clubName)}</b>(<span class="doc-k">${esc(code)}</span>)이
-          열렸습니다. 신청서에 적은 <b>${esc(ownerEmail)}</b>의 구글 계정으로 인증해 주세요.</div>
+        <div class="gate-title">${t('gate.applyVerify.title')}</div>
+        <div class="gate-sub">${t('gate.applyVerify.sub', {clubName: esc(clubName), code: esc(code), ownerEmail: esc(ownerEmail)})}</div>
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="margin-top:14px">
-          <button class="btn primary" id="vGoogle" style="width:100%">Google로 인증하기</button>
+          <button class="btn primary" id="vGoogle" style="width:100%">${t('gate.applyVerify.googleBtn')}</button>
         </div>
         <div class="hint" style="margin-top:14px;line-height:1.7">
-          나중에 인증해도 됩니다. 동호회는 이미 열려 있으니, 그동안은
-          <a href="/${esc(code)}/">동호회 주소</a>에서 운영자에게 비밀번호를 받아 둘러볼 수 있습니다
-          (아직 운영자 비밀번호가 없다면 이 인증부터 마쳐야 합니다).
+          ${t('gate.applyVerify.hint', {code: esc(code)})}
         </div>
       </div>`);
 
     $('#vGoogle').onclick=async()=>{
       const btn=$('#vGoogle'); if(btn.disabled) return;
-      btn.disabled=true; $('#gErr').textContent='인증 중...';
+      btn.disabled=true; $('#gErr').textContent=t('gate.applyVerify.verifying');
       const g=await Account.signInGoogle();
       if(!g.ok){
         btn.disabled=false; Sound.play('error');
@@ -265,8 +257,7 @@ const Gate = (() => {
       // 서버가 최종 확인한다 — 여기서는 헛걸음을 줄이려고 미리 한 번 본다.
       if(!acc || (acc.email||'').toLowerCase() !== ownerEmail){
         btn.disabled=false; Sound.play('error');
-        $('#gErr').textContent = `로그인한 계정(${esc(acc?acc.email:'')})이 신청서의 이메일과 다릅니다. `
-          + `아래에서 로그아웃하고 ${esc(ownerEmail)} 계정으로 다시 인증해 주세요.`;
+        $('#gErr').textContent = t('gate.applyVerify.errMismatch', {email: esc(acc?acc.email:''), ownerEmail: esc(ownerEmail)});
         showSwitchAccount();
         return;
       }
@@ -275,8 +266,8 @@ const Gate = (() => {
       if(!r.ok){
         Sound.play('error');
         $('#gErr').textContent = r.code==='permission-denied'
-          ? '이 계정은 신청서에 적은 소유자 이메일과 다릅니다'
-          : (FN_ERR[r.code] || r.error || '인증하지 못했습니다');
+          ? t('gate.applyVerify.errWrongAccount')
+          : (fnErr(r.code) || r.error || t('gate.applyVerify.errGeneric'));
         showSwitchAccount();
         return;
       }
@@ -287,7 +278,7 @@ const Gate = (() => {
       if($('#vSwitch')) return;
       const row=el('div','row'); row.style.marginTop='8px';
       row.id='vSwitchRow';
-      row.innerHTML='<button class="btn" id="vSwitch" style="width:100%">다른 계정으로 다시 인증</button>';
+      row.innerHTML=`<button class="btn" id="vSwitch" style="width:100%">${t('gate.applyVerify.switchBtn')}</button>`;
       $('#gErr').insertAdjacentElement('afterend', row);
       $('#vSwitch').onclick=async()=>{ Sound.play('tap'); await Account.signOut(); screenApplyVerify(code, ownerEmail, clubName); };
     }
@@ -300,43 +291,42 @@ const Gate = (() => {
   function screenApplyPassword(code, clubName){
     open(`
       <div class="gate-card">
-        <div class="gate-title">운영자 비밀번호 정하기</div>
-        <div class="gate-sub">소유자 인증이 끝났습니다. <b>${esc(clubName)}</b>의 운영자 비밀번호를
-          정하면 바로 운영자로 들어가 시험 운영을 시작할 수 있습니다.</div>
-        <label class="fl">운영자 비밀번호(8자 이상)
+        <div class="gate-title">${t('gate.applyPassword.title')}</div>
+        <div class="gate-sub">${t('gate.applyPassword.sub', {clubName: esc(clubName)})}</div>
+        <label class="fl">${t('gate.applyPassword.pwLabel')}
           <input type="password" id="pA" autocomplete="new-password"></label>
-        <label class="fl" style="margin-top:10px">한 번 더
+        <label class="fl" style="margin-top:10px">${t('gate.applyPassword.pwConfirmLabel')}
           <input type="password" id="pB" autocomplete="new-password"></label>
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="margin-top:14px">
-          <button class="btn primary" id="pOk" style="width:100%">정하고 운영자로 입장</button>
+          <button class="btn primary" id="pOk" style="width:100%">${t('gate.applyPassword.submitBtn')}</button>
         </div>
       </div>`);
     const inp=$('#pA'); setTimeout(()=>inp&&inp.focus(),60);
     const go=async()=>{
       const btn=$('#pOk'); if(btn.disabled) return;
       const a=$('#pA').value, b=$('#pB').value, err=$('#gErr');
-      if(a.length<8){ Sound.play('error'); err.textContent='8자 이상으로 정해 주세요'; return; }
-      if(a!==b){ Sound.play('error'); err.textContent='두 번 입력한 값이 다릅니다'; return; }
-      btn.disabled=true; err.textContent='설정하는 중...';
+      if(a.length<8){ Sound.play('error'); err.textContent=t('gate.applyPassword.errTooShort'); return; }
+      if(a!==b){ Sound.play('error'); err.textContent=t('gate.applyPassword.errMismatch'); return; }
+      btn.disabled=true; err.textContent=t('gate.applyPassword.setting');
       const r=await Secret.setAdminPassword(a);
       btn.disabled=false;
       if(!r.ok){
         Sound.play('error');
         err.textContent = r.reason==='denied'
-          ? '서버가 거절했습니다 — 소유자 인증이 이 기기에 아직 반영되지 않았을 수 있습니다. 새로고침 후 다시 시도해 주세요'
-          : '설정하지 못했습니다 — 연결을 확인해 주세요';
+          ? t('gate.applyPassword.errDenied')
+          : t('gate.applyPassword.errFail');
         return;
       }
       // 방금 정한 비밀번호로 그대로 운영자 입장. 다시 입력하게 하지 않는다.
       const res=await Auth.loginAdmin(a);
       if(res.ok){
         Sound.play('confirm'); close(); enter();
-        toast(`${clubName} — 운영자로 입장했습니다. 시험 운영을 시작하세요`);
+        toast(t('gate.applyPassword.toastEnter', {clubName}));
         return;
       }
       // 비밀번호는 정해졌는데 입장만 실패한 드문 경우 — 수동 입장으로 보낸다.
-      toast('비밀번호는 정해졌습니다 — 운영자 입장에서 로그인해 주세요');
+      toast(t('gate.applyPassword.toastManual'));
       screenAdmin();
     };
     $('#pOk').onclick=go;
@@ -346,16 +336,16 @@ const Gate = (() => {
   function screenHome(){
     open(`
       <div class="gate-card">
-        <div class="gate-title">${esc(S.settings.clubName || '대진판')}</div>
-        <div class="gate-sub">어떻게 입장하시겠어요?</div>
+        <div class="gate-title">${esc(S.settings.clubName || t('gate.home.defaultClubName'))}</div>
+        <div class="gate-sub">${t('gate.home.sub')}</div>
         <button class="gate-btn" data-go="owner">
-          <b>소유자</b><span>이 동호회의 주인입니다 · 계정으로 로그인</span></button>
+          <b>${t('gate.home.ownerTitle')}</b><span>${t('gate.home.ownerDesc')}</span></button>
         <button class="gate-btn" data-go="admin">
-          <b>운영자</b><span>대진 배정과 설정을 관리합니다 · 운영자 비밀번호 필요</span></button>
+          <b>${t('gate.home.adminTitle')}</b><span>${t('gate.home.adminDesc')}</span></button>
         <button class="gate-btn" data-go="member">
-          <b>회원</b><span>내 경기 알림을 받습니다 · 코트 수동 배정은 제한됩니다</span></button>
+          <b>${t('gate.home.memberTitle')}</b><span>${t('gate.home.memberDesc')}</span></button>
         <button class="gate-btn" data-go="guest">
-          <b>게스트</b><span>처음 오셨나요? 회원 등록을 하거나 구경만 할 수 있습니다</span></button>
+          <b>${t('gate.home.guestTitle')}</b><span>${t('gate.home.guestDesc')}</span></button>
       </div>`);
     box().querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
       Sound.unlock(); Sound.play('tap');
@@ -373,25 +363,24 @@ const Gate = (() => {
   function screenPinLocked(){
     open(`
       <div class="gate-card">
-        <div class="gate-title">잠시 후 다시 시도해 주세요</div>
-        <div class="gate-sub">운영자 비밀번호를 ${Secret.MAX_TRY}번 틀렸습니다.</div>
+        <div class="gate-title">${t('gate.pinLocked.title')}</div>
+        <div class="gate-sub">${t('gate.pinLocked.sub', {max: Secret.MAX_TRY})}</div>
         <div class="gate-mask" id="pinLeft">—</div>
         <div class="hint" style="text-align:center;line-height:1.7">
-          이 기기에서 운영자 입장이 잠겼습니다.<br>
-          비밀번호를 잊으셨다면 소유자에게 문의하세요.</div>
+          ${t('gate.pinLocked.hint')}</div>
         <div class="row" style="margin-top:14px">
-          <button class="btn" id="gBack" style="width:100%">뒤로</button></div>
+          <button class="btn" id="gBack" style="width:100%">${t('gate.pinLocked.backBtn')}</button></div>
       </div>`);
     const tick=()=>{
       const e=$('#pinLeft');
-      if(!e){ clearInterval(t); return; }            // 다른 화면으로 넘어갔다
+      if(!e){ clearInterval(timer); return; }            // 다른 화면으로 넘어갔다
       const ms=Secret.lockLeft();
-      if(ms<=0){ clearInterval(t); screenAdmin(); return; }
+      if(ms<=0){ clearInterval(timer); screenAdmin(); return; }
       const t2=Math.ceil(ms/1000);
       e.textContent=`${Math.floor(t2/60)}:${String(t2%60).padStart(2,'0')}`;
     };
-    const t=setInterval(tick,500); tick();
-    $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(t); screenHome(); };
+    const timer=setInterval(tick,500); tick();
+    $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(timer); screenHome(); };
   }
 
   /* ── 운영자 입장 ────────────────────────────────────────────────
@@ -405,18 +394,17 @@ const Gate = (() => {
      않았으면 소유자에게 요청하라고 안내하고 끝낸다. */
   async function screenAdmin(){
     if(Secret.lockLeft() > 0) return screenPinLocked();
-    open(`<div class="gate-card"><div class="gate-title">운영자 입장</div>
-      <div class="gate-sub">확인 중...</div></div>`);
+    open(`<div class="gate-card"><div class="gate-title">${t('gate.admin.title')}</div>
+      <div class="gate-sub">${t('gate.admin.checking')}</div></div>`);
     const st = await Secret.state();
 
     if(st==='unset'){
       open(`<div class="gate-card">
-        <div class="gate-title">아직 비밀번호가 없습니다</div>
-        <div class="gate-sub">이 동호회의 운영자 비밀번호가 아직 정해지지 않았습니다.
-          소유자가 <b>설정 → 운영자 비밀번호</b>에서 정해 주면 그 비밀번호로 들어올 수 있습니다.</div>
+        <div class="gate-title">${t('gate.admin.unset.title')}</div>
+        <div class="gate-sub">${t('gate.admin.unset.sub')}</div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="gAcct" style="flex:2">소유자 계정으로 로그인</button>
+          <button class="btn" id="gBack" style="flex:1">${t('gate.admin.unset.backBtn')}</button>
+          <button class="btn primary" id="gAcct" style="flex:2">${t('gate.admin.unset.acctBtn')}</button>
         </div></div>`);
       $('#gAcct').onclick=()=>{ Sound.play('tap'); screenAccount(); };
       $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
@@ -424,13 +412,11 @@ const Gate = (() => {
     }
     if(st==='unknown'){
       open(`<div class="gate-card">
-        <div class="gate-title">연결을 확인해 주세요</div>
-        <div class="gate-sub">비밀번호 확인은 클라우드에 물어봅니다. 지금은 연결되지 않아
-          확인할 수 없습니다. 이미 이 기기로 운영자 입장을 한 적이 있다면
-          그대로 유지되니, 연결이 돌아온 뒤 다시 시도하세요.</div>
+        <div class="gate-title">${t('gate.admin.unknown.title')}</div>
+        <div class="gate-sub">${t('gate.admin.unknown.sub')}</div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="gRetry" style="flex:2">다시 확인</button></div></div>`);
+          <button class="btn" id="gBack" style="flex:1">${t('gate.admin.unknown.backBtn')}</button>
+          <button class="btn primary" id="gRetry" style="flex:2">${t('gate.admin.unknown.retryBtn')}</button></div></div>`);
       $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
       $('#gRetry').onclick=()=>{ Sound.play('tap'); screenAdmin(); };
       return;
@@ -438,22 +424,21 @@ const Gate = (() => {
 
     open(`
       <div class="gate-card">
-        <div class="gate-title">운영자 입장</div>
-        <div class="gate-sub">운영자 자리는 동시 2명까지입니다.</div>
-        <label class="fl">아이디
+        <div class="gate-title">${t('gate.admin.title')}</div>
+        <div class="gate-sub">${t('gate.admin.form.sub')}</div>
+        <label class="fl">${t('gate.admin.form.idLabel')}
           <input type="text" id="gId" value="${esc(CLUB)}" readonly
                  style="background:var(--line-soft);color:var(--muted)"></label>
-        <label class="fl" style="margin-top:10px">비밀번호
+        <label class="fl" style="margin-top:10px">${t('gate.admin.form.pwLabel')}
           <input type="password" id="gPin" maxlength="64" autocomplete="current-password"></label>
         <div id="gErr" class="gate-err"></div>
-        <div class="gate-tries">남은 시도 <b id="pinTries">${Secret.triesLeft()}</b>번 ·
-          ${Secret.MAX_TRY}번 틀리면 이 기기에서 잠깁니다</div>
+        <div class="gate-tries">${t('gate.admin.form.tries', {left: Secret.triesLeft(), max: Secret.MAX_TRY})}</div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="gOk" style="flex:2">입장</button>
+          <button class="btn" id="gBack" style="flex:1">${t('gate.admin.form.backBtn')}</button>
+          <button class="btn primary" id="gOk" style="flex:2">${t('gate.admin.form.enterBtn')}</button>
         </div>
         <div class="hint" style="margin-top:14px;text-align:center">
-          <a href="#" id="gAcct">소유자 계정으로 로그인 →</a>
+          <a href="#" id="gAcct">${t('gate.admin.form.acctLink')}</a>
         </div>
       </div>`);
     $('#gAcct').onclick=(e)=>{ e.preventDefault(); Sound.play('tap'); screenAccount(); };
@@ -461,18 +446,18 @@ const Gate = (() => {
     const go=async()=>{
       if($('#gOk').disabled) return;
       if(Secret.lockLeft() > 0) return screenPinLocked();
-      $('#gOk').disabled=true; $('#gErr').textContent='확인 중...';
+      $('#gOk').disabled=true; $('#gErr').textContent=t('gate.admin.checking');
       const res=await Auth.loginAdmin(inp.value);
       $('#gOk').disabled=false;
       if(res.ok){
         Sound.play('confirm'); close(); enter();
-        if(res.offline) toast('클라우드 미연결 — 동시 접속 제한은 적용되지 않습니다');
+        if(res.offline) toast(t('gate.admin.form.toastOffline'));
         return;
       }
       Sound.play('error');
       if(res.reason === 'locked') return screenPinLocked();
-      const t=$('#pinTries'); if(t) t.textContent = Secret.triesLeft();
-      $('#gErr').textContent = ADMIN_ERR[res.reason] || '확인하지 못했습니다';
+      const triesEl=$('#pinTries'); if(triesEl) triesEl.textContent = Secret.triesLeft();
+      $('#gErr').textContent = ADMIN_ERR[res.reason] || t('gate.admin.form.errGeneric');
       inp.value=''; inp.focus();
     };
     $('#gOk').onclick=go;
@@ -492,28 +477,27 @@ const Gate = (() => {
 
     open(`
       <div class="gate-card">
-        <div class="gate-title">계정으로 로그인</div>
-        <div class="gate-sub">이 동호회의 소유자·운영자로 등록된 계정만 들어올 수 있습니다.
-          회원·게스트는 계정이 필요 없습니다.</div>
-        <label class="fl">이메일
+        <div class="gate-title">${t('gate.account.title')}</div>
+        <div class="gate-sub">${t('gate.account.sub')}</div>
+        <label class="fl">${t('gate.account.emailLabel')}
           <input type="email" id="aEm" autocomplete="username" autocapitalize="off"
                  autocorrect="off" spellcheck="false"></label>
-        <label class="fl" style="margin-top:10px">비밀번호
+        <label class="fl" style="margin-top:10px">${t('gate.account.pwLabel')}
           <input type="password" id="aPw" autocomplete="current-password"></label>
         <div id="gErr" class="gate-err"></div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="aOk" style="flex:2">로그인</button>
+          <button class="btn" id="gBack" style="flex:1">${t('gate.account.backBtn')}</button>
+          <button class="btn primary" id="aOk" style="flex:2">${t('gate.account.loginBtn')}</button>
         </div>
         <div class="row" style="margin-top:8px">
-          <button class="btn" id="aGoogle" style="width:100%">Google 계정으로 로그인</button>
+          <button class="btn" id="aGoogle" style="width:100%">${t('gate.account.googleBtn')}</button>
         </div>
       </div>`);
     setTimeout(()=>{ const f=$('#aEm'); f&&f.focus(); },60);
 
     const run = async (fn, btn) => {
       const b=$(btn); if(b.disabled) return;
-      b.disabled=true; $('#gErr').textContent='로그인 중...';
+      b.disabled=true; $('#gErr').textContent=t('gate.account.loggingIn');
       const r=await fn();
       b.disabled=false;
       if(!r.ok){ Sound.play('error'); $('#gErr').textContent=r.error; return; }
@@ -528,36 +512,35 @@ const Gate = (() => {
   /* 로그인은 됐다. 이 동호회에서 무슨 역할인지 서버에 묻고 들여보낸다. */
   async function accountEnter(){
     const acc=Account.current();
-    open(`<div class="gate-card"><div class="gate-title">확인 중</div>
+    open(`<div class="gate-card"><div class="gate-title">${t('gate.accountEnter.title')}</div>
       <div class="gate-sub">${esc(acc?acc.email||acc.name:'')}</div></div>`);
     const res=await Auth.loginWithAccount();
     if(res.ok){
       Sound.play('confirm'); close(); enter();
-      toast(`${Auth.roleLabel()}로 입장했습니다`);
-      if(res.offline) toast('클라우드 미연결 — 동시 접속 제한은 적용되지 않습니다');
+      toast(t('gate.accountEnter.toastWelcome', {role: Auth.roleLabel()}));
+      if(res.offline) toast(t('gate.accountEnter.toastOffline'));
       return;
     }
     Sound.play('error');
     /* 권한이 없는 것과 확인을 못 한 것을 구분해 말한다. 뭉뚱그리면
        와이파이가 나쁜 날 멀쩡한 운영자가 자기 계정을 의심하게 된다. */
     const msg = res.reason==='norole'
-        ? `이 계정(${esc(acc?acc.email:'')})은 이 동호회의 운영자로 등록되어 있지 않습니다.
-           소유자에게 등록을 요청하세요.`
+        ? t('gate.accountEnter.errNoRole', {email: esc(acc?acc.email:'')})
       : res.reason==='offline'
-        ? '역할을 확인하지 못했습니다 — 연결을 확인하고 다시 시도해 주세요'
+        ? t('gate.accountEnter.errOffline')
       : res.reason==='full'
-        ? '운영자 2명이 이미 접속해 있습니다. 잠시 후 다시 시도하세요.'
-        : '입장하지 못했습니다';
+        ? t('gate.accountEnter.errFull')
+        : t('gate.accountEnter.errGeneric');
     open(`
       <div class="gate-card">
-        <div class="gate-title">입장할 수 없습니다</div>
+        <div class="gate-title">${t('gate.accountEnter.deniedTitle')}</div>
         <div class="gate-sub">${msg}</div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gOut" style="flex:1">로그아웃</button>
-          <button class="btn primary" id="gRetry" style="flex:2">다시 시도</button>
+          <button class="btn" id="gOut" style="flex:1">${t('gate.accountEnter.logoutBtn')}</button>
+          <button class="btn primary" id="gRetry" style="flex:2">${t('gate.accountEnter.retryBtn')}</button>
         </div>
         <div class="row" style="margin-top:8px">
-          <button class="btn" id="gBack" style="width:100%">처음으로</button></div>
+          <button class="btn" id="gBack" style="width:100%">${t('gate.accountEnter.homeBtn')}</button></div>
       </div>`);
     $('#gRetry').onclick=()=>{ Sound.play('tap'); accountEnter(); };
     $('#gOut').onclick=async()=>{ Sound.play('tap'); await Account.signOut(); screenAccount(); };
@@ -575,11 +558,11 @@ const Gate = (() => {
     if(lockLeftMs() > 0) return screenLocked();
     const list=S.members.filter(m=>m.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     if(!list.length){
-      open(`<div class="gate-card"><div class="gate-title">회원 입장</div>
-        <div class="gate-sub">아직 등록된 회원이 없습니다. 게스트로 입장해 등록해 주세요.</div>
+      open(`<div class="gate-card"><div class="gate-title">${t('gate.member.title')}</div>
+        <div class="gate-sub">${t('gate.member.emptySub')}</div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="gGuest" style="flex:2">게스트로</button></div></div>`);
+          <button class="btn" id="gBack" style="flex:1">${t('gate.member.backBtn')}</button>
+          <button class="btn primary" id="gGuest" style="flex:2">${t('gate.member.guestBtn')}</button></div></div>`);
       $('#gBack').onclick=screenHome; $('#gGuest').onclick=screenGuest; return;
     }
     /* 가린 이름이 같은 사람들(김철수·김철민 → 둘 다 "김철○")은 한 줄로 묶는다.
@@ -595,11 +578,11 @@ const Gate = (() => {
 
     open(`
       <div class="gate-card wide">
-        <div class="gate-title">회원 입장</div>
-        <div class="gate-sub">본인 이름을 고른 뒤, 가려진 마지막 글자를 입력하세요.</div>
-        <input type="text" id="gQ" placeholder="보이는 부분으로 검색 (예: 김철 · ㄱㅊ)" style="width:100%">
+        <div class="gate-title">${t('gate.member.title')}</div>
+        <div class="gate-sub">${t('gate.member.sub')}</div>
+        <input type="text" id="gQ" placeholder="${t('gate.member.searchPlaceholder')}" style="width:100%">
         <div class="gate-list" id="gList"></div>
-        <div class="row" style="margin-top:12px"><button class="btn" id="gBack" style="width:100%">뒤로</button></div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="gBack" style="width:100%">${t('gate.member.backBtn')}</button></div>
       </div>`);
     const draw=(q='')=>{
       const el=$('#gList');
@@ -607,7 +590,7 @@ const Gate = (() => {
          맞는지 확인하는 우회로를 막기 위해서다. */
       const f=keys.filter(k=>matchQ(k.replace(/○$/,''), q.trim()));
       el.innerHTML = f.length? f.map(k=>`<button class="gate-name" data-k="${esc(k)}">${esc(k)}</button>`).join('')
-                             : '<div class="gate-empty">일치하는 이름이 없습니다</div>';
+                             : `<div class="gate-empty">${t('gate.member.noMatch')}</div>`;
       el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
         Sound.play('tap'); screenVerify(b.dataset.k, groups.get(b.dataset.k)||[]);
       });
@@ -625,17 +608,16 @@ const Gate = (() => {
 
     open(`
       <div class="gate-card">
-        <div class="gate-title">본인 확인</div>
-        <div class="gate-sub">가려진 마지막 글자 한 자를 입력하세요.</div>
+        <div class="gate-title">${t('gate.verify.title')}</div>
+        <div class="gate-sub">${t('gate.verify.sub')}</div>
         <div class="gate-mask">${esc(masked)}</div>
         <input type="text" id="vC" maxlength="1" autocomplete="off" autocorrect="off"
                style="width:100%;height:56px;font-size:30px;text-align:center">
         <div id="gErr" class="gate-err"></div>
-        <div class="gate-tries">남은 시도 <b id="vLeft">${triesLeft()}</b>번 ·
-          ${MAX_TRY}번 틀리면 3분 동안 잠깁니다</div>
+        <div class="gate-tries">${t('gate.verify.tries', {left: triesLeft(), max: MAX_TRY})}</div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn primary" id="vOk" style="flex:2">입장</button>
+          <button class="btn" id="gBack" style="flex:1">${t('gate.verify.backBtn')}</button>
+          <button class="btn primary" id="vOk" style="flex:2">${t('gate.verify.enterBtn')}</button>
         </div>
       </div>`);
     const inp=$('#vC'); setTimeout(()=>inp&&inp.focus(),60);
@@ -647,7 +629,7 @@ const Gate = (() => {
       noteFail();
       Sound.play('error');
       if(lockLeftMs() > 0) return screenLocked();
-      $('#gErr').textContent='맞지 않습니다';
+      $('#gErr').textContent=t('gate.verify.errWrong');
       $('#vLeft').textContent=triesLeft();
       inp.value=''; inp.focus();
     };
@@ -666,24 +648,24 @@ const Gate = (() => {
   function screenLocked(){
     open(`
       <div class="gate-card">
-        <div class="gate-title">잠시 후 다시 시도해 주세요</div>
-        <div class="gate-sub">본인 확인을 ${MAX_TRY}번 틀렸습니다.</div>
+        <div class="gate-title">${t('gate.locked.title')}</div>
+        <div class="gate-sub">${t('gate.locked.sub', {max: MAX_TRY})}</div>
         <div class="gate-mask" id="lockLeft">—</div>
         <div class="hint" style="text-align:center;line-height:1.7">
-          이 기기에서 회원 입장이 잠겼습니다.<br>급하시면 운영자에게 말씀하세요.</div>
+          ${t('gate.locked.hint')}</div>
         <div class="row" style="margin-top:14px">
-          <button class="btn" id="gBack" style="width:100%">뒤로</button></div>
+          <button class="btn" id="gBack" style="width:100%">${t('gate.locked.backBtn')}</button></div>
       </div>`);
     const tick=()=>{
       const e=$('#lockLeft');
-      if(!e){ clearInterval(t); return; }              // 다른 화면으로 넘어갔다
+      if(!e){ clearInterval(timer); return; }              // 다른 화면으로 넘어갔다
       const ms=lockLeftMs();
-      if(ms<=0){ clearInterval(t); screenMember(); return; }
+      if(ms<=0){ clearInterval(timer); screenMember(); return; }
       const total=Math.ceil(ms/1000);
       e.textContent=`${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`;
     };
-    const t=setInterval(tick,500); tick();
-    $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(t); screenHome(); };
+    const timer=setInterval(tick,500); tick();
+    $('#gBack').onclick=()=>{ Sound.play('tap'); clearInterval(timer); screenHome(); };
   }
 
   /* 입장 직후 출석 여부를 묻는다. 와서 앱을 여는 사람은 대개 지금 치러 온 사람이라
@@ -691,19 +673,19 @@ const Gate = (() => {
   function screenCheckIn(memberId){
     const m = S.members.find(x=>x.id===memberId) || {};
     const already = Object.values(S.att).some(a=>a.memberId===memberId);
-    if(already){ close(); enter(); setTimeout(()=>toast(`${m.name} 님, 이미 출석 중입니다`),200); return; }
+    if(already){ close(); enter(); setTimeout(()=>toast(t('gate.checkin.alreadyIn', {name: m.name})),200); return; }
     open(`
       <div class="gate-card">
-        <div class="gate-title">${esc(m.name||'')} 님</div>
-        <div class="gate-sub">지금 출석 처리할까요? 출석하면 대기 인원에 올라가 경기 배정을 받습니다.</div>
-        <button class="gate-btn" data-c="in"><b>네, 출석합니다</b><span>대기 인원에 바로 올라갑니다</span></button>
-        <button class="gate-btn" data-c="no"><b>아니요, 나중에</b><span>구경만 합니다 · 나중에 상단 버튼으로 출석할 수 있습니다</span></button>
+        <div class="gate-title">${t('gate.checkin.title', {name: esc(m.name||'')})}</div>
+        <div class="gate-sub">${t('gate.checkin.sub')}</div>
+        <button class="gate-btn" data-c="in"><b>${t('gate.checkin.yesTitle')}</b><span>${t('gate.checkin.yesDesc')}</span></button>
+        <button class="gate-btn" data-c="no"><b>${t('gate.checkin.noTitle')}</b><span>${t('gate.checkin.noDesc')}</span></button>
       </div>`);
     box().querySelector('[data-c="in"]').onclick=()=>{
       Sound.play('confirm');
       tx(()=>{ checkInMember(memberId); });
       close(); enter();
-      setTimeout(()=>toast(`${m.name} 님, 출석했습니다`),200);
+      setTimeout(()=>toast(t('gate.checkin.toastDone', {name: m.name})),200);
     };
     box().querySelector('[data-c="no"]').onclick=()=>{ Sound.play('tap'); close(); enter(); };
   }
@@ -711,11 +693,11 @@ const Gate = (() => {
   function screenGuest(){
     open(`
       <div class="gate-card">
-        <div class="gate-title">게스트</div>
-        <div class="gate-sub">회원으로 등록하시겠어요? 등록하면 내 경기 알림을 받을 수 있습니다.</div>
-        <button class="gate-btn" data-g="reg"><b>회원 등록하기</b><span>이름과 성별만 입력하면 됩니다</span></button>
-        <button class="gate-btn" data-g="view"><b>비회원으로 보기</b><span>대진표만 구경합니다 (수정 불가)</span></button>
-        <div class="row" style="margin-top:12px"><button class="btn" id="gBack" style="width:100%">뒤로</button></div>
+        <div class="gate-title">${t('gate.guest.title')}</div>
+        <div class="gate-sub">${t('gate.guest.sub')}</div>
+        <button class="gate-btn" data-g="reg"><b>${t('gate.guest.regTitle')}</b><span>${t('gate.guest.regDesc')}</span></button>
+        <button class="gate-btn" data-g="view"><b>${t('gate.guest.viewTitle')}</b><span>${t('gate.guest.viewDesc')}</span></button>
+        <div class="row" style="margin-top:12px"><button class="btn" id="gBack" style="width:100%">${t('gate.guest.backBtn')}</button></div>
       </div>`);
     box().querySelector('[data-g="reg"]').onclick=()=>{ Sound.play('tap'); screenRegister(); };
     box().querySelector('[data-g="view"]').onclick=()=>{
@@ -727,26 +709,25 @@ const Gate = (() => {
   function screenRegister(){
     open(`
       <div class="gate-card">
-        <div class="gate-title">회원 등록</div>
-        <div class="gate-sub">성별은 남복·여복·혼복 판정에 쓰입니다.</div>
-        <label class="fl">이름<input type="text" id="rN" placeholder="이름"></label>
-        <label class="fl" style="margin-top:10px">성별
-          <select id="rS"><option value="">선택</option><option value="M">남</option><option value="F">여</option></select></label>
+        <div class="gate-title">${t('gate.register.title')}</div>
+        <div class="gate-sub">${t('gate.register.sub')}</div>
+        <label class="fl">${t('gate.register.nameLabel')}<input type="text" id="rN" placeholder="${t('gate.register.namePlaceholder')}"></label>
+        <label class="fl" style="margin-top:10px">${t('gate.register.genderLabel')}
+          <select id="rS"><option value="">${t('gate.register.genderSelect')}</option><option value="M">${t('gate.register.genderM')}</option><option value="F">${t('gate.register.genderF')}</option></select></label>
         <div class="row" style="gap:10px;margin-top:10px">
-          <label class="fl" style="flex:1">출생년도(선택)<input type="number" id="rY" placeholder="1985"></label>
-          <label class="fl" style="flex:1">급수<select id="rG"></select></label>
+          <label class="fl" style="flex:1">${t('gate.register.yearLabel')}<input type="number" id="rY" placeholder="${t('gate.register.yearPlaceholder')}"></label>
+          <label class="fl" style="flex:1">${t('gate.register.gradeLabel')}<select id="rG"></select></label>
         </div>
         <div id="gErr" class="gate-err"></div>
         <div class="hint" style="margin-top:10px;line-height:1.7">
-          가입은 <b>운영자 승인</b>을 거칩니다. 운영자가 옆에 계시면 아래
-          <b>운영자 확인 후 바로 등록</b>으로 즉시 처리할 수 있습니다.
+          ${t('gate.register.hint')}
         </div>
         <div class="row" style="gap:8px;margin-top:14px">
-          <button class="btn primary" id="rOk" style="width:100%">승인 요청 보내기</button>
+          <button class="btn primary" id="rOk" style="width:100%">${t('gate.register.submitBtn')}</button>
         </div>
         <div class="row" style="gap:8px;margin-top:8px">
-          <button class="btn" id="gBack" style="flex:1">뒤로</button>
-          <button class="btn" id="rNow" style="flex:2">운영자 확인 후 바로 등록</button>
+          <button class="btn" id="gBack" style="flex:1">${t('gate.register.backBtn')}</button>
+          <button class="btn" id="rNow" style="flex:2">${t('gate.register.nowBtn')}</button>
         </div>
       </div>`);
     $('#rG').innerHTML=S.settings.grades.map(g=>
@@ -755,14 +736,14 @@ const Gate = (() => {
     /* 입력값을 모아 검증한다. 통과하면 {name,gender,birthYear,grade}. */
     const collect=()=>{
       const n=$('#rN').value.trim(), sx=$('#rS').value;
-      if(!n){ Sound.play('error'); $('#gErr').textContent='이름을 입력하세요'; return null; }
-      if(!sx){ Sound.play('error'); $('#gErr').textContent='성별을 선택하세요'; return null; }
+      if(!n){ Sound.play('error'); $('#gErr').textContent=t('gate.register.errNoName'); return null; }
+      if(!sx){ Sound.play('error'); $('#gErr').textContent=t('gate.register.errNoGender'); return null; }
       /* 이미 회원인 이름은 돌려보낸다. 이 안내가 "그 이름이 명단에 있다"는
          것을 알려 주는 것은 사실이다(가입 화면의 어쩔 수 없는 한계).
          대신 여기서 걸러야 같은 이름이 두 번 올라가지 않는다. */
       if(S.members.some(m=>m.name===n && m.active!==false)){
         Sound.play('error');
-        $('#gErr').textContent='같은 이름의 회원이 이미 있습니다. 회원 입장에서 선택해 주세요.';
+        $('#gErr').textContent=t('gate.register.errDuplicate');
         return null;
       }
       return { name:n, gender:sx, birthYear:parseInt($('#rY').value)||null, grade:$('#rG').value };
@@ -771,7 +752,7 @@ const Gate = (() => {
     // ① 승인 요청 — 운영자가 자리에 없어도 접수된다
     $('#rOk').onclick=async()=>{
       const info=collect(); if(!info) return;
-      const btn=$('#rOk'); btn.disabled=true; $('#gErr').textContent='보내는 중...';
+      const btn=$('#rOk'); btn.disabled=true; $('#gErr').textContent=t('gate.register.sending');
       try{
         const req=await submitJoinRequest(info);
         writePending({ id:req.id, name:req.name });
@@ -779,7 +760,7 @@ const Gate = (() => {
         screenPending(req.name);
       }catch(e){
         Sound.play('error');
-        $('#gErr').textContent='요청을 보내지 못했습니다 — 연결을 확인해 주세요';
+        $('#gErr').textContent=t('gate.register.errSendFail');
       }finally{ btn.disabled=false; }
     };
 
@@ -788,7 +769,7 @@ const Gate = (() => {
       const info=collect(); if(!info) return;
       Sound.play('tap');
       close();
-      askPin('운영자 확인', `${info.name} 님을 지금 바로 회원으로 등록합니다.`, ()=>{
+      askPin(t('gate.register.pinTitle'), t('gate.register.pinBody', {name: info.name}), ()=>{
         const id=uid('m');
         S.members.push({id,name:info.name,gender:info.gender,birthYear:info.birthYear,
                         grade:info.grade,active:true,lastSeen:0});
@@ -799,9 +780,8 @@ const Gate = (() => {
         Auth.loginMember(id);
         box().classList.add('on');
         screenCheckIn(id);
-        setTimeout(()=>toast(`${info.name} 님, 등록되었습니다`),300);
-      }, { okLabel:'등록', bodyHtml:'<div class="hint" style="text-align:center;margin-bottom:10px">'
-           + '운영자가 직접 입력해 주세요. 옆에 없다면 <b>승인 요청</b>으로 접수하세요.</div>' });
+        setTimeout(()=>toast(t('gate.register.toastDone', {name: info.name})),300);
+      }, { okLabel:t('gate.register.pinOkLabel'), bodyHtml:t('gate.register.pinHint') });
       // 비밀번호 창을 닫으면 게이트로 돌아온다
       $('#pinCancel').onclick=()=>{ closeModal(); box().classList.add('on'); screenRegister(); };
     };
@@ -814,15 +794,13 @@ const Gate = (() => {
     Auth.loginViewer();
     open(`
       <div class="gate-card">
-        <div class="gate-title">가입 요청을 보냈습니다</div>
-        <div class="gate-sub"><b>${esc(name)}</b> 님으로 접수했습니다.
-          운영자가 승인하면 자동으로 회원으로 전환됩니다 — 앱을 닫았다 열 필요 없습니다.</div>
+        <div class="gate-title">${t('gate.pending.title')}</div>
+        <div class="gate-sub">${t('gate.pending.sub', {name: esc(name)})}</div>
         <div class="hint" style="line-height:1.7;margin-bottom:14px">
-          지금은 대진판을 구경할 수 있습니다. 운영자가 옆에 계시면 승인해 달라고
-          말씀하세요. 승인되면 화면에 알려 드립니다.
+          ${t('gate.pending.hint')}
         </div>
-        <button class="gate-btn" data-p="view"><b>대진판 보기</b><span>승인될 때까지 구경합니다</span></button>
-        <div class="row" style="margin-top:10px"><button class="btn" id="gBack" style="width:100%">처음으로</button></div>
+        <button class="gate-btn" data-p="view"><b>${t('gate.pending.viewTitle')}</b><span>${t('gate.pending.viewDesc')}</span></button>
+        <div class="row" style="margin-top:10px"><button class="btn" id="gBack" style="width:100%">${t('gate.pending.homeBtn')}</button></div>
       </div>`);
     box().querySelector('[data-p="view"]').onclick=()=>{ Sound.play('tap'); close(); enter(); };
     $('#gBack').onclick=()=>{ Sound.play('tap'); screenHome(); };
