@@ -418,50 +418,49 @@ function resultDialog(m, opts={}){
 
   function draw(){
     const box = $('#modal');
-    if(step===1) box.innerHTML = head(`<b>1/${total()}</b> 진 팀 점수는?`) + `
+    if(step===1) box.innerHTML = head(`<b>1/${total()}</b> ${t('interact.result.scoreQuestion')}`) + `
       <div class="sgrid">
         ${BTNS.map(n=>`<button class="btn sm sc${!custom&&lose===n?' on':''}" data-sc="${n}">${n}</button>`).join('')}
       </div>
       <div class="row" style="margin-top:10px">
-        <button class="btn sm${custom?' on':''}" id="rsCustom">직접 입력</button>
+        <button class="btn sm${custom?' on':''}" id="rsCustom">${t('interact.result.customInput')}</button>
         ${custom?`<input type="number" id="scIn" inputmode="numeric" min="0" max="40"
                     value="${lose==null?'':lose}" style="width:92px;text-align:center">
-                  <button class="btn sm primary" id="scOk">확인</button>`:''}
+                  <button class="btn sm primary" id="scOk">${t('interact.result.confirmScore')}</button>`:''}
         <span class="spacer"></span>
-        <button class="btn sm" id="rsNoScore">점수 없이 →</button>
+        <button class="btn sm" id="rsNoScore">${t('interact.result.noScore')}</button>
       </div>
-      <div class="row end"><button class="btn" id="rsCancel">취소</button></div>`;
+      <div class="row end"><button class="btn" id="rsCancel">${t('interact.result.cancel')}</button></div>`;
 
-    else if(step===2) box.innerHTML = head(`${tag()} 몇 점 경기였나요?`) + `
-      <div class="hint" style="margin-bottom:10px">진 팀 <b class="num">${lose}</b>점 —
-        이긴 팀 점수가 달라지므로 한 번만 확인합니다</div>
+    else if(step===2) box.innerHTML = head(`${tag()} ${t('interact.result.gameQuestion')}`) + `
+      <div class="hint" style="margin-bottom:10px">${t('interact.result.gameHint',{lose})}</div>
       <div class="wpick">
-        ${[21,25].map(t=>`<button class="btn wbtn${target===t?' on':''}" data-t="${t}">
-            <span class="wsub">${t}점 경기</span>
-            <b class="num">${winnerScore(lose,t)} : ${lose}</b></button>`).join('')}
+        ${[21,25].map(gt=>`<button class="btn wbtn${target===gt?' on':''}" data-t="${gt}">
+            <span class="wsub">${t('interact.result.gameLabel',{gt})}</span>
+            <b class="num">${winnerScore(lose,gt)} : ${lose}</b></button>`).join('')}
       </div>
       <div class="row end">
-        <button class="btn" id="rsBack">← 뒤로</button>
-        <button class="btn" id="rsCancel">취소</button></div>`;
+        <button class="btn" id="rsBack">${t('interact.result.back')}</button>
+        <button class="btn" id="rsCancel">${t('interact.result.cancel')}</button></div>`;
 
     else if(step===3){
       const r = rosterNow();
-      box.innerHTML = head(`${tag()} 이긴 팀은?`) + `
+      box.innerHTML = head(`${tag()} ${t('interact.result.winnerQuestion')}`) + `
       <div class="hint" style="margin-bottom:10px">
-        ${lose==null ? '점수 없이 승패만 기록합니다'
+        ${lose==null ? t('interact.result.noScoreRecord')
                      : `<b class="num" style="font-size:19px;color:var(--text)">${swOf()} : ${lose}</b>`}</div>
       <div class="wteam">
         ${['A','B'].map(s=>`<button class="btn wbtn big" data-win="${s}">
-            <span class="wtag">${s}팀</span>
+            <span class="wtag">${t('interact.result.teamTag',{team:s})}</span>
             <span class="wnm">${nameLine(r[s])}</span></button>`).join('')}
       </div>
       ${canPair?`<div class="row" style="margin-top:10px">
-          <button class="btn sm" id="rsPair">⇄ 팀 구성 바꾸기</button>
-          <span class="hint">짝이 실제와 다르면 누르세요 (${pairIdx+1}/3)</span></div>`:''}
+          <button class="btn sm" id="rsPair">${t('interact.result.swapTeams')}</button>
+          <span class="hint">${t('interact.result.swapHint',{n:pairIdx+1})}</span></div>`:''}
       <div class="row end">
-        <button class="btn" id="rsBack">← 뒤로</button>
-        <button class="btn" id="rsNone">${esc(opts.noneLabel||'승패 없이')}</button>
-        <button class="btn" id="rsCancel">취소</button></div>`;
+        <button class="btn" id="rsBack">${t('interact.result.back')}</button>
+        <button class="btn" id="rsNone">${esc(opts.noneLabel||t('interact.result.noneDefault'))}</button>
+        <button class="btn" id="rsCancel">${t('interact.result.cancel')}</button></div>`;
     }
 
     /* 마지막 확인. 여기서 저장을 누르는 순간 경기가 끝나거나 기록이
@@ -469,25 +468,25 @@ function resultDialog(m, opts={}){
        만들지 않는 편이 낫다. 무엇이 저장되는지 한 화면에 다 보여 준다. */
     else {
       const r = rosterNow();
-      box.innerHTML = head(`${tag()} 이대로 저장할까요?`) + `
+      box.innerHTML = head(`${tag()} ${t('interact.result.saveQuestion')}`) + `
       <div class="wteam">
         ${['A','B'].map(s=>`<div class="wrow${win===s?' win':''}">
-            <span class="wtag">${s}팀</span>
+            <span class="wtag">${t('interact.result.teamTag',{team:s})}</span>
             <span class="wnm">${nameLine(r[s])}</span>
             <span class="wsc num">${
-              win==null ? '' : (s===win ? (swOf()==null?'승':swOf()) : (lose==null?'패':lose))
+              win==null ? '' : (s===win ? (swOf()==null?t('interact.result.winMark'):swOf()) : (lose==null?t('interact.result.loseMark'):lose))
             }</span></div>`).join('')}
       </div>
       <div class="hint" style="margin-top:10px">
-        ${win==null ? `<b>승패를 적지 않습니다.</b> 게임 수와 경기 시간은 그대로 기록됩니다.`
-          : lose==null ? `<b>${win}팀 승</b> — 점수는 적지 않습니다.`
-          : `<b>${win}팀 승 ${swOf()} : ${lose}</b>`}
-        ${pairIdx ? '<br><b style="color:var(--cork)">팀 구성도 고쳐서 저장합니다.</b>' : ''}
+        ${win==null ? t('interact.result.summaryNoResult')
+          : lose==null ? t('interact.result.summaryWinNoScore',{team:win})
+          : t('interact.result.summaryWinScore',{team:win, sw:swOf(), sl:lose})}
+        ${pairIdx ? t('interact.result.rosterChangedNote') : ''}
       </div>
       <div class="row end">
-        <button class="btn" id="rsBack">← 뒤로</button>
+        <button class="btn" id="rsBack">${t('interact.result.back')}</button>
         <button class="btn primary" id="rsSave">${
-          esc(win ? (opts.okLabel||'저장') : (opts.noneLabel||'승패 없이 저장'))
+          esc(win ? (opts.okLabel||t('interact.result.saveDefault')) : (opts.noneLabel||t('interact.result.saveNoneDefault')))
         }</button></div>`;
     }
     bind();
@@ -560,11 +559,11 @@ function resultDialog(m, opts={}){
 function typeDialog(o,kind){
   if(o.members.length!==4){
     const opts=['MD','WD','XD','MX'];
-    return openModal(`<h3>대기 슬롯 유형 지정</h3>
-      <div class="sub">지정하면 자동 충원이 해당 성별만 채웁니다. 인원이 부족하면 비워 둡니다.</div>
-      ${opts.map(t=>`<div class="opt ${o.pinnedType===t?'on':''}" data-p="${t}"><div class="t">${MT_LBL[t]}</div></div>`).join('')}
-      <div class="opt ${!o.pinnedType?'on':''}" data-p=""><div class="t">지정 안 함</div></div>
-      <div class="row end"><button class="btn" onclick="closeModal()">닫기</button></div>`),
+    return openModal(`<h3>${t('interact.type.slotTitle')}</h3>
+      <div class="sub">${t('interact.type.slotDesc')}</div>
+      ${opts.map(mt=>`<div class="opt ${o.pinnedType===mt?'on':''}" data-p="${mt}"><div class="t">${MT_LBL[mt]}</div></div>`).join('')}
+      <div class="opt ${!o.pinnedType?'on':''}" data-p=""><div class="t">${t('interact.type.noneOption')}</div></div>
+      <div class="row end"><button class="btn" onclick="closeModal()">${t('interact.type.close')}</button></div>`),
       $$('#modal .opt').forEach(e=>e.onclick=()=>{ closeModal();
         tx(()=>{ o.pinnedType=e.dataset.p||null; o.notice=null;
           if(o.pinnedType&&o.members.length){ o.members.forEach(i=>A(i).state='POOL');
@@ -572,17 +571,18 @@ function typeDialog(o,kind){
   }
   const ids=o.members, [m,f]=counts(ids);
   const avail={ MD:m===4, WD:f===4, XD:(m===2&&f===2), MX:!(m===4||f===4) };
-  const why={ MD:m===4?'':`여성 ${f}명 포함`, WD:f===4?'':`남성 ${m}명 포함`,
-              XD:(m===2&&f===2)?'':'남2·여2가 아님', MX:(m===4||f===4)?'동성 4명':'' };
-  const prev=t=>{ const sp=bestSplit(ids,t==='MD'||t==='WD'?null:t); if(!sp) return '';
+  const why={ MD:m===4?'':t('interact.type.reasonFemale',{f}), WD:f===4?'':t('interact.type.reasonMale',{m}),
+              XD:(m===2&&f===2)?'':t('interact.type.reasonNotMixed'), MX:(m===4||f===4)?t('interact.type.reasonSameGender'):'' };
+  const prev=mt=>{ const sp=bestSplit(ids,mt==='MD'||mt==='WD'?null:mt); if(!sp) return '';
     return sp.teams.A.map(i=>esc(A(i).name)).join('·')+' vs '+sp.teams.B.map(i=>esc(A(i).name)).join('·'); };
-  openModal(`<h3>${kind==='court'?o.no+'코트':'Q'+o.index} 경기 유형</h3>
+  const label = kind==='court' ? t('interact.drag.courtLabel',{n:o.no}) : 'Q'+o.index;
+  openModal(`<h3>${t('interact.type.dialogTitle',{label})}</h3>
     <div class="sub">${ids.map(i=>`${A(i).gender==='M'?'♂':A(i).gender==='F'?'♀':'?'}${esc(A(i).name)}`).join('  ')}</div>
-    ${['MD','WD','XD','MX'].map(t=>`
-      <div class="opt ${o.matchType===t?'on':''} ${avail[t]?'':'off'}" ${avail[t]?`data-t="${t}"`:''}>
-        <div><div class="t">${MT_LBL[t]}</div>
-        <div class="d">${avail[t]?prev(t):'불가 — '+why[t]}</div></div></div>`).join('')}
-    <div class="row end"><button class="btn" onclick="closeModal()">취소</button></div>`);
+    ${['MD','WD','XD','MX'].map(mt=>`
+      <div class="opt ${o.matchType===mt?'on':''} ${avail[mt]?'':'off'}" ${avail[mt]?`data-t="${mt}"`:''}>
+        <div><div class="t">${MT_LBL[mt]}</div>
+        <div class="d">${avail[mt]?prev(mt):t('interact.type.unavailable',{reason:why[mt]})}</div></div></div>`).join('')}
+    <div class="row end"><button class="btn" onclick="closeModal()">${t('interact.type.cancel')}</button></div>`);
   $$('#modal .opt[data-t]').forEach(e=>e.onclick=()=>{ const t=e.dataset.t; closeModal();
     tx(()=>{ const sp=bestSplit(ids,t==='MD'||t==='WD'?null:t);
       if(sp){o.teams=sp.teams;} o.matchType=mtypeOf(ids,o.teams); o.typeSource='MANUAL'; },{auto:false}); });

@@ -447,13 +447,13 @@ function advanceCourtTeam(c){
    다시 찾고 아직 경기 중인지 확인한 다음에 손을 댄다. */
 function finishCourt(no, result, roster){
   const c = S.courts.find(x=>x.no===no);
-  if(!c || c.status!=='PLAYING'){ toast('그 사이 경기가 바뀌어 종료하지 못했습니다'); return false; }
+  if(!c || c.status!=='PLAYING'){ toast(t('actions.finish.matchChanged')); return false; }
   c.members.slice().forEach(flash);
   tx(()=>{ fixCourtRoster(c, roster); endCourt(c,'POOL',result); },{auto:false});
   Sound.play('end');
-  toast(result && result.win ? `${no}코트 — ${resultLabel(result)}`
-      : S.settings.requireResult ? `${no}코트 경기를 마쳤습니다 — 결과를 적어야 네 사람이 다시 뜁니다`
-      : `${no}코트 경기를 마쳤습니다`);
+  toast(result && result.win ? t('actions.finish.withResult',{no, label:resultLabel(result)})
+      : S.settings.requireResult ? t('actions.finish.doneNeedResult',{no})
+      : t('actions.finish.done',{no}));
   return true;
 }
 
@@ -479,10 +479,10 @@ function askMatchResult(c){
   const mins = c.startedAt ? Math.max(0, Math.round((now()-c.startedAt)/60000)) : null;
   resultDialog(
     { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
-    { title: `${c.no}코트 경기 결과`,
-      sub:   `${MT_LBL[c.matchType||'UNKNOWN']}${mins!=null?` · ${mins}분`:''}`
-             + ' — 이긴 팀을 고르세요. 안 골라도 종료할 수 있습니다',
-      okLabel:'결과 남기고 종료', noneLabel:'승패 없이 종료',
+    { title: t('actions.result.courtTitle',{no:c.no}),
+      sub:   `${MT_LBL[c.matchType||'UNKNOWN']}${mins!=null?t('actions.result.minsSuffix',{mins}):''}`
+             + t('actions.result.pickWinnerHint'),
+      okLabel:t('actions.result.saveAndEnd'), noneLabel:t('actions.result.noneEnd'),
       onSave(r, roster){ finishCourt(c.no, r, roster); } });
 }
 
@@ -518,7 +518,7 @@ function checkMatchTimeouts(){
     });
   } finally { timeoutBusy = false; }
   Sound.play('end');
-  toast(`${over.map(c=>c.no).join('·')}코트 — ${max}분이 지나 자동으로 마쳤습니다`);
+  toast(t('actions.timeout.autoFinished',{courts:over.map(c=>c.no).join('·'), max}));
   return true;
 }
 
@@ -538,16 +538,15 @@ function checkMatchTimeouts(){
 function askCourtToQueue(c, q){
   const mins = c.startedAt ? Math.max(0, Math.round((now()-c.startedAt)/60000)) : 0;
   const names = [...c.teams.A, ...c.teams.B].map(i=>esc((A(i)||{}).name||'?')).join(' · ');
-  openModal(`<h3>${c.no}코트 → Q${q.index}</h3>
-    <div class="sub">${names} — ${mins}분째 경기 중입니다. 이 경기를 어떻게 할까요?</div>
+  openModal(`<h3>${t('actions.askQueue.title',{no:c.no, qIndex:q.index})}</h3>
+    <div class="sub">${t('actions.askQueue.sub',{names, mins})}</div>
     <div class="opt" data-a="rematch"><div>
-      <div class="t">리매치 — 경기를 마치고 같은 팀으로 대기</div>
-      <div class="d">한 판 친 것으로 칩니다. 네 명 모두 게임 수가 1 오르고 기록에 남습니다.
-        이어서 결과(승패·점수)를 물어봅니다.</div></div></div>
+      <div class="t">${t('actions.askQueue.rematchTitle')}</div>
+      <div class="d">${t('actions.askQueue.rematchDesc')}</div></div></div>
     <div class="opt" data-a="cancel"><div>
-      <div class="t">경기 취소 — 없던 일로 하고 대기</div>
-      <div class="d">게임 수도 기록도 남지 않습니다. 잘못 올렸거나 코트를 비워야 할 때 쓰세요.</div></div></div>
-    <div class="row end"><button class="btn" id="cq_no">그만두기</button></div>`);
+      <div class="t">${t('actions.askQueue.cancelTitle')}</div>
+      <div class="d">${t('actions.askQueue.cancelDesc')}</div></div></div>
+    <div class="row end"><button class="btn" id="cq_no">${t('actions.askQueue.giveUp')}</button></div>`);
   $('#cq_no').onclick=closeModal;
   $$('#modal .opt[data-a]').forEach(e=>e.onclick=()=>{
     const a=e.dataset.a;
@@ -558,9 +557,9 @@ function askCourtToQueue(c, q){
        팀째로 남는다는 것뿐이다. */
     resultDialog(
       { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
-      { title:`${c.no}코트 경기 결과`,
-        sub: `${MT_LBL[c.matchType||'UNKNOWN']} · ${mins}분 — 마친 뒤 Q${q.index}에 같은 팀으로 올립니다`,
-        okLabel:'결과 남기고 리매치', noneLabel:'승패 없이 리매치',
+      { title:t('actions.result.courtTitle',{no:c.no}),
+        sub: `${MT_LBL[c.matchType||'UNKNOWN']}${t('actions.result.minsSuffix',{mins})}${t('actions.askQueue.rematchSub',{qIndex:q.index})}`,
+        okLabel:t('actions.askQueue.saveAndRematch'), noneLabel:t('actions.askQueue.noneRematch'),
         /* 결과 기록 강제가 켜져 있으면 '승패 없이'도 "안 적기로 했다"는
            표시를 남겨야 한다. 안 그러면 리매치 팀이 대기열에서 묶여
            코트에 올라가지 못한다. */
@@ -575,8 +574,8 @@ function askCourtToQueue(c, q){
 function moveCourtTeamToQueue(no, qIndex, result, roster){
   const c = S.courts.find(x=>x.no===no);
   const q = S.queues.find(x=>x.index===qIndex);
-  if(!c || !q || !c.members.length){ toast('그 사이 판이 바뀌어 옮기지 못했습니다'); return false; }
-  if(q.members.length){ Sound.play('error'); toast(`Q${qIndex}가 그 사이 채워졌습니다`); return false; }
+  if(!c || !q || !c.members.length){ toast(t('actions.move.stateChanged')); return false; }
+  if(q.members.length){ Sound.play('error'); toast(t('actions.move.queueFilled',{qIndex})); return false; }
   /* 놓은 자리가 곧 최종 자리는 아니다. tx가 대기열의 빈칸을 앞으로 당기므로
      (compactQueues) Q5에 놓아도 앞이 비었으면 Q3로 간다. 안내에는 실제로
      선 자리를 적어야 해서, 옮긴 뒤에 사람을 보고 찾는다. */
@@ -584,12 +583,12 @@ function moveCourtTeamToQueue(no, qIndex, result, roster){
   const landed = () => (S.queues.find(x=>x.members.includes(ids[0])) || q).index;
   ids.forEach(flash);
   if(result){
-    if(c.status!=='PLAYING'){ toast('그 사이 경기가 끝나 리매치로 올리지 못했습니다'); return false; }
+    if(c.status!=='PLAYING'){ toast(t('actions.move.matchEndedNoRematch')); return false; }
     // 팀 구성을 고쳤으면 여기서 반영한다 — 리매치는 그 팀 그대로 다음 판을
     // 치는 것이라, 고친 구성이 대기 슬롯에도 그대로 올라가야 한다.
     tx(()=>{ fixCourtRoster(c, roster); endCourt(c,'REMATCH',result,q); },{auto:false});
     Sound.play('end');
-    toast(`${no}코트 리매치 → Q${landed()}`
+    toast(t('actions.move.rematchDone',{no, q:landed()})
       + (result.win ? ` · ${resultLabel(result)}` : ''));
   }else{
     tx(()=>{
@@ -600,7 +599,7 @@ function moveCourtTeamToQueue(no, qIndex, result, roster){
       clearCourt(c);
     },{auto:false});
     Sound.play('move');
-    toast(`${no}코트 경기를 취소하고 Q${landed()}로 옮겼습니다`);
+    toast(t('actions.move.cancelToQueue',{no, q:landed()}));
   }
   return true;
 }
@@ -650,7 +649,7 @@ function moveTeamTo(from, target){
 
   if(tk==='court'){
     const to=S.courts.find(c=>c.no===+tn);
-    if(!to || to.disabled){ Sound.play('error'); toast('그 코트는 쓸 수 없습니다'); return; }
+    if(!to || to.disabled){ Sound.play('error'); toast(t('actions.move.courtUnavailable')); return; }
 
     /* ── 코트 ↔ 코트는 언제나 통째로 맞바꾼다 ──────────────────────
        목적지가 비어 있으면 그냥 옮겨지는 것이고, 사람이 있으면 서로
@@ -666,13 +665,13 @@ function moveTeamTo(from, target){
       [...src.members, ...to.members].forEach(flash);
       tx(()=>{ swapCourts(src, to); });
       Sound.play('move');
-      toast(swapping ? `${src.no}코트 ↔ ${to.no}코트 맞바꿨습니다`
-                     : `${src.no}코트 → ${to.no}코트로 옮겼습니다 (경기는 그대로)`);
+      toast(swapping ? t('actions.move.swapped',{from:src.no, to:to.no})
+                     : t('actions.move.movedKeepMatch',{from:src.no, to:to.no}));
       return;
     }
 
     if(to.members.length + src.members.length > 4){
-      Sound.play('error'); toast(`${to.no}코트에 자리가 모자랍니다`); return;
+      Sound.play('error'); toast(t('actions.move.notEnoughRoom',{no:to.no})); return;
     }
     // 여기 오면 출발지는 대기 슬롯이다(코트에서 온 것은 위에서 끝났다).
     if(src.members.length===4 && !to.members.length) return void pushQueueToCourt(src, to);
@@ -687,7 +686,7 @@ function moveTeamTo(from, target){
   if(tk==='queue'){
     const to=S.queues.find(q=>q.index===+tn);
     if(!to || to===src) return;
-    if(to.members.length){ Sound.play('error'); toast('그 대기 슬롯은 이미 차 있습니다'); return; }
+    if(to.members.length){ Sound.play('error'); toast(t('actions.move.queueSlotFull')); return; }
     /* 경기 중인 팀이 대기열로 내려오는 것은 리매치일 수도, 무르는 것일 수도
        있다. 짐작하지 않고 물어본다 — 그 뒤는 moveCourtTeamToQueue가 맡는다. */
     if(fk==='court' && src.status==='PLAYING') return void askCourtToQueue(src, to);
@@ -726,8 +725,8 @@ function heldBlock(id){
   const m = holdingMatchOf(id);
   if(!m) return false;
   Sound.play('error');
-  const who = (A(id)||{}).name || '이 사람';
-  toast(`${who} — ${m.court}코트 결과를 먼저 적어야 움직일 수 있습니다`);
+  const who = (A(id)||{}).name || t('actions.held.defaultWho');
+  toast(t('actions.held.blockedMsg',{who, court:m.court}));
   if(Auth.can('edit')) openResultFor(m);
   return true;
 }
@@ -737,20 +736,20 @@ function openResultFor(m, opts={}){
   if(!m) return;
   const held = S.settings.requireResult && resultPending(m);
   resultDialog(m, {
-    title: `${m.court}코트 경기 결과`,
-    sub: `${MT_LBL[m.type||'UNKNOWN']} · ${new Date(m.startedAt).toTimeString().slice(0,5)} 시작`
-         + (held ? ' — 이 결과를 적어야 네 사람이 다시 뜁니다' : ' — 나중에 다시 고칠 수 있습니다'),
-    okLabel: '저장',
+    title: t('actions.result.courtTitle',{no:m.court}),
+    sub: `${MT_LBL[m.type||'UNKNOWN']}${t('actions.result.startedAtSuffix',{time:new Date(m.startedAt).toTimeString().slice(0,5)})}`
+         + (held ? t('actions.result.needResultHint') : t('actions.result.editLaterHint')),
+    okLabel: t('actions.common.save'),
     // 강제가 켜져 있을 때만 "안 적기로 했다"는 표시를 남긴다. 그래야 풀린다.
-    noneLabel: held ? '모름 — 기록 없이 풀기' : '결과 지우기',
+    noneLabel: held ? t('actions.result.unknownRelease') : t('actions.result.clearResult'),
     skipOnNone: held,
     onSave(r, roster){
       let fixed = false;
       tx(()=>{ fixed = applyRoster(m, roster); applyResult(m,r); },{auto:false});
       if(opts.after) opts.after();
-      toast((r.win ? `${m.court}코트 — ${resultLabel(m)}`
-                   : held ? '결과 없이 풀었습니다' : '결과를 지웠습니다')
-            + (fixed ? ' · 팀 구성도 고쳤습니다' : ''));
+      toast((r.win ? t('actions.finish.withResult',{no:m.court, label:resultLabel(m)})
+                   : held ? t('actions.result.releasedNoResult') : t('actions.result.clearedResult'))
+            + (fixed ? t('actions.result.alsoFixedRoster') : ''));
     }
   });
 }
@@ -771,7 +770,7 @@ function advanceChip(id){
 function chipToCourt(id){
   if(!requirePerm('courtAssign')) return;
   const c=S.courts.find(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
-  if(!c){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
+  if(!c){ Sound.play('error'); toast(t('actions.chip.noCourtSpace')); return; }
   flash(id);
   tx(()=>{ removeFrom(id); addTo(id,`court:${c.no}`); });
   Sound.play('move');
@@ -779,7 +778,7 @@ function chipToCourt(id){
 /* 자리가 남은 대기 슬롯 중 가장 앞(Q1 쪽)을 고른다 — 선입선출. */
 function chipToQueue(id){
   const q=S.queues.find(q=>q.members.length<4);
-  if(!q){ Sound.play('error'); toast('빈 대기 자리가 없습니다'); return; }
+  if(!q){ Sound.play('error'); toast(t('actions.chip.noQueueSpace')); return; }
   flash(id);
   tx(()=>{ removeFrom(id); addTo(id,`queue:${q.index}`); });
   Sound.play('move');
@@ -806,7 +805,7 @@ function advanceTeam(target){
     if(q.members.length===4) return void pushQueueToCourt(q);   // 4명이면 통째로
     // 아직 4명이 아니면 있는 사람만 빈 코트 자리로 옮긴다
     const c=S.courts.find(c=>!c.disabled && c.status!=='PLAYING' && c.members.length<4);
-    if(!c){ Sound.play('error'); toast('빈 코트 자리가 없습니다'); return; }
+    if(!c){ Sound.play('error'); toast(t('actions.chip.noCourtSpace')); return; }
     const ids=q.members.slice();
     const heldOne = ids.find(i=>isHeld(i));      // 여기도 묶인 사람은 못 올라간다
     if(heldOne && heldBlock(heldOne)) return;
@@ -936,7 +935,7 @@ function moveTo(id, target){
       /* 꽉 찬 코트의 빈 곳에 놓으면 누구와 바꿀지 알 수 없다. 막는 게 아니라
          어디에 놓아야 하는지 알려 준다 — 사람 위에 놓으면 그 사람과 바뀐다. */
       Sound.play('error');
-      toast('그 코트는 4명이 다 찼습니다 — 바꿀 사람 위에 놓으세요'); return;
+      toast(t('actions.move.courtFullSwapHint')); return;
     }
   }
   /* 대기열·대기 인원으로 내리면 한 판 친 것으로 본다(1분 이상일 때).
@@ -1062,7 +1061,7 @@ async function approveJoinRequest(id){
   if(!req) return null;
   if(S.members.some(m=>m.name===req.name && m.active!==false)){
     await mutateJoinRequests(list=>list.filter(r=>r.id!==id));
-    toast(`${req.name} 님은 이미 회원입니다 — 요청만 정리했습니다`);
+    toast(t('actions.join.alreadyMember',{name:req.name}));
     return null;
   }
   const m = { id: uid('m'), name: req.name, gender: req.gender, birthYear: req.birthYear,
@@ -1097,6 +1096,6 @@ function checkJoinApproved(){
   Auth.loginMember(m.id);
   applyRole();
   Sound.play('confirm');
-  toast(`${m.name} 님, 가입이 승인되었습니다`);
+  toast(t('actions.join.approved',{name:m.name}));
   return true;
 }

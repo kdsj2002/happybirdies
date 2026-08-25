@@ -349,57 +349,53 @@ function renderHist(){
      "승패 없이 종료"한 판을 나중에 채워 넣을 길이 있다는 걸 알 수 없다. */
   const canEditRes = Auth.can('edit');
   const resCell = m => m.win
-    ? `<b style="color:var(--court)">${m.win}팀 승</b>`
+    ? `<b style="color:var(--court)">${t('screens.hist.teamWin',{team:m.win})}</b>`
       + (m.sw!=null && m.sl!=null ? ` <span class="num" style="color:var(--muted)">${m.sw}:${m.sl}</span>` : '')
-    : `<span style="color:var(--muted2)">${canEditRes?'입력 ✎':'—'}</span>`;
+    : `<span style="color:var(--muted2)">${canEditRes?t('screens.hist.inputPending'):'—'}</span>`;
   const maxG = all.length ? Math.max(1, ...all.map(a=>a.games)) : 1;
   $('#histBody').innerHTML=`
-    <div class="sec-h">${S.date} 세션 요약<span class="rule"></span></div>
+    <div class="sec-h">${t('screens.hist.sessionSummary',{date:S.date})}<span class="rule"></span></div>
     <div class="mcards">
-      <div class="mcard"><div class="k">총 경기</div><div class="v num">${done.length}</div></div>
-      <div class="mcard"><div class="k">평균 경기시간</div><div class="v num">${avg.toFixed(1)}<small>분</small></div></div>
-      <div class="mcard"><div class="k">남 평균</div><div class="v num">${mean(men)}<small>게임</small></div></div>
-      <div class="mcard"><div class="k">여 평균</div><div class="v num">${mean(wom)}<small>게임</small></div></div>
-      <div class="mcard"><div class="k">게임수 편차</div><div class="v num">${all.length?maxG-Math.min(...all.map(a=>a.games)):0}</div></div>
-      <div class="mcard"><div class="k">결과 입력</div><div class="v num">${scored}<small>/${done.length}</small></div></div>
+      <div class="mcard"><div class="k">${t('screens.hist.totalMatches')}</div><div class="v num">${done.length}</div></div>
+      <div class="mcard"><div class="k">${t('screens.hist.avgMatchTime')}</div><div class="v num">${avg.toFixed(1)}<small>${t('screens.shared.minuteUnit')}</small></div></div>
+      <div class="mcard"><div class="k">${t('screens.hist.maleAvg')}</div><div class="v num">${mean(men)}<small>${t('screens.shared.gameUnit')}</small></div></div>
+      <div class="mcard"><div class="k">${t('screens.hist.femaleAvg')}</div><div class="v num">${mean(wom)}<small>${t('screens.shared.gameUnit')}</small></div></div>
+      <div class="mcard"><div class="k">${t('screens.hist.gameGap')}</div><div class="v num">${all.length?maxG-Math.min(...all.map(a=>a.games)):0}</div></div>
+      <div class="mcard"><div class="k">${t('screens.hist.resultInput')}</div><div class="v num">${scored}<small>/${done.length}</small></div></div>
     </div>
     ${done.length ? typeStackHtml(byType, done.length)
-                  : '<div class="hint" style="margin-bottom:24px">아직 종료된 경기가 없습니다.</div>'}
-    <div class="sec-h">개인별<span class="rule"></span></div>
-    <table><tr><th>이름</th><th>게임수</th><th>승-패</th><th>마지막 경기</th></tr>
+                  : '<div class="hint" style="margin-bottom:24px">'+t('screens.hist.noFinishedMatches')+'</div>'}
+    <div class="sec-h">${t('screens.hist.perPerson')}<span class="rule"></span></div>
+    <table><tr><th>${t('screens.shared.name')}</th><th>${t('screens.hist.gamesCol')}</th><th>${t('screens.hist.winLossCol')}</th><th>${t('screens.hist.lastMatchCol')}</th></tr>
       ${all.map(a=>{ const r=recordOf(a.id); return `<tr><td style="font-weight:700">${esc(a.name)}${a.guest?' <span style="color:var(--gold)">G</span>':''}</td>
         <td>${gamesBarHtml(a.games, maxG)}</td>
         <td>${winBarHtml(r.w, r.l)}</td>
         <td style="color:var(--muted)">${a.lastEnd?new Date(a.lastEnd).toTimeString().slice(0,5):'—'}</td></tr>`; }).join('')}
     </table>
-    <div class="hint" style="margin-top:6px">막대는 <b>가장 많이 친 사람 대비</b>입니다.
-      한쪽으로 길게 치우쳐 있으면 그날 배정이 고르지 않았다는 뜻입니다.</div>
-    <div class="sec-h" style="margin-top:26px">경기 이력<span class="rule"></span></div>
-    <table><tr><th>#</th><th>코트</th><th>유형</th><th>A팀</th><th>B팀</th><th>결과</th><th>시간</th></tr>
+    <div class="hint" style="margin-top:6px">${t('screens.hist.barHint')}</div>
+    <div class="sec-h" style="margin-top:26px">${t('screens.hist.matchHistory')}<span class="rule"></span></div>
+    <table><tr><th>${t('screens.hist.colNum')}</th><th>${t('screens.hist.colCourt')}</th><th>${t('screens.hist.colType')}</th><th>${t('screens.hist.colTeamA')}</th><th>${t('screens.hist.colTeamB')}</th><th>${t('screens.hist.colResult')}</th><th>${t('screens.hist.colTime')}</th></tr>
       ${done.slice().reverse().map((m,i)=>`<tr><td class="num">${done.length-i}</td><td>${m.court}</td>
         <td><span class="mt ${m.type||'UNKNOWN'}" style="cursor:default;height:22px">${MT_LBL[m.type||'UNKNOWN']}</span></td>
         <td${m.win==='A'?' style="font-weight:800"':''}>${(m.An||m.A.map(id=>A(id)?.name||'?')).map(esc).join(' · ')}</td>
         <td${m.win==='B'?' style="font-weight:800"':''}>${(m.Bn||m.B.map(id=>A(id)?.name||'?')).map(esc).join(' · ')}</td>
         <td class="res-cell${canEditRes?' edit':''}"${canEditRes?` data-res="${esc(m.id)}"`:''}>${resCell(m)}</td>
-        <td class="num" style="color:var(--muted)">${Math.round((m.endedAt-m.startedAt)/60000)}분</td></tr>`).join('')}
+        <td class="num" style="color:var(--muted)">${t('screens.hist.durationMin',{n:Math.round((m.endedAt-m.startedAt)/60000)})}</td></tr>`).join('')}
     </table>
     ${done.length?`<div class="hint" style="margin-top:8px">${canEditRes
-        ? '결과 칸을 누르면 승패와 점수를 넣거나 고칠 수 있습니다. 점수는 <b>진 팀 점수</b>만 넣으면 됩니다.'
-        : '결과는 운영자가 넣습니다.'}</div>`:''}
-    <div class="sec-h" style="margin-top:26px">누적 통계<span class="rule"></span></div>
-    <div class="hint" style="margin-bottom:10px">
-      끝난 경기는 세션과 별개로 <span class="num">clubs/${esc(CLUB)}/kv/rec:날짜</span> 원장에 날짜별로 남습니다.
-      전원 퇴장하거나 날이 바뀌어도 지워지지 않습니다.
-    </div>
+        ? t('screens.hist.resultEditHint')
+        : t('screens.hist.resultReadOnlyHint')}</div>`:''}
+    <div class="sec-h" style="margin-top:26px">${t('screens.hist.cumulativeStats')}<span class="rule"></span></div>
+    <div class="hint" style="margin-bottom:10px">${t('screens.hist.ledgerHint',{club:esc(CLUB)})}</div>
     <div class="row" style="margin-bottom:12px">
-      <button class="btn sm" data-stat="4">최근 4회</button>
-      <button class="btn sm" data-stat="12">최근 12회</button>
-      <button class="btn sm" data-stat="0">전체</button>
+      <button class="btn sm" data-stat="4">${t('screens.hist.recent4')}</button>
+      <button class="btn sm" data-stat="12">${t('screens.hist.recent12')}</button>
+      <button class="btn sm" data-stat="0">${t('screens.hist.allTime')}</button>
       <span class="hint" id="statLbl2"></span>
     </div>
     <div id="statsBox"></div>
     <div class="row" style="margin-top:24px;align-items:center;gap:14px">
-      <button class="btn warn" id="btnClose">세션 마감 (전원 퇴장)</button>
+      <button class="btn warn" id="btnClose">${t('screens.hist.closeSessionBtn')}</button>
       <span class="hint" id="autoCloseLbl"></span>
     </div>`;
 
@@ -418,23 +414,23 @@ function renderHist(){
   (function(){
     const lbl=$('#autoCloseLbl');
     if(!S.startedAt){
-      lbl.textContent=`첫 경기가 시작되면 ${autoCloseHours()}시간 뒤 자동 마감됩니다 · 수동 마감은 운영자만 가능합니다`;
+      lbl.textContent=t('screens.hist.autoCloseNotStarted',{h:autoCloseHours()});
       return;
     }
     const ms=msUntilAutoClose();
     if(ms>0){
       const h=Math.floor(ms/3600000), m=Math.floor(ms%3600000/60000);
-      lbl.textContent=`자동 마감까지 ${h}시간 ${m}분 · 마감은 운영자만 할 수 있습니다`;
+      lbl.textContent=t('screens.hist.autoCloseCountdown',{h,m});
     }else{
-      lbl.textContent='곧 자동 마감됩니다';
+      lbl.textContent=t('screens.hist.autoCloseSoon');
     }
   })();
   $('#btnClose').onclick=()=>{
     if(!requirePerm('closeSess')) return;
-    if(!confirm('전원 퇴장 처리하고 대진판을 비웁니다. 오늘 경기 기록은 남습니다. 진행할까요?')) return;
+    if(!confirm(t('screens.hist.confirmCloseSession'))) return;
     Sound.play('confirm');
     tx(()=>closeSession('MANUAL'),{auto:false});
-    renderHist(); toast('세션을 마감했습니다');
+    renderHist(); toast(t('screens.hist.sessionClosedToast'));
   };
 }
 
@@ -449,17 +445,17 @@ function renderHist(){
 async function renderStats(n){
   const box=$('#statsBox'), lbl=$('#statLbl2');
   if(!box) return;
-  box.innerHTML='<div class="hint">불러오는 중...</div>';
+  box.innerHTML='<div class="hint">'+t('screens.stats.loading')+'</div>';
   const all = await Records.dates();
   if(!all.length){
     lbl.textContent='';
-    box.innerHTML='<div class="hint">아직 원장에 쌓인 기록이 없습니다. 경기를 마치면 그날부터 남습니다.</div>';
+    box.innerHTML='<div class="hint">'+t('screens.stats.noRecords')+'</div>';
     return;
   }
   const pick = n>0 ? all.slice(0,n) : all;
   const list = await Records.load(pick);
   const st = Records.stats(list);
-  lbl.textContent = `${pick.length}일 · ${st.matches}경기 (${pick[pick.length-1]} ~ ${pick[0]})`;
+  lbl.textContent = t('screens.stats.summaryLine',{days:pick.length,matches:st.matches,from:pick[pick.length-1],to:pick[0]});
 
   const rows=[...st.people.values()].sort((a,b)=>b.games-a.games||a.name.localeCompare(b.name,'ko'));
   const maxG = rows.length ? Math.max(1, ...rows.map(e=>e.games)) : 1;
@@ -474,58 +470,56 @@ async function renderStats(n){
   box.innerHTML=`
     ${typeStackHtml(byType, st.matches)}
     <table>
-      <tr><th>이름</th><th>경기</th><th>승-패</th><th>승률</th><th>평균 득실</th><th>나온 날</th></tr>
+      <tr><th>${t('screens.shared.name')}</th><th>${t('screens.stats.matchesCol')}</th><th>${t('screens.stats.winLossCol')}</th><th>${t('screens.stats.winRateCol')}</th><th>${t('screens.stats.avgScoreCol')}</th><th>${t('screens.stats.daysCol')}</th></tr>
       ${rows.map(e=>`<tr>
         <td style="font-weight:700">${esc(e.name)}${e.guest?' <span style="color:var(--gold)">G</span>':''}${
-          e.memberId?'':' <span class="hint">(이름으로 묶음)</span>'}</td>
+          e.memberId?'':' <span class="hint">'+t('screens.stats.nameBoundByLabel')+'</span>'}</td>
         <td>${gamesBarHtml(e.games, maxG)}</td>
         <td>${winBarHtml(e.win, e.lose)}</td>
         <td class="num" style="font-weight:700">${rate(e)}</td>
         <td class="num" style="color:var(--muted)">${(e.pf+e.pa)?`${(e.pf/e.games).toFixed(1)} : ${(e.pa/e.games).toFixed(1)}`:'—'}</td>
         <td class="num" style="color:var(--muted)">${e.days.size}</td></tr>`).join('')}
     </table>
-    <div class="hint" style="margin-top:8px">
-      승·패·승률은 <b>결과를 적은 경기만</b> 셉니다. 경기 수는 결과와 무관하게 전부 셉니다 —
-      그래서 승+패가 경기 수보다 적을 수 있습니다.
-    </div>
+    <div class="hint" style="margin-top:8px">${t('screens.stats.countHint')}</div>
     <div class="row" style="gap:26px;align-items:flex-start;margin-top:20px">
       <div style="flex:1;min-width:260px">
-        <div class="sec-h">자주 함께한 짝<span class="rule"></span></div>
-        <table><tr><th>짝</th><th>함께</th><th>승</th></tr>
+        <div class="sec-h">${t('screens.stats.frequentPairsTitle')}<span class="rule"></span></div>
+        <table><tr><th>${t('screens.stats.pairCol')}</th><th>${t('screens.stats.togetherCol')}</th><th>${t('screens.stats.winCol')}</th></tr>
           ${top(st.pairs,10).map(p=>`<tr><td>${esc(nameOf(p.a))} · ${esc(nameOf(p.b))}</td>
             <td>${gamesBarHtml(p.n, maxPair)}</td>
             <td class="num" style="color:var(--muted)">${p.win}</td></tr>`).join('')
-            || '<tr><td colspan="3" class="hint">없음</td></tr>'}
+            || '<tr><td colspan="3" class="hint">'+t('screens.stats.none')+'</td></tr>'}
         </table>
       </div>
       <div style="flex:1;min-width:260px">
-        <div class="sec-h">자주 만난 상대<span class="rule"></span></div>
-        <table><tr><th>상대</th><th>만남</th></tr>
+        <div class="sec-h">${t('screens.stats.frequentFoesTitle')}<span class="rule"></span></div>
+        <table><tr><th>${t('screens.stats.opponentCol')}</th><th>${t('screens.stats.meetCol')}</th></tr>
           ${top(st.foes,10).map(p=>`<tr><td>${esc(nameOf(p.a))} ↔ ${esc(nameOf(p.b))}</td>
             <td>${gamesBarHtml(p.n, maxFoe)}</td></tr>`).join('')
-            || '<tr><td colspan="2" class="hint">없음</td></tr>'}
+            || '<tr><td colspan="2" class="hint">'+t('screens.stats.none')+'</td></tr>'}
         </table>
       </div>
     </div>
-    <div class="hint" style="margin-top:12px">
-      설정 → <b>지난 기록 참고</b>를 켜면 이 "함께한 짝" 횟수를 자동 배치의 중복 회피에 씁니다.
-      지금은 <b>${S.settings.historyDays?`최근 ${S.settings.historyDays}회`:'사용 안 함'}</b>입니다.
-    </div>`;
+    <div class="hint" style="margin-top:12px">${t('screens.stats.historyHint',{state:S.settings.historyDays?t('screens.stats.historyRecentN',{n:S.settings.historyDays}):t('screens.stats.historyOff')})}</div>`;
 }
 
 /* ── 설정 ───────────────────────────────────────────────────────── */
-const POLICY=[['FREE','성별 무시 (권장)','공정성만 보고 조합. 결과대로 유형만 표기'],
-  ['PREFER_SAME','동성 우선','남복·여복 선호. 여성이 소수면 혼복이 사라질 수 있음'],
-  ['PREFER_MIXED','혼복 우선','혼복 선호. 여복이 거의 안 나옴'],
-  ['STRICT_SAME','동성 강제','남4·여4만 허용'],
-  ['STRICT_MIXED','혼복 강제','남2여2만 허용. 성비가 치우치면 공정성이 깨짐']];
+/* 라벨/설명은 번역 키만 담아 둔다 — 배열 자체를 모듈 로드 시 한 번만
+   만들기 때문에, 여기서 바로 t()를 불러 문자열을 굳혀 버리면 언어를
+   나중에 바꿔도 설정 화면이 그 값을 다시 그릴 때 반영되지 않는다.
+   사용하는 곳(renderSet)에서 그때그때 t(p[1])/t(p[2])로 읽는다. */
+const POLICY=[['FREE','screens.set.policy.free.label','screens.set.policy.free.desc'],
+  ['PREFER_SAME','screens.set.policy.preferSame.label','screens.set.policy.preferSame.desc'],
+  ['PREFER_MIXED','screens.set.policy.preferMixed.label','screens.set.policy.preferMixed.desc'],
+  ['STRICT_SAME','screens.set.policy.strictSame.label','screens.set.policy.strictSame.desc'],
+  ['STRICT_MIXED','screens.set.policy.strictMixed.label','screens.set.policy.strictMixed.desc']];
 function renderSet(){
   /* 게스트에게는 클럽 운영 값을 보여 주지 않는다. 대신 역할을 바꿀 길만
      남긴다 — 이것마저 없으면 게스트로 한 번 들어온 기기가 갇힌다. */
   if(Auth.isViewer){
     $('#setBody').innerHTML=`
-      <div class="hint" style="margin-bottom:16px">설정은 회원과 운영자만 볼 수 있습니다.</div>
-      <div class="row"><button class="btn primary" id="s_relogin">입장하기</button></div>`;
+      <div class="hint" style="margin-bottom:16px">${t('screens.set.viewerHint')}</div>
+      <div class="row"><button class="btn primary" id="s_relogin">${t('screens.set.enterBtn')}</button></div>`;
     $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
     return;
   }
@@ -536,25 +530,25 @@ function renderSet(){
     const pol=(POLICY.find(p=>p[0]===s.genderPolicy)||POLICY[0]);
     $('#setBody').innerHTML=`
       <div class="hint" style="margin-bottom:16px">
-        설정 변경은 <b>운영자</b>만 할 수 있습니다. 현재 적용된 값은 아래와 같습니다.
+        ${t('screens.set.readonlyHint')}
       </div>
       <div class="kv">
-        <div class="h">현재 설정</div>
-        <div class="k">클럽 이름</div><div>${esc(s.clubName)}</div>
-        <div class="k">코트 / 대기 슬롯</div><div>${s.courtCount}면 / ${s.queueSlotCount}개</div>
-        <div class="k">자동 배치</div><div>${s.autoMode?'켜짐':'꺼짐'}</div>
-        <div class="k">성별 정책</div><div>${esc(pol[1])}</div>
-        <div class="k">경기 시간 경고</div><div>${s.matchWarnMinutes}분</div>
-        <div class="k">최대 경기 시간</div><div>${s.maxMatchMinutes?`${s.maxMatchMinutes}분 (자동 종료)`:'사용 안 함'}</div>
-        <div class="k">한 게임 점수</div><div>${s.winPoint||21}점</div>
-        <div class="k">결과 기록 강제</div><div>${s.requireResult?'켜짐 — 결과를 적어야 다음 판에 들어갑니다':'꺼짐'}</div>
-        <div class="k">자동 마감</div><div>첫 경기 후 ${autoCloseHours()}시간</div>
-        <div class="h">내 계정</div>
-        <div class="k">현재 역할</div><div><b>${esc(Auth.roleLabel())}</b></div>
-        <div class="k">앱 버전</div><div class="num">${esc(APP_VERSION)}</div>
-        <div class="k">효과음</div><div><label class="row"><input type="checkbox" id="s_soundOnly" ${s.sound!==false?'checked':''} style="width:20px;height:20px"> 이 기기에서 소리 내기</label></div>
+        <div class="h">${t('screens.set.currentSettings')}</div>
+        <div class="k">${t('screens.set.clubName')}</div><div>${esc(s.clubName)}</div>
+        <div class="k">${t('screens.set.courtsAndSlots')}</div><div>${t('screens.set.courtsAndSlotsValue',{c:s.courtCount,q:s.queueSlotCount})}</div>
+        <div class="k">${t('screens.set.autoAssign')}</div><div>${s.autoMode?t('screens.shared.on'):t('screens.shared.off')}</div>
+        <div class="k">${t('screens.set.genderPolicy')}</div><div>${esc(t(pol[1]))}</div>
+        <div class="k">${t('screens.set.matchWarnMinutes')}</div><div>${t('screens.hist.durationMin',{n:s.matchWarnMinutes})}</div>
+        <div class="k">${t('screens.set.maxMatchMinutes')}</div><div>${s.maxMatchMinutes?t('screens.set.maxMatchMinutesValue',{n:s.maxMatchMinutes}):t('screens.stats.historyOff')}</div>
+        <div class="k">${t('screens.set.winPoint')}</div><div>${t('screens.set.winPointValue',{n:s.winPoint||21})}</div>
+        <div class="k">${t('screens.set.requireResult')}</div><div>${s.requireResult?t('screens.set.requireResultOn'):t('screens.shared.off')}</div>
+        <div class="k">${t('screens.set.autoClose')}</div><div>${t('screens.set.autoCloseValue',{h:autoCloseHours()})}</div>
+        <div class="h">${t('screens.set.myAccount')}</div>
+        <div class="k">${t('screens.set.currentRole')}</div><div><b>${esc(Auth.roleLabel())}</b></div>
+        <div class="k">${t('screens.set.appVersion')}</div><div class="num">${esc(APP_VERSION)}</div>
+        <div class="k">${t('screens.set.sound')}</div><div><label class="row"><input type="checkbox" id="s_soundOnly" ${s.sound!==false?'checked':''} style="width:20px;height:20px"> ${t('screens.set.soundThisDevice')}</label></div>
       </div>
-      <div class="row" style="margin-top:20px"><button class="btn" id="s_relogin">다시 입장하기</button></div>`;
+      <div class="row" style="margin-top:20px"><button class="btn" id="s_relogin">${t('screens.set.reenterBtn')}</button></div>`;
     // 소리는 기기별 취향이라 권한과 무관하게 각자 켜고 끌 수 있게 둔다.
     $('#s_soundOnly').onchange=e=>{ Sound.set(e.target.checked); Sound.play('tap'); };
     $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
