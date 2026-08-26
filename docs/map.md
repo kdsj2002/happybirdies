@@ -111,18 +111,23 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 대진판과 같은 `.chip`/`.chip-nm`(이름 칩, `data-rschip`)으로 보여 주고,
 확인을 유도하려고 `.rs-check` 클래스로 `.chip.held`와 같은
 `heldBlink`(붉은 테두리 깜박임) 애니메이션을 그대로 재활용한다. 다른
-팀 쪽으로 끌면 그 자리 칩과 맞바뀐다(`swapChip`). 점수는 이긴 팀·진 팀
-구분 없이 둘 다 같은 가로 슬라이더(10~30, `#rsHA`/`#rsHB`)로 고르고,
-지금 값은 슬라이더 손잡이가 아니라 팀 이름 옆의 큰 숫자(`#rsNumA`/
-`#rsNumB`)로만 보여준다(손잡이엔 일부러 숫자를 안 넣는다 — 드래그 중엔
-손가락에 가려 안 보이므로). 이긴 팀은 이름표(`data-rspick`, 칩이 아닌
-쪽)를 누르면 선택되고(`winSide`) 트로피(🏆)가 붙는다. 두 점수 다
-규칙으로 계산하지 않고 사람이 직접 고른 값을 그대로 저장한다 —
-예전에는 진 팀 점수만 받아 `winnerScore()`로 이긴 쪽을 계산했지만,
-20점 이하로 졌을 때는 21점제인지 25점제인지 점수만으로 못 갈라 결국
-다시 물어야 했다(이 계산 함수와 `isAmbiguousScore`는 없앴다).
-`opts.onSave(result, roster)`로 콜백하며, 코트 종료·리매치·기록 화면
-수정이 전부 이 함수를 공유한다.
+팀 쪽으로 끌면 그 자리 칩과 맞바뀐다(`swapChip`). 이긴 팀은 이름표
+(`data-rspick`, 칩이 아닌 쪽)를 누르면 선택되고(`winSide`) 트로피(🏆)가
+붙는다.
+
+점수는 팀 이름 옆 가로 슬라이더로 고르되 둘이 다르다. 진 팀 막대는
+10~30 아무 값이나 자유롭게 고르고(`#rsH{A|B}`, 승팀이 아닌 쪽), 이긴
+팀 막대는 `SNAP_WIN=[21,25]` 두 자리에만 멈춘다(`wireHTrack`의
+`snapPair`). 다만 진 팀 점수가 `AUTO_FROM=25` 이상이면 이긴 팀 막대는
+`.locked`(pointer-events:none)로 잠기고 **진 팀 점수+1**을 그대로
+보여준다(`syncWinnerRow`) — 그 구간은 몇 점제였든 이미 듀스 상한
+근처라 고를 값이 없기 때문이다. 진 팀 막대를 드래그하는 동안에는
+전체를 다시 그리지 않고(다시 그리면 드래그 중인 막대의 포인터 캡처가
+끊긴다) `syncWinnerRow()`만 불러 이긴 팀 줄을 실시간으로 맞춘다. 값은
+슬라이더 손잡이가 아니라 팀 이름 옆의 큰 숫자(`#rsNumA`/`#rsNumB`)로만
+보여준다(손잡이엔 일부러 숫자를 안 넣는다 — 드래그 중엔 손가락에 가려
+안 보이므로). `opts.onSave(result, roster)`로 콜백하며, 코트 종료·
+리매치·기록 화면 수정이 전부 이 함수를 공유한다.
 
 **새 동호회 신청**(`gate.js` `screenApply` → `screenApplyVerify` →
 `screenApplyPassword`)은 인증 없이 대표 주소에서 시작한다. 3단계 모두
@@ -188,7 +193,8 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 대기열로의 이동만 리매치/취소를 물어봄 | `actions.js` `askCourtToQueue` |
 | 최대 경기 시간 도달 시 자동 종료(결과는 비움) | `actions.js` `checkMatchTimeouts` |
 | 배정 직후 10초 코트 테두리 깜박임 | `ui.js` `justAssigned` |
-| 결과는 이긴 팀·진 팀 구분 없이 같은 가로 슬라이더로 계산 없이 직접 고름(20점 이하 자동판별 불가했던 전례) | `interact.js` `resultDialog` |
+| 진 팀 점수는 자유 슬라이더, 이긴 팀은 21/25 두 자리로만 멈추는 슬라이더 | `interact.js` `resultDialog` `SNAP_WIN` |
+| 진 팀이 25점 이상이면 이긴 팀 막대를 잠그고 진 팀+1을 자동으로 보여줌 | `interact.js` `resultDialog` `AUTO_FROM`/`syncWinnerRow` |
 | 결과 입력은 한 화면(팀 구성·승팀·점수) + 저장 버튼 | `interact.js` `resultDialog` `#rsSave` |
 | 결과 창 이름 칩은 대진판 칩과 같은 스타일 + 확인 유도용 붉은 깜박임 재활용 | `interact.js` `resultDialog`, `app.css` `.rs-check`/`heldBlink` |
 | 슬라이더 손잡이엔 숫자를 안 넣고 팀 이름 옆 큰 숫자로만 보여줌(드래그 중 손가락에 가림) | `interact.js` `resultDialog` `wireHTrack` |

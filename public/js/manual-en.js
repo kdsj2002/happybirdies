@@ -275,18 +275,18 @@ window.MANUAL_CONTENT.en = (() => {
       and the match type (Men's Doubles, Mixed Doubles, etc.) is recalculated to match.</div>
 
     <h4>Pick the score · pick the winner</h4>
-    <p>A <b>horizontal slider</b> sits to the right of each team's name — winner or loser, both teams use
-       the same slider to pick any value from <b>10 to 30</b>. The current value shows large and bold right
-       next to the slider (the slider's own handle shows no number — your finger would cover it anyway).
-       To mark a team as the winner, <b>tap its name (the name/number side, not the chips)</b> — a trophy
-       (🏆) appears next to it. Tap again to deselect.</p>
+    <p>A <b>horizontal slider</b> sits to the right of each team's name. The losing team's slider picks any
+       value from <b>10 to 30</b>. To mark a team as the winner, <b>tap its name (the name/number side, not
+       the chips)</b> — a trophy (🏆) appears next to it. Tap again to deselect. The current value shows large
+       and bold right next to each slider (the slider's own handle shows no number — your finger would cover
+       it anyway).</p>
     <table class="doc-t">
       ${rows([
-        ['<b>Why isn\'t this calculated automatically?</b>',
-         'Earlier versions only asked for the losing score and calculated the winning score from a rule — ' +
-         'but when the losing score was 20 or under, <b>the score alone couldn\'t tell whether it was a ' +
-         '21-point or 25-point game</b>, so you had to be asked anyway. Now both sliders are picked ' +
-         'directly — this records the actual score from that day rather than computing one.'],
+        ["<b>What does the winning team score?</b>",
+         'The winning team\'s slider only stops at <span class="doc-k">21 or 25</span>. But if the losing ' +
+         "score is <b>25 or higher</b>, the game was already near the deuce cap either way, so the winner's " +
+         'slider locks (grays out) and fills in automatically with <b>the losing score + 1</b> — there is no ' +
+         'value left to pick by hand in that range.'],
         ['<b>Unknown</b>',
          'Ends the match without recording a score or a winner. Game count and match time are still ' +
          "recorded normally. Use this when you don't know the result — it's better than entering a made-up value."],

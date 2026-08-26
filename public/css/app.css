@@ -465,6 +465,10 @@ td.res-cell.edit:hover{background:var(--court-soft)}
   width:28px;height:28px;border-radius:50%;background:var(--court);
   border:2px solid var(--surface);box-shadow:0 3px 9px rgba(22,33,29,.25);
   pointer-events:none}
+/* 이긴 팀 막대가 잠긴 상태 — 진 팀이 25점 이상이라 고를 값이 없다.
+   진 팀+1점을 그대로 보여주기만 하고 손대지 못하게 막는다. */
+.rs-htrack.locked{pointer-events:none;opacity:.5}
+.rs-htrack.locked .rs-hhandle{background:var(--muted2)}
 
 /* 드래그 고스트 */
 #ghost{position:fixed;z-index:99;pointer-events:none;width:170px;

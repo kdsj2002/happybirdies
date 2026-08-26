@@ -357,23 +357,24 @@ $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal();
        칩은 대진판의 그 칩(`.chip`/`.chip-nm`)과 같은 모양이고, 팀 구성을
        확인하라는 뜻으로 붉은 테두리가 계속 깜박인다(`.rs-check`,
        코트의 '결과 미기록' 칩과 같은 애니메이션을 그대로 쓴다).
-     · 점수 — 이긴 팀·진 팀 구분 없이 양쪽 다 같은 가로 막대(10~30)로
-       고른다. 팀 이름 오른쪽에 막대가 있고, 그 옆에 지금 값이 굵고 크게
-       보인다 — 막대의 손잡이 자체에는 숫자를 넣지 않는다(손가락에
-       가려 어차피 안 보인다).
+     · 진 팀 점수 — 가로 막대(10~30)로 자유롭게 고른다. 팀 이름 오른쪽에
+       막대가 있고, 그 옆에 지금 값이 굵고 크게 보인다 — 막대의 손잡이
+       자체에는 숫자를 넣지 않는다(손가락에 가려 어차피 안 보인다).
+     · 이긴 팀 점수 — 같은 막대지만 <b>21점 · 25점 두 자리에만 멈춘다</b>
+       (`SNAP_WIN`). 다만 진 팀 점수가 <b>25점 이상</b>이면 몇 점제였든
+       이미 듀스 상한 근처이므로 막대를 잠그고 <b>진 팀 점수+1점</b>을
+       그대로 보여준다(`syncWinnerRow`) — 이 구간은 골라 넣을 값이
+       없기 때문이다.
      · 이긴 팀 — 팀 이름(칩이 아니라 이름표·트로피·숫자 쪽)을 누르면
        그 팀이 이긴 걸로 선택되고 트로피(🏆)가 이름 옆에 붙는다.
        다시 누르면 선택이 풀린다.
-
-   예전에는 진 팀 점수만 받아 이긴 팀 점수를 규칙으로 계산했지만, 20점
-   이하로 졌을 때는 21점제였는지 25점제였는지 점수만으로 가릴 수 없어
-   결국 사람에게 다시 물어야 했다. 그래서 지금은 둘 다 직접 고른다 —
-   계산이 아니라 그날 실제로 있었던 점수를 그대로 적는 창이다.
 
    opts.onSave(result, roster) — result.win이 null이면 승패 없이.
      roster는 팀 구성을 고쳤을 때만 온다({A:[{id,name}], B:[…]}), 아니면 null.
    ───────────────────────────────────────────────────────────── */
 function resultDialog(m, opts={}){
+  const SNAP_WIN = [21,25];   // 이긴 팀 막대가 멈추는 두 자리
+  const AUTO_FROM = 25;       // 진 팀이 이 점수 이상이면 이긴 팀은 진 팀+1로 잠긴다
   const nameAt = (arr,names,i) => (names&&names[i]) || (A(arr[i])&&A(arr[i]).name) || '?';
   const origA = (m.A||[]).map((id,i)=>({id, name:nameAt(m.A, m.An, i)}));
   const origB = (m.B||[]).map((id,i)=>({id, name:nameAt(m.B, m.Bn, i)}));
@@ -393,6 +394,20 @@ function resultDialog(m, opts={}){
     const sw = Math.max(10,Math.min(30,Math.round(+m.sw)));
     const sl = Math.max(10,Math.min(30,Math.round(+m.sl)));
     if(winSide==='A'){ scoreA=sw; scoreB=sl; } else { scoreB=sw; scoreA=sl; }
+  }
+  snapWinnerScore();
+
+  /* 이긴 팀 쪽 저장값을 SNAP_WIN 중 가까운 쪽으로 맞춘다. 진 팀이
+     AUTO_FROM 이상이면 어차피 화면은 자동값(진 팀+1)을 보여주므로
+     손대지 않는다 — 자동이 풀렸을 때(진 팀 점수를 다시 낮췄을 때)
+     돌아갈 값이 필요해서 여기서도 SNAP_WIN 중 하나로 유지해 둔다. */
+  function snapWinnerScore(){
+    if(!winSide) return;
+    const otherScore = winSide==='A' ? scoreB : scoreA;
+    if(otherScore>=AUTO_FROM) return;
+    const cur = winSide==='A' ? scoreA : scoreB;
+    const snapped = Math.abs(cur-SNAP_WIN[0])<=Math.abs(cur-SNAP_WIN[1]) ? SNAP_WIN[0] : SNAP_WIN[1];
+    if(winSide==='A') scoreA=snapped; else scoreB=snapped;
   }
 
   const sameSet = (a,b) => a.length===b.length && a.every(x=>b.includes(x));
@@ -423,16 +438,20 @@ function resultDialog(m, opts={}){
       rosterOut());
   }
 
-  function scoreRow(s, score){
-    const pct = Math.max(0, Math.min(1, (score-10)/20)) * 100;
-    return `<div class="rs-scoreRow ${winSide===s?'on':''}">
+  function scoreRow(s){
+    const isWinner = winSide===s;
+    const otherScore = s==='A' ? scoreB : scoreA;
+    const auto = isWinner && otherScore>=AUTO_FROM;
+    const shown = auto ? otherScore+1 : (s==='A'?scoreA:scoreB);
+    const pct = Math.max(0, Math.min(1, (shown-10)/20)) * 100;
+    return `<div class="rs-scoreRow ${isWinner?'on':''}">
       <span class="rs-pick" data-rspick="${s}">
         <span class="wtag">${t('interact.result.teamTag',{team:s})}</span>
-        ${winSide===s?'<span class="rs-trophy">🏆</span>':''}
-        <span class="rs-bignum" id="rsNum${s}">${score}</span>
+        ${isWinner?'<span class="rs-trophy">🏆</span>':''}
+        <span class="rs-bignum" id="rsNum${s}">${shown}</span>
       </span>
       <span class="rs-hend">10</span>
-      <div class="rs-htrack" id="rsH${s}">
+      <div class="rs-htrack ${auto?'locked':''}" id="rsH${s}">
         <div class="rs-hfill" style="width:${pct}%"></div>
         <div class="rs-hhandle" style="left:${pct}%"></div>
       </div>
@@ -451,7 +470,7 @@ function resultDialog(m, opts={}){
               ${rows[s].map(id=>`<div class="chip rs-check" data-rschip="${id}">
                 <div class="chip-nm ${genderCls(id)}">${esc(byId[id]||'?')}</div></div>`).join('')}
             </div>
-            ${scoreRow(s, s==='A'?scoreA:scoreB)}
+            ${scoreRow(s)}
           </div>`).join('')}
       </div>
       <div class="hint" style="margin-top:2px">${t('interact.result.hint')}</div>
@@ -462,8 +481,8 @@ function resultDialog(m, opts={}){
       </div>`;
     wireChips();
     wireWinnerPick();
-    wireHTrack('A', v=>{ scoreA=v; });
-    wireHTrack('B', v=>{ scoreB=v; });
+    wireHTrack('A', winSide==='A' ? SNAP_WIN : null);
+    wireHTrack('B', winSide==='B' ? SNAP_WIN : null);
     bind();
   }
 
@@ -515,26 +534,35 @@ function resultDialog(m, opts={}){
         const s = el.dataset.rspick;
         Sound.play('tap');
         winSide = (winSide===s) ? null : s;
+        snapWinnerScore();
         draw();
       });
     });
   }
 
-  /* 가로 막대 하나(A팀 또는 B팀 점수, 10~30 공통)를 손가락 위치 → 값으로
-     잇는다. 손잡이에는 숫자를 넣지 않고 옆의 큰 숫자(#rsNum{s})만 갱신한다
-     — 드래그 중에는 손가락이 손잡이를 가려 숫자가 안 보이기 때문이다. */
-  function wireHTrack(s, onChange){
+  /* 가로 막대 하나(A팀 또는 B팀 점수)를 손가락 위치 → 값으로 잇는다.
+     손잡이에는 숫자를 넣지 않고 옆의 큰 숫자(#rsNum{s})만 갱신한다 —
+     드래그 중에는 손가락이 손잡이를 가려 숫자가 안 보이기 때문이다.
+     snapPair(SNAP_WIN)가 있으면 그 두 값 중 가까운 쪽으로만 멈춘다 —
+     이긴 팀 막대다. 잠긴(auto) 막대는 CSS(.locked, pointer-events:none)가
+     막아 여기 리스너까지 안 온다. */
+  function wireHTrack(s, snapPair){
     const track = $('#rsH'+s); if(!track) return;
     let dragging=false;
     const apply=e=>{
       const rect=track.getBoundingClientRect();
       const relX=Math.min(rect.width, Math.max(0, e.clientX-rect.left));
-      const v=Math.round(10 + (relX/rect.width)*20);
+      let v=Math.round(10 + (relX/rect.width)*20);
+      if(snapPair) v = Math.abs(v-snapPair[0])<=Math.abs(v-snapPair[1]) ? snapPair[0] : snapPair[1];
+      if(s==='A') scoreA=v; else scoreB=v;
       const pct=(v-10)/20*100;
       track.querySelector('.rs-hfill').style.width=pct+'%';
       track.querySelector('.rs-hhandle').style.left=pct+'%';
       const num=$('#rsNum'+s); if(num) num.textContent=v;
-      onChange(v);
+      /* 방금 움직인 게 진 팀 막대라면, 이긴 팀 쪽 자동 표시(잠김 여부·
+         값)가 그 자리에서 바로 따라와야 한다 — 전체를 다시 그리면
+         지금 드래그 중인 이 막대의 포인터 캡처가 끊긴다. */
+      if(!snapPair) syncWinnerRow();
     };
     track.addEventListener('pointerdown', e=>{
       e.preventDefault(); track.setPointerCapture(e.pointerId);
@@ -544,14 +572,32 @@ function resultDialog(m, opts={}){
     track.addEventListener('pointerup', e=>{ if(!dragging) return; dragging=false; apply(e); });
   }
 
+  /* 이긴 팀 줄의 숫자·막대 위치·잠김 상태를 지금 값 기준으로 다시 맞춘다.
+     진 팀 막대를 드래그하는 동안 매 프레임 불린다(위 wireHTrack). */
+  function syncWinnerRow(){
+    if(!winSide) return;
+    const otherScore = winSide==='A' ? scoreB : scoreA;
+    const auto = otherScore>=AUTO_FROM;
+    if(!auto) snapWinnerScore();   // 자동에서 풀렸으면 저장값도 SNAP_WIN 중 하나로 맞춘다
+    const shown = auto ? otherScore+1 : (winSide==='A' ? scoreA : scoreB);
+    const num = $('#rsNum'+winSide); if(num) num.textContent = shown;
+    const track = $('#rsH'+winSide);
+    if(track){
+      const pct = Math.max(0, Math.min(1, (shown-10)/20)) * 100;
+      track.querySelector('.rs-hfill').style.width = pct+'%';
+      track.querySelector('.rs-hhandle').style.left = pct+'%';
+      track.classList.toggle('locked', auto);
+    }
+  }
+
   function bind(){
     $('#rsCancel').onclick = closeModal;
     $('#rsUnknown').onclick = ()=>finish(null, null, null);
     $('#rsSave').onclick = ()=>{
       if(!winSide) return;
       Sound.play('confirm');
-      const sw = winSide==='A' ? scoreA : scoreB;
       const sl = winSide==='A' ? scoreB : scoreA;
+      const sw = sl>=AUTO_FROM ? sl+1 : (winSide==='A' ? scoreA : scoreB);
       finish(winSide, sw, sl);
     };
   }
