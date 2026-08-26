@@ -436,6 +436,8 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'screens.set.readonlyHint': '설정 변경은 <b>운영자</b>만 할 수 있습니다. 현재 적용된 값은 아래와 같습니다.',
 'screens.set.currentSettings': '현재 설정',
 'screens.set.clubName': '클럽 이름',
+'screens.set.language': '화면 언어',
+'screens.set.languageHint': '이 클럽의 모든 기기가 이 언어로 보입니다. 도움말 단독 페이지(manual.html)는 별개로 기기마다 다를 수 있습니다.',
 'screens.set.courtsAndSlots': '코트 / 대기 슬롯',
 'screens.set.courtsAndSlotsValue': '{c}면 / {q}개',
 'screens.set.autoAssign': '자동 배치',
@@ -655,7 +657,12 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'interact.result.team.hint': '팀 구성이 실제와 같은지 확인하세요',
 'interact.result.team.tapHint': '짝이 다르면 팀을 눌러 바꾸세요 — 나눌 수 있는 방법은 세 가지뿐입니다',
 'interact.result.team.next': '다음',
-'interact.result.slider.hint': '진 팀 이름을 위로 끌어 올려 점수를 맞추면 그 자리에서 저장됩니다. 이긴 팀 점수는 자동으로 계산됩니다.',
+'interact.result.slider.hint': '진 팀 이름을 위로 끌어 올려 점수를 맞추세요. 이긴 팀 점수는 자동으로 계산됩니다.',
+'interact.result.target21': '21점 게임',
+'interact.result.target25': '25점 게임',
+'interact.result.slider.placeholder': '위 막대를 움직여 점수를 정하세요',
+'interact.result.slider.summary': '{winTeam} 승 · {winValue} : {loseValue}',
+'interact.result.slider.confirm': '확인',
 
 /* type (typeDialog — 경기 유형 지정 모달) */
 'interact.type.slotTitle': '대기 슬롯 유형 지정',

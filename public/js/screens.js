@@ -558,6 +558,8 @@ function renderSet(){
     <div class="kv">
       <div class="h">${t('screens.set.sectionBasic')}</div>
       <div class="k">${t('screens.set.clubName')}</div><div><input type="text" id="s_club" value="${esc(s.clubName)}" style="width:240px"></div>
+      <div class="k">${t('screens.set.language')}</div><div><select id="s_lang" style="width:160px">${Lang.SUPPORTED.map(l=>`<option value="${l}" ${(s.lang||'en')===l?'selected':''}>${Lang.NAMES[l]}</option>`).join('')}</select>
+        <span class="hint">${t('screens.set.languageHint')}</span></div>
       <div class="k">${t('screens.set.courtCount')}</div><div><input type="number" id="s_courts" value="${s.courtCount}" min="1" max="8" style="width:90px">
         <span class="hint">${t('screens.set.courtCountHint')}</span></div>
       <div class="k">${t('screens.set.slotCount')}</div><div><input type="number" id="s_slots" value="${s.queueSlotCount}" min="2" max="12" style="width:90px"></div>
@@ -798,7 +800,7 @@ function renderSet(){
       S.matches.forEach(m=>{ if(resultPending(m)) m.skipped = true; });
 
     Object.assign(s,{clubName:$('#s_club').value.trim()||t('screens.set.defaultClubName'),courtCount:nc,queueSlotCount:ns,
-      matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
+      lang:$('#s_lang').value, matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
       requireResult:$('#s_reqres').checked,
       maxMatchMinutes:Math.max(0,Math.min(120,+$('#s_maxmin').value||0)),
       autoPushToCourt:$('#s_push').checked,
@@ -808,6 +810,7 @@ function renderSet(){
       historyDays:Math.max(0,Math.min(60,+$('#s_hist').value||0))});
     s.sound = $('#s_sound').checked; Sound.set(s.sound);
     settingsTrusted = true;      // 운영자가 화면에서 직접 확정한 값이다
+    Lang.set(s.lang);   // 이 기기는 곧바로 반영 — 다른 기기는 설정 구독이 따라간다
     Object.assign(s.w,{odd:+$('#s_odd').value,game:+$('#s_wgame').value,wait:+$('#s_wwait').value,
       repeat:+$('#s_wrep').value,balance:+$('#s_wbal').value,age:+$('#s_wage').value});
     // 참고 일수가 바뀌었으면 과거 기록을 그만큼 다시 불러 둔다(다음 배치부터 반영).

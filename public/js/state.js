@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.20b';
+const APP_VERSION = '2026.08.20c';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -7,7 +7,12 @@ const DEFAULTS = {
   autoMode:true, autoPushToCourt:true,   // 4명이 차면 무조건 시작하므로 별도 설정은 없앴다
   matchWarnMinutes:18,
   maxMatchMinutes:30,         // 이 시간에 닿으면 경기를 자동으로 마친다 (0이면 사용 안 함)
-  requireResult:false,        // 결과를 적을 때까지 그 네 명을 묶어 둔다 (아래 '결과 기록 강제')
+  requireResult:true,         // 결과를 적을 때까지 그 네 명을 묶어 둔다 (아래 '결과 기록 강제') — 기본 켬
+  /* 화면 언어. 기기별 취향이 아니라 클럽 공통값이다 — 같은 클럽의 여러
+     태블릿이 서로 다른 언어를 보여주면 안 되므로, main.js가 부팅 때와
+     설정 구독으로 받을 때마다 Lang.set(S.settings.lang)을 부른다.
+     설정 화면(운영자만)에서만 바꾼다 — js/lang.js의 SUPPORTED 참고. */
+  lang:'en',
   genderPolicy:'FREE',
   considerAge:false,
   candidateK:10, repeatLookback:3, oddRelaxThreshold:2,
@@ -179,20 +184,32 @@ const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gende
    따로 옮겨 적을 것은 없다.
    ───────────────────────────────────────────────────────────── */
 
-/* 진 팀 점수에서 이긴 팀 점수를 얻는다 — 물어보지 않고 규칙으로 정한다.
-     19점 이하로 졌으면              21점(21점제 경기)
-     20~24점으로 졌으면(듀스)         25점
-     25점 이상으로 졌으면(연장 듀스)   진 팀 점수 + 1
-   결과 입력 창(interact.js resultDialog)이 진 팀 점수 하나만 받고 바로
-   이 규칙으로 이긴 팀 점수를 채운다 — "몇 점 경기였나" 를 따로 묻지 않는다.
-   클럽마다 다르게 정할 수 있던 옛 '한 게임 점수' 설정은 이 규칙이
-   생기면서 없앴다(늘 21/25점제만 가정해도 어긋나는 경우가 실제로는
-   거의 없었다). */
-function winnerScore(lose){
+/* 진 팀 점수에서 이긴 팀 점수를 얻는다 — 대부분은 물어보지 않고 규칙으로
+   정하지만, 20점 이하는 규칙만으로 못 정한다.
+
+     20점 이하로 졌으면    21점제였는지 25점제였는지 알 수 없다 — 예를 들어
+                          진 팀이 15점이면 이긴 팀은 21점(21점제)일 수도
+                          25점(25점제)일 수도 있다. 그래서 이 구간만
+                          target(21|25)을 받아 그대로 쓴다 — 결과 입력
+                          창(interact.js resultDialog)이 진 팀 점수와 함께
+                          21/25 선택을 받아 넘긴다.
+     21~24점으로 졌으면    21점제라면 이미 듀스로 21을 넘겼을 것이므로
+     (듀스)               25점제로 보고 25점.
+     25점 이상으로 졌으면   몇 점제였든 이미 듀스 상한 근처이므로
+     (연장 듀스)           진 팀 점수 + 1.
+
+   isAmbiguousScore(lose)로 20점 이하인지(=target을 물어야 하는 구간인지)
+   미리 확인할 수 있다. */
+function isAmbiguousScore(lose){
+  if(lose==null || lose==='') return false;
+  const l = Math.round(+lose);
+  return isFinite(l) && l <= 20;
+}
+function winnerScore(lose, target){
   if(lose==null || lose==='') return null;
   const l = Math.max(0, Math.round(+lose));
   if(!isFinite(l)) return null;
-  if(l < 20) return 21;
+  if(l <= 20) return target===25 ? 25 : 21;
   if(l < 25) return 25;
   return l + 1;
 }

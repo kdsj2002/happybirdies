@@ -433,6 +433,8 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'screens.set.readonlyHint': '設定の変更は<b>運営者</b>のみ行えます。現在適用されている値は以下のとおりです。',
 'screens.set.currentSettings': '現在の設定',
 'screens.set.clubName': 'クラブ名',
+'screens.set.language': '画面の言語',
+'screens.set.languageHint': 'このクラブのすべての端末がこの言語で表示されます。単独の説明書ページ(manual.html)は別で、端末ごとに異なる場合があります。',
 'screens.set.courtsAndSlots': 'コート / 待機スロット',
 'screens.set.courtsAndSlotsValue': '{c}面 / {q}個',
 'screens.set.autoAssign': '自動割り当て',
@@ -652,7 +654,12 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'interact.result.team.hint': '実際に対戦した組み合わせと合っているか確認してください',
 'interact.result.team.tapHint': '組み合わせが違う場合はチームをタップして変更してください — 4人を2人ずつ分ける方法は3通りしかありません',
 'interact.result.team.next': '次へ',
-'interact.result.slider.hint': '負けたチームの名前を上にドラッグしてスコアを合わせると、指を離した瞬間に保存されます。勝ったチームのスコアは自動で計算されます。',
+'interact.result.slider.hint': '負けたチームの名前を上にドラッグしてスコアを合わせてください。勝ったチームのスコアは自動で計算されます。',
+'interact.result.target21': '21点制',
+'interact.result.target25': '25点制',
+'interact.result.slider.placeholder': '上のバーを動かしてスコアを決めてください',
+'interact.result.slider.summary': '{winTeam}の勝ち · {winValue} : {loseValue}',
+'interact.result.slider.confirm': '確認',
 
 /* type (typeDialog — 試合種別指定モーダル) */
 'interact.type.slotTitle': '待機スロットの種別指定',

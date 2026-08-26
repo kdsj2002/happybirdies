@@ -10,31 +10,10 @@ function applyStaticI18n(){
   $$('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
   document.title = t('app.title');
 }
-/* 인증 여부와 무관하게 항상 떠 있는 언어 버튼(index.html #langSwitch,
-   #gate보다 z-index가 높다) — 현관(비인증)에서도 눌려야 하므로 개별
-   화면(gate.js 등)에 넣지 않고 여기 한 곳에서 그린다. */
-function drawLangSwitch(){
-  const box = $('#langSwitch'); if(!box) return;
-  box.innerHTML = `
-    <button class="lang-cur" id="langCur">${Lang.NAMES[Lang.get()]}</button>
-    <div class="lang-menu" id="langMenu">
-      ${Lang.SUPPORTED.map(l =>
-        `<button data-l="${l}"${l===Lang.get()?' class="on"':''}>${Lang.NAMES[l]}</button>`).join('')}
-    </div>`;
-  const menu = $('#langMenu');
-  $('#langCur').onclick = e => {
-    e.stopPropagation();
-    const opening = !menu.classList.contains('on');
-    menu.classList.toggle('on', opening);
-    // 열 때마다 바깥 클릭 리스너를 새로 하나 단다 — once라서 한 번 닫히면
-    // 스스로 없어지므로, 다음에 열 때 여기서 다시 달아 줘야 또 닫힌다.
-    if(opening) document.addEventListener('click', () => menu.classList.remove('on'), { once:true });
-  };
-  menu.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { menu.classList.remove('on'); Lang.set(b.dataset.l); });
-}
+/* 언어 버튼은 대진판 화면에 없다 — 설정 탭(운영자)에서만 바꾼다.
+   여기서는 그 결과(Lang.set 호출)를 받아 다시 그리기만 한다. */
 Lang.onLangChange(() => {
   applyStaticI18n();
-  drawLangSwitch();
   render();
   // 지금 열려 있는 탭이 board가 아니면 그 탭도 다시 그려야 한다 —
   // render()는 board만 맡는다. show()가 현재 탭을 다시 그리는 길이므로
@@ -52,7 +31,6 @@ Lang.onLangChange(() => {
    ===================================================================== */
 (async function boot(){
   applyStaticI18n();
-  drawLangSwitch();
   await Store.init();
 
   /* ── 시계가 늦게 맞춰지면 그 전에 찍은 시작 시각을 고쳐 쓴다 ──────
@@ -119,6 +97,9 @@ Lang.onLangChange(() => {
   const st=rSet.value;
   if(st) S.settings=Object.assign(clone(DEFAULTS),st,{w:Object.assign({},DEFAULTS.w,st.w||{})});
   settingsTrusted = rSet.ok;    // 못 읽은 설정은 클라우드에 쓰지 않는다
+  // 화면 언어는 이 클럽의 설정값을 따른다(기기별 추측을 덮어쓴다).
+  // 설정을 못 읽었을 때도 DEFAULTS.lang('en')으로는 맞춰 둔다.
+  Lang.set(S.settings.lang);
   // 현관에서 한 번에 다시 들어갈 수 있게 이 기기에 기록해 둔다.
   // 설정을 제대로 읽었을 때만 — 못 읽은 채로 적으면 이름이 '대진판'으로 굳는다.
   if(rSet.ok) rememberClub(CLUB, S.settings.clubName);
@@ -275,6 +256,8 @@ Lang.onLangChange(() => {
     S.settings = Object.assign(clone(DEFAULTS), remote,
                                { w:Object.assign({}, DEFAULTS.w, remote.w||{}) });
     lastWritten.settings = js;
+    // 다른 기기에서 언어를 바꿨으면 이 기기도 따라간다 — 클럽 공통값이다.
+    Lang.set(S.settings.lang);
     Sound.set(S.settings.sound !== false);
     Records.warmUp(S.settings.historyDays).catch(()=>{});
     render();

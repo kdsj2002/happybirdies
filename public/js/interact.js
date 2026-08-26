@@ -347,6 +347,12 @@ function askPin(title, desc, onOk, opts={}){
 }
 $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal(); });
 
+/* 이 기기에서 마지막으로 고른 경기 점수(21/25) — 진 팀이 20점 이하로
+   져서 몇 점제였는지 알 수 없을 때만 쓴다(아래 resultDialog). 한 클럽은
+   대개 한 가지로 치므로, 다음 창에서 그 쪽을 미리 켜 두면 매번 새로
+   고를 필요가 없다. 저장하지 않는다 — 이 기기의 이번 실행에만 남는 습관이다. */
+let lastTarget = 21;
+
 /* ── 경기 결과 입력 ──────────────────────────────────────────────
    경기를 마칠 때도, 묶인 사람을 풀 때도, 기록을 나중에 고칠 때도 이 창
    하나를 쓴다. m은 {A,B,An,Bn,win,sw,sl} 모양이면 무엇이든 된다.
@@ -356,11 +362,13 @@ $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal();
         (넷을 둘씩 나누는 방법은 딱 세 가지뿐이라 탭마다 그 세 가지를
         돈다). 맞으면 '다음'.
      2) 진 팀 점수 — A팀·B팀 각자의 세로 막대에서 진 쪽 이름을 위로
-        끌어 올리면 그 위치가 점수(10~29)다. 이긴 팀 점수는 묻지 않고
-        state.js의 winnerScore() 규칙으로 자동 계산해 반대쪽 막대에
-        바로 보여준다. 손을 떼는 순간(pointerup) 그 자리에서 저장되고
-        창이 닫힌다 — 확인 버튼이 없다. 되돌리려면 상단 ↩(되돌리기) 또는
-        기록 화면에서 다시 연다.
+        끌어 올리면 그 위치가 점수(10~29)다. 이긴 팀 점수는 state.js의
+        winnerScore() 규칙으로 자동 계산해 반대쪽 막대에 바로 보여준다.
+        다만 진 팀이 20점 이하면 21점제였는지 25점제였는지 점수만으로는
+        알 수 없으므로(예: 15점으로 졌으면 이긴 쪽이 21점일 수도 25점일
+        수도 있다), 그 구간에서만 작은 21/25 선택이 함께 뜬다. 자리를
+        정했으면 <b>확인</b>을 눌러야 저장된다 — 드래그 도중 손을 떼는
+        것만으로는 저장되지 않는다.
 
    10점 이하는 전부 '10'으로 뭉친다(막대가 30칸까지 길어지면 손가락으로
    짚기 어렵다). 큰 점수차 경기의 정확한 점수를 적을 방법은 지금 없다 —
@@ -380,11 +388,15 @@ function resultDialog(m, opts={}){
 
   let pairIdx = 0;
   let step = 'team';   // 'team' | 'slider'
-  let done = false;    // 두 손가락 등으로 두 번 커밋되는 것을 막는다
+  let done = false;    // 저장이 두 번 일어나는 것을 막는다
+
+  // 2단계 상태 — 아직 아무것도 안 만졌으면 loseSide가 null이라 확인 버튼이 꺼져 있다.
+  let loseSide = null, loseValue = null, target = lastTarget;
 
   // 이미 적힌 결과가 있으면(기록 화면에서 다시 여는 경우) 막대 초기 위치로 쓴다.
   const initWin  = (m.win==='A'||m.win==='B') ? m.win : null;
   const initLose = (initWin && m.sl!=null) ? Math.max(10,Math.min(29,Math.round(+m.sl))) : null;
+  const initTarget = (initWin && m.sw!=null && +m.sw<=21) ? 21 : (initWin && m.sw!=null && +m.sw>=25 ? 25 : target);
 
   const rosterNow = () => canPair
       ? { A: PAIRS[pairIdx][0].map(k=>people[k]), B: PAIRS[pairIdx][1].map(k=>people[k]) }
@@ -399,7 +411,7 @@ function resultDialog(m, opts={}){
   function finish(win, sl){
     if(done) return; done = true;
     closeModal();
-    const sw = win ? winnerScore(sl) : null;
+    const sw = win ? winnerScore(sl, target) : null;
     /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
        선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한
        구멍이라 그 표시(skip)를 함께 넘긴다. */
@@ -439,16 +451,20 @@ function resultDialog(m, opts={}){
               <div class="rs-scaleBottom">≤10</div>
             </div>`).join('')}
         </div>
+        <div class="seg rs-target" id="rsTarget" style="display:none;justify-content:center;margin:2px 0">
+          <button data-tgt="21">${t('interact.result.target21')}</button>
+          <button data-tgt="25">${t('interact.result.target25')}</button>
+        </div>
+        <div class="hint" id="rsSummary" style="text-align:center;min-height:20px">${t('interact.result.slider.placeholder')}</div>
         <div class="row end">
           <button class="btn" id="rsBack">${t('interact.result.back')}</button>
           ${opts.noneLabel?`<button class="btn" id="rsNone">${esc(opts.noneLabel)}</button>`:''}
+          <button class="btn primary" id="rsSave" disabled>${t('interact.result.slider.confirm')}</button>
         </div>`;
       wireSliders();
-      // 기존 기록이 있으면 그 위치를 미리 보여준다(손을 대기 전까지는 저장되지 않는다).
-      if(initWin && initLose!=null){
-        setSide(initWin==='A'?'B':'A', initLose);
-        setSide(initWin, winnerScore(initLose));
-      }
+      wireTarget();
+      // 기존 기록이 있으면 그 위치를 미리 보여준다 — 확인을 눌러야 그대로 저장된다.
+      if(initWin && initLose!=null) applyPending(initWin==='A'?'B':'A', initLose, initTarget);
     }
     bind();
   }
@@ -460,6 +476,27 @@ function resultDialog(m, opts={}){
     sc.textContent = value;
   }
 
+  /* 진 팀 자리·점수·경기 점수(21/25)가 정해질 때마다 화면 세 곳(막대·
+     21/25 토글·요약줄·확인 버튼)을 함께 맞춘다. 드래그 중에도, 21/25를
+     눌렀을 때도 이 한 곳만 부르면 된다. */
+  function applyPending(side, value, tgt){
+    loseSide = side; loseValue = value; target = tgt;
+    const otherSide = side==='A'?'B':'A';
+    const ambiguous = isAmbiguousScore(value);
+    setSide(side, value); setSide(otherSide, winnerScore(value, target));
+
+    const tbox = $('#rsTarget');
+    if(tbox){
+      tbox.style.display = ambiguous ? 'flex' : 'none';
+      tbox.querySelectorAll('[data-tgt]').forEach(b=>b.classList.toggle('on', +b.dataset.tgt===target));
+    }
+    const sum = $('#rsSummary');
+    if(sum) sum.textContent = t('interact.result.slider.summary',
+      {loseTeam:t('interact.result.teamTag',{team:side}), loseValue:value,
+       winTeam:t('interact.result.teamTag',{team:otherSide}), winValue:winnerScore(value, target)});
+    const save = $('#rsSave'); if(save) save.disabled = false;
+  }
+
   /* 손가락 위치 → 점수. 위쪽이 높은 점수, track 전체가 10~29 스물 칸이다. */
   function valueFromEvent(track, e){
     const rect = track.getBoundingClientRect();
@@ -469,28 +506,35 @@ function resultDialog(m, opts={}){
 
   function wireSliders(){
     $$('#modal .rs-track').forEach(track=>{
-      const side = track.dataset.side, otherSide = side==='A'?'B':'A';
+      const side = track.dataset.side;
       let dragging = false;
       track.addEventListener('pointerdown', e=>{
         e.preventDefault();
         track.setPointerCapture(e.pointerId);
         dragging = true;
         Sound.play('move');
-        const v = valueFromEvent(track, e);
-        setSide(side, v); setSide(otherSide, winnerScore(v));
+        applyPending(side, valueFromEvent(track, e), lastTarget);
       });
       track.addEventListener('pointermove', e=>{
         if(!dragging) return;
-        const v = valueFromEvent(track, e);
-        setSide(side, v); setSide(otherSide, winnerScore(v));
+        applyPending(side, valueFromEvent(track, e), target);
       });
       track.addEventListener('pointerup', e=>{
         if(!dragging) return;
         dragging = false;
-        const v = valueFromEvent(track, e);
-        Sound.play('confirm');
-        finish(otherSide, v);
+        applyPending(side, valueFromEvent(track, e), target);
+        // 손을 뗀 자리를 이번 판의 기준으로 남긴다 — 저장은 '확인'을 눌러야 일어난다.
       });
+    });
+  }
+
+  function wireTarget(){
+    const tbox = $('#rsTarget'); if(!tbox) return;
+    tbox.querySelectorAll('[data-tgt]').forEach(b=>b.onclick=()=>{
+      if(loseSide==null) return;   // 아직 진 팀 자리를 안 정했으면 누를 게 없다
+      Sound.play('tap');
+      lastTarget = +b.dataset.tgt;
+      applyPending(loseSide, loseValue, lastTarget);
     });
   }
 
@@ -504,6 +548,11 @@ function resultDialog(m, opts={}){
       $('#rsNext').onclick = ()=>{ step='slider'; Sound.play('tap'); draw(); };
     } else {
       const back=$('#rsBack'); if(back) back.onclick = ()=>{ step='team'; draw(); };
+      const save=$('#rsSave'); if(save) save.onclick = ()=>{
+        if(loseSide==null) return;
+        Sound.play('confirm');
+        finish(loseSide==='A'?'B':'A', loseValue);
+      };
     }
   }
 

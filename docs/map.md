@@ -100,7 +100,8 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 (`Store.onCalibrated` 콜백, `main.js` 등록부)에 그 코트와 대응하는
 `S.matches[]` 기록의 시작 시각을 한 번만 소급 보정한다.
 
-**결과 기록 강제**(`S.settings.requireResult`, 기본 꺼짐)가 켜지면
+**결과 기록 강제**(`S.settings.requireResult`, 새 동호회는 기본 켬 —
+기존 동호회는 저장된 값을 그대로 유지)가 켜지면
 결과가 없는 경기의 참가자는 `isHeld(attId)`가 참이 되고, `poolIds()`
 (자동 배치용)에서 빠지며, `moveTo`/`swap`/`moveTeamTo` 등 손으로 옮기는
 모든 경로 앞에 `heldBlock(id)`가 걸린다. 새 이동 경로를 추가하면
@@ -108,14 +109,16 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 
 **경기 결과 입력**(`interact.js` `resultDialog`)은 두 단계뿐이다 —
 ① 팀 구성 확인(탭마다 셋 중 하나로 순환, `PAIRS`) → ② 세로 슬라이더에서
-진 팀 이름을 위로 끌어 점수(10~29, 10 이하는 뭉쳐서 10)를 정하면
-`pointerup`에서 **바로 커밋**된다(확인 버튼 없음). 이긴 팀 점수는 묻지
-않고 `state.js` `winnerScore(lose)`가 고정 규칙(19이하→21, 20~24→25,
-25이상→+1)으로 계산해 반대쪽 막대에 실시간으로 보여준다. 두 손가락
-동시 커밋 방지용 `done` 플래그가 있다. `opts.onSave(result, roster)`로
-콜백하며, 코트 종료·리매치·기록 화면 수정이 전부 이 함수를 공유한다.
-클럽마다 다르게 정하던 '한 게임 점수'(`winPoint`) 설정은 이 고정 규칙이
-생기면서 없앴다.
+진 팀 이름을 위로 끌어 점수(10~29, 10 이하는 뭉쳐서 10)를 정한다.
+드래그를 끝내는 것과 저장은 다른 동작이다 — **확인(`#rsSave`) 버튼을
+눌러야** `finish()`가 불린다. 이긴 팀 점수는 `state.js`
+`winnerScore(lose, target)`가 계산해 반대쪽 막대에 실시간으로 보여준다
+(21~24→25, 25이상→+1). 단, 진 팀 점수가 20 이하면 21점제인지 25점제인지
+점수만으로 못 가리므로 `isAmbiguousScore(lose)`가 참이 되어 21/25 선택
+(`#rsTarget`, `lastTarget`으로 이 기기에서 마지막 선택 기억)이 함께 뜬다.
+`opts.onSave(result, roster)`로 콜백하며, 코트 종료·리매치·기록 화면
+수정이 전부 이 함수를 공유한다. 클럽마다 다르게 정하던 '한 게임 점수'
+(`winPoint`) 설정은 이 규칙이 생기면서 없앴다.
 
 **새 동호회 신청**(`gate.js` `screenApply` → `screenApplyVerify` →
 `screenApplyPassword`)은 인증 없이 대표 주소에서 시작한다. 3단계 모두
@@ -133,10 +136,18 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
     빠짐없이 챙길 수 있다(빠뜨리면 그 언어에서만 한국어로 자동 대체되어 눈에 안 띄게 샌다).
   - 도움말 본문은 `manual-{ko,en,zh,ja}.js`에 언어별로 통째로 있다(문장 단위 키가 아니라
     섹션째 번역문) — `manual.js`가 `Lang.get()`에 맞는 파일을 골라 조립만 한다.
+  - **앱 본체(index.html)는 클럽 공통값**(`S.settings.lang`, 기본 `'en'`)이다. 설정 화면
+    (`screens.js` `renderSet` `#s_lang`, 운영자·소유자만)에서만 바꾼다. `main.js`가
+    부팅 직후(`S.settings` 로드 후)와 설정 실시간 구독 콜백 둘 다에서
+    `Lang.set(S.settings.lang)`을 불러 기기별 추측을 덮어쓴다 — 그래서 같은 클럽의
+    모든 태블릿이 같은 언어를 본다. 대진판 화면에는 언어 버튼이 없다(예전엔
+    `#langSwitch` 고정 코너 버튼이 있었지만 뺐다).
+  - **manual.html(단독 페이지)만 기기별 취향**이다 — `Lang`의 `detect()`(저장된 값 →
+    브라우저 언어 → 알 수 없으면 영어)를 그대로 쓰고, 그 페이지 자체의 `.doc-lang` 버튼으로
+    바꾼다. 클럽 설정과 무관하다.
   - `Lang.set()`은 `Lang.onLangChange` 콜백 하나를 부른다(`main.js`에 등록) — 정적
     마크업(`index.html`의 `data-i18n`류)을 다시 채우고, `render()`와 지금 켜진 탭을
-    다시 그린다. 언어 전환 버튼은 `index.html`의 `#langSwitch`(위치:고정, `#gate`보다
-    z-index가 높다) 하나뿐 — 인증 여부와 무관하게 항상 뜬다.
+    다시 그린다.
   - **주의**: 이 앱은 `t`를 타이머 id·현재 시각·DOM 엘리먼트 등 지역 변수 이름으로도
     흔히 쓴다. 그런 함수 안에서 번역이 필요하면 지역 변수 쪽 이름을 바꿀 것 —
     `const t=now()` 뒤에 `t('키')`를 부르면 "t is not a function"으로 죽는다
@@ -174,7 +185,8 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 최대 경기 시간 도달 시 자동 종료(결과는 비움) | `actions.js` `checkMatchTimeouts` |
 | 배정 직후 10초 코트 테두리 깜박임 | `ui.js` `justAssigned` |
 | 결과는 진 팀 점수만 받고 이긴 팀은 고정 규칙으로 계산(클럽별 설정 없앰) | `state.js` `winnerScore` |
-| 결과 입력은 세로 슬라이더, 손을 떼는 순간(pointerup) 확인 없이 즉시 커밋 | `interact.js` `resultDialog` `wireSliders` |
+| 결과 입력은 세로 슬라이더 + 확인 버튼(드래그 종료만으로는 저장 안 함) | `interact.js` `resultDialog` `wireSliders`/`#rsSave` |
+| 진 팀 20점 이하는 21/25점제를 물어야 함(점수만으론 안 갈림) | `state.js` `isAmbiguousScore` |
 | 결과 기록 강제는 물어보지 않고 막는 방식 | `actions.js` `heldBlock`/`heldSet` |
 | 끝난 경기는 세션과 별개로 날짜별 원장에 영구 보관 | `records.js` 머리말 |
 | 중복 회피에 지난 날짜 이력 참고(기본 꺼짐) | `algo.js` `pastPairPenalty` |
@@ -190,7 +202,8 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 새 동호회는 무인증으로 신청 즉시 열림(`status:'pending'`은 표시일 뿐) | `functions/index.js` `createClub` |
 | 소유자 자리는 신청서 이메일이 아니라 그 이메일의 구글 인증으로만 확정 | `functions/index.js` `claimOwnership` |
 | `#gate` 카드는 화면보다 길어질 수 있어 자신이 스크롤 컨테이너 | `app.css` `#gate` 규칙 |
-| 화면 언어는 4개(한/영/중/일), 기기별 저장, 기본은 브라우저 언어로 추측 | `lang.js` `detect()` |
+| 화면 언어는 4개(한/영/중/일) — 앱 본체는 클럽 설정값, manual.html만 기기별 | `state.js` `DEFAULTS.lang`, `lang.js` `detect()` |
+| 결과 기록 강제는 새 동호회부터 기본 켬(기존 동호회는 저장된 값 유지) | `state.js` `DEFAULTS.requireResult` |
 | UI 문자열은 키 기반(`t()`), 도움말은 언어별 파일 통째 번역 — 방식이 다른 이유는 전자가 잦은 수정에, 후자가 산문 번역 품질에 최적 | `lang.js` 머리말, `manual.js` 머리말 |
 
 이 표는 "무엇을, 어디서"만 담는다. 왜 그렇게 했는지는 표에 적힌 위치의

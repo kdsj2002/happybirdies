@@ -435,6 +435,8 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'screens.set.readonlyHint': '仅<b>管理员</b>可以修改设置。当前应用的值如下。',
 'screens.set.currentSettings': '当前设置',
 'screens.set.clubName': '俱乐部名称',
+'screens.set.language': '界面语言',
+'screens.set.languageHint': '本俱乐部所有设备都会显示这个语言。独立的使用说明页面(manual.html)是分开的，各设备可以不同。',
 'screens.set.courtsAndSlots': '场地 / 排队位',
 'screens.set.courtsAndSlotsValue': '{c}面 / {q}个',
 'screens.set.autoAssign': '自动分配',
@@ -654,7 +656,12 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'interact.result.team.hint': '请确认这与实际上场的组合一致',
 'interact.result.team.tapHint': '如果配对不对，点一下队伍即可更换 —— 四人分组只有三种方式',
 'interact.result.team.next': '下一步',
-'interact.result.slider.hint': '把负方队伍的名字向上拖到对应比分，松手即保存。胜方比分会自动计算。',
+'interact.result.slider.hint': '把负方队伍的名字向上拖到对应比分。胜方比分会自动计算。',
+'interact.result.target21': '21分制',
+'interact.result.target25': '25分制',
+'interact.result.slider.placeholder': '移动上面的滑条来定比分',
+'interact.result.slider.summary': '{winTeam}胜 · {winValue} : {loseValue}',
+'interact.result.slider.confirm': '确认',
 
 /* type (typeDialog — 比赛类型指定弹窗) */
 'interact.type.slotTitle': '指定排队位类型',

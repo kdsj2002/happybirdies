@@ -435,6 +435,8 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'screens.set.readonlyHint': 'Only <b>admins</b> can change settings. The values currently in effect are shown below.',
 'screens.set.currentSettings': 'Current Settings',
 'screens.set.clubName': 'Club Name',
+'screens.set.language': 'Display Language',
+'screens.set.languageHint': 'Every device at this club shows this language. The standalone help page (manual.html) is separate and can differ per device.',
 'screens.set.courtsAndSlots': 'Courts / Queue Slots',
 'screens.set.courtsAndSlotsValue': '{c} courts / {q} slots',
 'screens.set.autoAssign': 'Auto-assign',
@@ -654,7 +656,12 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'interact.result.team.hint': 'Check that this matches who actually played',
 'interact.result.team.tapHint': 'If the pairing is wrong, tap a team to change it — there are only three ways to split four people',
 'interact.result.team.next': 'Next',
-'interact.result.slider.hint': 'Drag the losing team\'s name up to set their score — it saves the moment you let go. The winning team\'s score is calculated automatically.',
+'interact.result.slider.hint': 'Drag the losing team\'s name up to set their score. The winning team\'s score is calculated automatically.',
+'interact.result.target21': 'Played to 21',
+'interact.result.target25': 'Played to 25',
+'interact.result.slider.placeholder': 'Move a bar above to set the score',
+'interact.result.slider.summary': '{winTeam} wins · {winValue} : {loseValue}',
+'interact.result.slider.confirm': 'Confirm',
 
 /* type (typeDialog — match type assignment modal) */
 'interact.type.slotTitle': 'Set Queue Slot Type',

@@ -1,10 +1,15 @@
 /* =====================================================================
    언어 전환
 
-   기기별 저장이다(클럽 설정이 아니다) — 같은 클럽이라도 어떤 사람은
-   영어로, 어떤 사람은 한국어로 보고 싶을 수 있다. 처음 여는 기기는
-   브라우저 언어(navigator.language)로 추측하고, 한 번 고르면 그 뒤로는
-   무조건 그 값을 쓴다(추측이 틀렸을 때 매번 되돌아가면 짜증난다).
+   쓰는 곳이 둘이라 기준이 다르다.
+     · manual.html(앱을 안 띄우는 단독 설명서)은 지금도 기기별 취향이다 —
+       처음 여는 기기는 브라우저 언어로 추측하고, 한 번 고르면 그 값을 쓴다.
+     · 앱 본체(index.html)는 클럽 공통값이다. 같은 클럽의 여러 태블릿이
+       서로 다른 언어를 보여주면 안 되므로, main.js가 부팅 때와 설정을
+       받을 때마다 Lang.set(S.settings.lang)을 불러 이 모듈의 기기별
+       추측값을 덮어쓴다 — 설정 화면(운영자만)에서만 바꾼다.
+   이 파일은 그 차이를 몰라도 된다. "지금 언어가 뭔지" 들고 있다가
+   set()이 오면 바꾸고 알릴 뿐이다.
 
    문자열은 window.I18N(js/i18n-*.js)에서 가져온다. 이 파일 자체는
    문자열을 하나도 담지 않는다 — 그래야 언어를 추가할 때 이 파일을
@@ -14,16 +19,21 @@ const Lang = (() => {
   const SUPPORTED = ['ko', 'en', 'zh', 'ja'];
   const NAMES = { ko: '한국어', en: 'English', zh: '中文', ja: '日本語' };
 
+  /* manual.html 등 기기별 추측이 필요한 곳에서만 쓰인다 — 앱 본체는
+     부팅 직후 Lang.set(S.settings.lang)으로 곧바로 덮어쓰므로 이 추측값이
+     화면에 실제로 보이는 시간은 아주 잠깐이다. 알 수 없는 언어권은
+     한국어가 아니라 영어를 기본으로 한다(이 앱의 전체 기본값). */
   function detect() {
     try {
       const saved = localStorage.getItem(KEY);
       if (SUPPORTED.includes(saved)) return saved;
     } catch {}
-    const nav = ((navigator.language || navigator.userLanguage || 'ko') + '').toLowerCase();
+    const nav = ((navigator.language || navigator.userLanguage || '') + '').toLowerCase();
+    if (nav.startsWith('ko')) return 'ko';
     if (nav.startsWith('zh')) return 'zh';
     if (nav.startsWith('ja')) return 'ja';
     if (nav.startsWith('en')) return 'en';
-    return 'ko';
+    return 'en';
   }
 
   let cur = detect();

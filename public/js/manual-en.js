@@ -49,10 +49,10 @@ window.MANUAL_CONTENT.en = (() => {
       time</b>, so until then no one can sign in as admin.
     </div>
 
-    <h3>Changing the display language</h3>
-    <p>A button in the top right corner is always there to change the language — it is visible even on the very first
-       screen, before you have signed in as anything. Korean, English, Chinese, and Japanese are supported.
-       Once you choose, this device remembers it and opens in that language next time.</p>`;
+    <h3>Display language</h3>
+    <p>Korean, English, Chinese, and Japanese are supported. The admin or owner sets it in the <b>Settings</b>
+       tab so every device at this club shows the same language (members and guests can't change it) —
+       see the admin section below for details. New clubs default to <b>English</b>.</p>`;
 
   const member = `
     <h2 id="m-member">2. For Members</h2>
@@ -276,15 +276,20 @@ window.MANUAL_CONTENT.en = (() => {
 
     <h4>Step 2 — The losing team's score</h4>
     <p>Two <b>vertical bars</b> appear side by side, one for each team. <b>Drag the losing team's name
-       up</b> until it lines up with their score — <b>it saves and closes the moment you let go</b>.
-       There is no separate save button.</p>
+       up</b> until it lines up with their score. The other bar follows automatically to show the winning
+       score — you don't need to touch it. Once the position is right, tap <b>Confirm</b> to save — letting
+       go of a drag by itself does not save anything.</p>
     <table class="doc-t">
       ${rows([
         ['<b>What does the winning team score?</b>',
-         "You're not asked. Once you set the losing score, the other bar shows an <b>automatically " +
-         'calculated score</b> right away — <span class="doc-k">19 or fewer → 21</span>, ' +
-         '<span class="doc-k">20–24 (deuce) → 25</span>, ' +
+         "Usually you're not asked. Once you set the losing score, the other bar shows an <b>automatically " +
+         'calculated score</b> right away — <span class="doc-k">20–24 (deuce) → 25</span>, ' +
          '<span class="doc-k">25 or more → losing score + 1</span>.'],
+        ['<b>If the losing score is 20 or fewer</b>',
+         'The score alone <b>can\'t tell whether it was a 21-point or 25-point game</b> — a losing score of ' +
+         '15, for example, could mean the winner scored 21 or 25. Only in this range, a small ' +
+         '<b>Played to 21 / Played to 25</b> choice appears below the bars. Once you pick one, it stays ' +
+         'selected next time (remembered on this device only).'],
         ['<b>If it was a lopsided loss (10 or fewer)</b>',
          'To keep the bar from getting too long, <b>anything 10 or under is lumped together as 10</b>. ' +
          'A 21-3 and a 21-7 both land at the very bottom (10) on the bar — there is no way yet to enter ' +
@@ -293,8 +298,8 @@ window.MANUAL_CONTENT.en = (() => {
          'Ends the match without recording a score or a winner. Game count and match time are still ' +
          "recorded normally. Use this when you don't know the result — it's better than entering a made-up value."],
         ['<b>Tapped the wrong thing?</b>',
-         'Tap <b>← Back</b> to return to Step 1 (team makeup). If it already saved, use the <b>↩ Undo</b> ' +
-         'button at the top, or reopen it from the Records tab to fix it.']
+         "If you haven't confirmed yet, just drag again. Tap <b>← Back</b> to return to Step 1 (team makeup). " +
+         'If it already saved, use the <b>↩ Undo</b> button at the top, or reopen it from the Records tab to fix it.']
       ])}
     </table>
 
@@ -304,9 +309,9 @@ window.MANUAL_CONTENT.en = (() => {
       position. The per-person table shows <b>Wins-Losses</b> together
       (only matches with a recorded result are counted).</div>
 
-    <h3>Require Match Result (can be turned on in Settings)</h3>
+    <h3>Require Match Result (can be turned off in Settings)</h3>
     <p>Recording results is a chore, so just popping up a prompt does not get it filled in reliably. So
-       there is a way to <b>block instead of ask</b>. Turning on Settings → <b>Require Match Result</b>:</p>
+       there is a way to <b>block instead of ask</b>. While Settings → <b>Require Match Result</b> is on:</p>
     <ul>
       <li>The <b>result prompt no longer appears</b> when a match ends. It just ends.</li>
       <li>Instead, those four people's chips <b style="color:var(--cork)">blink red and cannot be moved
@@ -320,8 +325,9 @@ window.MANUAL_CONTENT.en = (() => {
     <div class="doc-note">For a match where truly no one remembers the score, use
       <b>Unknown — Release Without Recording</b> in the result prompt. Without any escape hatch, those four
       people would stay locked forever. But since it is a deliberate tap, it does not get forgotten by accident.<br>
-      <b>It is off by default.</b> Turning it on does not lock matches that had already ended —
-      it means results are required from that point forward, not a retroactive interrogation of past matches.</div>
+      <b>New clubs have this on by default.</b> (Clubs that already existed keep whatever they had chosen.)
+      Turning it on does not lock matches that had already ended — it means results are required from that
+      point forward, not a retroactive interrogation of past matches.</div>
 
     <h3>Records are kept permanently by date</h3>
     <p>A finished match is logged to a permanent ledger by date, <b>separate from that day's match board</b>.
@@ -463,6 +469,11 @@ window.MANUAL_CONTENT.en = (() => {
     <h3>Frequently used settings</h3>
     <table class="doc-t">
       ${rows([
+        ['Display language',
+         'Every device at this club shows the language you pick here — devices can\'t each show a different one. ' +
+         'Choosing Korean, English, Chinese, or Japanese propagates to other tablets right away. New clubs default ' +
+         'to <b>English</b>. (The standalone help page, manual.html, is separate and follows each device\'s own ' +
+         'preference — change it with the button in that page\'s top right.)'],
         ['Number of courts / waiting slots',
          '<b>The match board is not reset.</b> Courts and slots are only added or removed at the end, so everything else stays as it was. ' +
          'You can open an extra court even mid-session. When reducing count would remove a slot with people in it, you are shown ' +
