@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.20g';
+const APP_VERSION = '2026.08.26';
 
 const DEFAULTS = {
   clubName:'대진판',

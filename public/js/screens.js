@@ -336,6 +336,7 @@ function renderHist(){
      탭도 감추지만(applyRole) 화면 함수에서도 한 번 더 막는다. */
   if(Auth.isViewer){
     $('#histBody').innerHTML='<div class="hint">'+t('screens.hist.membersOnlyHint')+'</div>';
+    $('#btnCloseFloat').style.display='none';
     return;
   }
   const done=S.matches.filter(m=>m.endedAt);
@@ -425,6 +426,11 @@ function renderHist(){
       lbl.textContent=t('screens.hist.autoCloseSoon');
     }
   })();
+  // 위쪽 플로팅 버튼은 스크롤 상태와 무관하게 아래 버튼과 같은 동작을 한다.
+  const closeFloat=$('#btnCloseFloat');
+  closeFloat.textContent=t('screens.hist.closeSessionBtn');
+  closeFloat.style.display='';
+  closeFloat.onclick=()=>$('#btnClose').click();
   $('#btnClose').onclick=()=>{
     if(!requirePerm('closeSess')) return;
     if(!confirm(t('screens.hist.confirmCloseSession'))) return;
@@ -521,6 +527,7 @@ function renderSet(){
       <div class="hint" style="margin-bottom:16px">${t('screens.set.viewerHint')}</div>
       <div class="row"><button class="btn primary" id="s_relogin">${t('screens.set.enterBtn')}</button></div>`;
     $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
+    $('#s_saveFloat').style.display='none';
     return;
   }
   // 설정은 운영자 전용이다. 회원에게는 현재 값을 읽기 전용으로 보여 준다.
@@ -551,6 +558,7 @@ function renderSet(){
     // 소리는 기기별 취향이라 권한과 무관하게 각자 켜고 끌 수 있게 둔다.
     $('#s_soundOnly').onchange=e=>{ Sound.set(e.target.checked); Sound.play('tap'); };
     $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
+    $('#s_saveFloat').style.display='none';
     return;
   }
   const s=S.settings;
@@ -822,6 +830,11 @@ function renderSet(){
     if(sized) undoStack.length=0;
     renderSet(); toast(t('screens.set.settingsSavedToast'));
   };
+  // 위쪽 플로팅 버튼은 스크롤 상태와 무관하게 아래 저장 버튼과 같은 동작을 한다.
+  const saveFloat=$('#s_saveFloat');
+  saveFloat.textContent=t('screens.set.saveBtn');
+  saveFloat.style.display='';
+  saveFloat.onclick=()=>$('#s_save').click();
   $('#s_relogin').onclick=async()=>{ Sound.play('tap'); await Auth.logout(); Gate.reopen(); };
   $('#s_reload').onclick=async()=>{
     Sound.play('tap');
