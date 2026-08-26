@@ -653,11 +653,6 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'interact.result.save': '保存',
 'interact.result.teamTag': '{team}チーム',
 'interact.result.hint': 'チームをタップすると勝ちチームに選べます · 名前を別チームへドラッグすると入れ替わります',
-'interact.result.winScoreLabel': '勝ちチームの点数',
-'interact.result.win21': '21点',
-'interact.result.win25': '25点',
-'interact.result.win26plus': '26点以上',
-'interact.result.loseScoreLabel': '負けチームの点数',
 
 /* type (typeDialog — 試合種別指定モーダル) */
 'interact.type.slotTitle': '待機スロットの種別指定',

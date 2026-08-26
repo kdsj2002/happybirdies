@@ -264,32 +264,29 @@ window.MANUAL_CONTENT.en = (() => {
        <b>Rematch</b> above — a result prompt appears. Tapping the <b>Result</b> column in the Records
        tab later opens the same prompt. Team makeup, winner, and score are all set on one screen.</p>
 
-    <h4>Confirm the team makeup · pick the winner</h4>
-    <p>The pairing currently on record (Team A / Team B) shows as name chips. Sometimes people swap
-       positions on the court without moving anyone in the app — recording the result as-is would leave
-       <b>the winners and losers swapped</b> in the record. If the pairing is wrong, <b>drag a chip onto
-       the other team</b> — it swaps places with whichever chip is there. Once the pairing looks right,
-       <b>tap the empty part of the winning team's box (not a chip)</b> — that team lights up green. Tap
-       it again to deselect.</p>
+    <h4>Confirm the team makeup</h4>
+    <p>The pairing currently on record (Team A / Team B) shows as name chips — the same chips you see on
+       the match board. Sometimes people swap positions on the court without moving anyone in the app —
+       recording the result as-is would leave <b>the winners and losers swapped</b> in the record. So these
+       chips <b>blink with a red border</b> as a reminder to double-check them. If the pairing is wrong,
+       <b>drag a chip onto the other team</b> — it swaps places with whichever chip is there.</p>
     <div class="doc-note">The headcount is always <b>2 vs 2</b>. Adding or removing a person is something
       you do on the match board, not in the result prompt. The corrected makeup is applied when you save,
       and the match type (Men's Doubles, Mixed Doubles, etc.) is recalculated to match.</div>
 
-    <h4>Pick the score</h4>
-    <p>Once you pick a winner, the score section appears below it.</p>
+    <h4>Pick the score · pick the winner</h4>
+    <p>A <b>horizontal slider</b> sits to the right of each team's name — winner or loser, both teams use
+       the same slider to pick any value from <b>10 to 30</b>. The current value shows large and bold right
+       next to the slider (the slider's own handle shows no number — your finger would cover it anyway).
+       To mark a team as the winner, <b>tap its name (the name/number side, not the chips)</b> — a trophy
+       (🏆) appears next to it. Tap again to deselect.</p>
     <table class="doc-t">
       ${rows([
-        ["<b>Winning team's score</b>",
-         'Pick one of three buttons: <span class="doc-k">21 pts / 25 pts / 26+ pts</span>. Choosing ' +
-         '<b>26+</b> reveals a horizontal slider below to set the exact score (26–30).'],
-        ["<b>Losing team's score</b>",
-         'A horizontal slider lets you pick any value from <b>10 to 30</b>. It starts with a default value ' +
-         "so you can save right after picking the winner and their score, but double-check it matches what actually happened."],
         ['<b>Why isn\'t this calculated automatically?</b>',
          'Earlier versions only asked for the losing score and calculated the winning score from a rule — ' +
          'but when the losing score was 20 or under, <b>the score alone couldn\'t tell whether it was a ' +
-         '21-point or 25-point game</b>, so you had to be asked anyway. Now you pick both directly — this ' +
-         'records the actual score from that day rather than computing one.'],
+         '21-point or 25-point game</b>, so you had to be asked anyway. Now both sliders are picked ' +
+         'directly — this records the actual score from that day rather than computing one.'],
         ['<b>Unknown</b>',
          'Ends the match without recording a score or a winner. Game count and match time are still ' +
          "recorded normally. Use this when you don't know the result — it's better than entering a made-up value."],

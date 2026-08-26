@@ -655,11 +655,6 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'interact.result.save': '保存',
 'interact.result.teamTag': '{team}队',
 'interact.result.hint': '点一下队伍即可选为获胜方 · 把名牌拖到另一队可互换',
-'interact.result.winScoreLabel': '获胜队伍比分',
-'interact.result.win21': '21分',
-'interact.result.win25': '25分',
-'interact.result.win26plus': '26分以上',
-'interact.result.loseScoreLabel': '落败队伍比分',
 
 /* type (typeDialog — 比赛类型指定弹窗) */
 'interact.type.slotTitle': '指定排队位类型',

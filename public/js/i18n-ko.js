@@ -656,11 +656,6 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'interact.result.save': '저장',
 'interact.result.teamTag': '{team}팀',
 'interact.result.hint': '이긴 팀을 누르세요 · 칩을 다른 팀으로 끌면 팀이 바뀝니다',
-'interact.result.winScoreLabel': '이긴 팀 점수',
-'interact.result.win21': '21점',
-'interact.result.win25': '25점',
-'interact.result.win26plus': '26점 이상',
-'interact.result.loseScoreLabel': '진 팀 점수',
 
 /* type (typeDialog — 경기 유형 지정 모달) */
 'interact.type.slotTitle': '대기 슬롯 유형 지정',

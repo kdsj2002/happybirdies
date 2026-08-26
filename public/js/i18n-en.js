@@ -655,11 +655,6 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'interact.result.save': 'Save',
 'interact.result.teamTag': 'Team {team}',
 'interact.result.hint': 'Tap a team to mark it the winner · drag a chip to the other team to swap',
-'interact.result.winScoreLabel': "Winning team's score",
-'interact.result.win21': '21 pts',
-'interact.result.win25': '25 pts',
-'interact.result.win26plus': '26+ pts',
-'interact.result.loseScoreLabel': "Losing team's score",
 
 /* type (typeDialog — match type assignment modal) */
 'interact.type.slotTitle': 'Set Queue Slot Type',

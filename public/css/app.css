@@ -418,55 +418,53 @@ tr:hover td{background:var(--surface)}
 
 .btn.on{border-color:var(--court);background:var(--court-soft);color:var(--court)}
 
-/* 결과 창 — 한 화면. 위쪽 A팀·B팀 칸을 누르면 그 팀이 이긴 걸로
-   선택된다(칩이 아닌 빈자리를 눌러야 한다 — 칩 위는 드래그 자리다).
-   칩(이름)을 다른 팀 칸으로 끌어다 놓으면 그 자리의 칩과 맞바뀐다. */
-.wteam{display:grid;grid-template-columns:1fr;gap:9px}
-.wbtn{height:auto;min-height:62px;padding:12px 14px;display:flex;flex-direction:column;
-      align-items:flex-start;justify-content:center;gap:3px;position:relative;text-align:left}
-.wbtn.big{min-height:78px}
-.wbtn.on{border-color:var(--court);background:var(--court-soft)}
-.wbtn.rswin{cursor:pointer}
-/* 팀 이름표 — 작고 조용하게. 이겼으면 court green으로 켠다 */
-.wtag{font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted)}
-.wbtn.on .wtag{color:var(--court)}
+/* 결과 창 — 한 화면. 팀마다 (1) 칩 줄 — 다른 팀으로 끌면 그 자리 칩과
+   맞바뀐다 (2) 점수 줄 — 왼쪽에 팀 이름·트로피·큰 숫자, 오른쪽에 가로
+   막대. 이름표(트로피·숫자 쪽, 막대가 아닌 곳)를 누르면 그 팀이 이긴
+   걸로 선택된다. */
+.wteam{display:flex;flex-direction:column;gap:16px}
+.rs-team{display:flex;flex-direction:column;gap:8px}
 td.res-cell.edit{cursor:pointer}
 td.res-cell.edit:hover{background:var(--court-soft)}
 
-/* 팀 구성 칩 — 체육관 조명 아래 노안으로도 읽히도록 이름을 크게 둔다.
-   touch-action:none이라야 드래그 중 화면이 같이 스크롤되지 않는다. */
-.rs-chiprow{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
-.rs-chip{display:inline-flex;align-items:center;padding:9px 14px;border-radius:20px;
-  background:var(--surface);border:1px solid var(--line);color:var(--text);
-  font-size:17px;font-weight:800;letter-spacing:-.01em;cursor:grab;touch-action:none;
-  user-select:none}
-.rs-chip.dragging{cursor:grabbing;z-index:5;position:relative;border-color:var(--court);
+/* 팀 구성 칩 — 대진판의 그 칩(.chip/.chip-nm)과 같은 모양이라 손에 익은
+   그대로 읽힌다. 실제로 친 짝과 같은지 확인하라는 뜻으로 붉은 테두리가
+   계속 깜박인다(.rs-check, .chip.held와 같은 애니메이션을 그대로 쓴다 —
+   app.css 앞쪽 heldBlink 참고). touch-action:none이라야 드래그 중 화면이
+   같이 스크롤되지 않는다. */
+.rs-chiprow{display:flex;flex-wrap:wrap;gap:8px}
+.rs-chiprow .chip{cursor:grab;touch-action:none}
+.chip.rs-check{border-color:var(--cork);animation:heldBlink 1s ease-in-out infinite}
+.chip.dragging{cursor:grabbing;z-index:5;position:relative;border-color:var(--court);
   box-shadow:0 8px 18px rgba(22,33,29,.22)}
 
-/* 점수 — 이긴 팀을 고르면 뜬다. 이긴 팀 점수는 21 / 25 / 26점 이상 중
-   버튼으로 고르고(26점 이상만 가로 막대로 정확한 값을 정한다), 진 팀
-   점수는 늘 가로 막대(10~30점)로 고른다. 둘 다 규칙으로 계산하지 않고
+/* 점수 줄 — 이긴 팀·진 팀 구분 없이 똑같은 가로 막대(10~30)를 쓴다.
+   어느 쪽이 이겼는지는 왼쪽 이름표를 눌러서만 정한다. 계산이 아니라
    사람이 직접 고른 값을 그대로 저장한다. */
-.rs-scoreSec{margin-top:6px}
-.rs-scoreRow{margin:10px 0 6px}
-.rs-lbl{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--muted)}
-.rs-winbtns{display:flex;width:100%}
-.rs-winbtns button{flex:1}
-.rs-winbtns button.on{background:var(--court);color:#fff}
-.rs-hrow{display:flex;align-items:center;gap:8px}
-.rs-hend{flex:0 0 auto;width:22px;text-align:center;font-size:12px;color:var(--muted2)}
-.rs-htrack{position:relative;flex:1;height:52px;border-radius:14px;
+.rs-scoreRow{display:flex;align-items:center;gap:8px;padding:6px 8px;
+  border-radius:12px;border:1px solid transparent}
+.rs-scoreRow.on{border-color:var(--court);background:var(--court-soft)}
+.rs-pick{display:flex;align-items:center;gap:6px;flex:0 0 auto;cursor:pointer;padding:4px}
+/* 팀 이름표 — 작고 조용하게. 이겼으면 court green으로 켠다 */
+.rs-pick .wtag{font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted)}
+.rs-scoreRow.on .wtag{color:var(--court)}
+.rs-trophy{font-size:19px;line-height:1}
+/* 점수 — 이 창에서 이름 다음으로 크게 읽혀야 하는 숫자다. 막대 손잡이에는
+   일부러 숫자를 안 넣는다(드래그 중엔 손가락에 가려 어차피 안 보인다) —
+   대신 여기 하나만 굵고 크게 둔다. */
+.rs-bignum{font-size:28px;font-weight:900;color:var(--court);min-width:1.3em;text-align:right}
+.rs-hend{flex:0 0 auto;font-size:11px;color:var(--muted2)}
+.rs-htrack{position:relative;flex:1;height:44px;border-radius:12px;
   background:var(--surface2);border:1px solid var(--line);touch-action:none;cursor:grab}
 .rs-htrack:active{cursor:grabbing}
-.rs-hfill{position:absolute;left:0;top:0;bottom:0;border-radius:14px 0 0 14px;
+.rs-hfill{position:absolute;left:0;top:0;bottom:0;border-radius:12px 0 0 12px;
   background:var(--court-soft);pointer-events:none}
-/* left:X%(뒤 JS가 채운다) + translate(-50%,-50%)로 핸들 중심을 그 위치에
-   맞춘다 — pointer-events:none이라 드래그는 항상 .rs-htrack이 받는다. */
-.rs-hhandle{position:absolute;top:50%;transform:translate(-50%,-50%);min-width:50px;
-  height:42px;padding:0 8px;border-radius:12px;background:var(--surface);
-  border:2px solid var(--court);display:flex;align-items:center;justify-content:center;
-  font-size:19px;font-weight:800;color:var(--court);pointer-events:none;
-  box-shadow:0 4px 10px rgba(22,33,29,.18)}
+/* left:X%(뒤 JS가 채운다) + translate(-50%,-50%)로 손잡이 중심을 그
+   위치에 맞춘다 — pointer-events:none이라 드래그는 항상 .rs-htrack이 받는다. */
+.rs-hhandle{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);
+  width:28px;height:28px;border-radius:50%;background:var(--court);
+  border:2px solid var(--surface);box-shadow:0 3px 9px rgba(22,33,29,.25);
+  pointer-events:none}
 
 /* 드래그 고스트 */
 #ghost{position:fixed;z-index:99;pointer-events:none;width:170px;
@@ -725,9 +723,9 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
 
   .modal{padding:16px; max-width:94vw; max-height:80vh}
   .row.end{flex-wrap:wrap}
-  /* 결과 창의 이름 칩 — 폰에서도 최대한 크게. 줄이 바뀌는 것은 괜찮지만
-     작아지는 것은 안 된다(읽으라고 띄운 화면이다). */
-  .rs-chip{font-size:15px;padding:8px 12px}
+  /* 결과 창의 점수 숫자 — 폰에서도 최대한 크게 읽히도록 유지한다.
+     이름 칩(.chip/.chip-nm)의 폰 크기는 대진판과 같은 규칙을 그대로 쓴다. */
+  .rs-bignum{font-size:23px}
   #toast{bottom:calc(var(--navpad) + 14px)}
 
   .mobile-only{display:block}
