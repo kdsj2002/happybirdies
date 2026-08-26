@@ -262,60 +262,46 @@ window.MANUAL_CONTENT.en = (() => {
     <h3>Match Result (Win/Loss &amp; Score)</h3>
     <p>Whenever a match ends — <b>double-tap</b>, <b>dragging to the Waiting Pool</b>, and the
        <b>Rematch</b> above — a result prompt appears. Tapping the <b>Result</b> column in the Records
-       tab later opens the same prompt.</p>
+       tab later opens the same prompt. It's just two steps.</p>
+
+    <h4>Step 1 — Confirm the team makeup</h4>
+    <p>Shows the pairing currently on record (Team A / Team B). Sometimes people swap positions on the
+       court without moving anyone in the app — recording the result as-is would leave <b>the winners
+       and losers swapped</b> in the record. If the pairing is wrong, <b>tap a team to change it</b> —
+       there are only <b>three ways</b> to split four people into two pairs, so each tap cycles through
+       those three. Once you see the pairing that actually played, tap <b>Next</b>.</p>
+    <div class="doc-note">The headcount is always <b>2 vs 2</b>. Adding or removing a person is something
+      you do on the match board, not in the result prompt. The corrected makeup is applied when you save,
+      and the match type (Men's Doubles, Mixed Doubles, etc.) is recalculated to match.</div>
+
+    <h4>Step 2 — The losing team's score</h4>
+    <p>Two <b>vertical bars</b> appear side by side, one for each team. <b>Drag the losing team's name
+       up</b> until it lines up with their score — <b>it saves and closes the moment you let go</b>.
+       There is no separate save button.</p>
     <table class="doc-t">
       ${rows([
+        ['<b>What does the winning team score?</b>',
+         "You're not asked. Once you set the losing score, the other bar shows an <b>automatically " +
+         'calculated score</b> right away — <span class="doc-k">19 or fewer → 21</span>, ' +
+         '<span class="doc-k">20–24 (deuce) → 25</span>, ' +
+         '<span class="doc-k">25 or more → losing score + 1</span>.'],
+        ['<b>If it was a lopsided loss (10 or fewer)</b>',
+         'To keep the bar from getting too long, <b>anything 10 or under is lumped together as 10</b>. ' +
+         'A 21-3 and a 21-7 both land at the very bottom (10) on the bar — there is no way yet to enter ' +
+         'the exact score (a manual number-entry option is planned for later).'],
         ['<b>No Win/Loss</b>',
          'Ends the match without recording a score or a winner. Game count and match time are still ' +
-         'recorded normally. Use this when there is no time to ask for the result — it is better than ' +
-         'entering a made-up value.'],
-        ['<b>Cancel</b>', 'Nothing changes. If a match was in the process of ending, it just keeps going.'],
-        ['<b>If you do not play to 21</b>', 'Change it in Settings → <b>Points per Game</b>. This is what score calculations are based on.']
+         "recorded normally. Use this when you don't know the result — it's better than entering a made-up value."],
+        ['<b>Tapped the wrong thing?</b>',
+         'Tap <b>← Back</b> to return to Step 1 (team makeup). If it already saved, use the <b>↩ Undo</b> ' +
+         'button at the top, or reopen it from the Records tab to fix it.']
       ])}
     </table>
-    <h4>One question at a time</h4>
-    <p>Stacking the score buttons, team makeup, and winner all on one screen made phones need to scroll.
-       Once scrolling is needed, you have to scan up and down to check "did I fill everything in," and
-       that hassle makes people skip recording the result. So <b>the prompt stays small, and your eyes
-       only ever need to look in one place</b>.</p>
-    <table class="doc-t">
-      ${rows([
-        ['<b>· What did the losing team score?</b>',
-         'Tap one of the buttons from <span class="doc-k">10</span> to <span class="doc-k">24</span> and ' +
-         'it moves straight to the next step. <b>No number keyboard pops up.</b> ' +
-         'For a score outside that range, use <b>manual entry</b>; if you do not know the score, tap <b>No Score →</b>.'],
-        ['<b>· What was the game point?</b>',
-         'Only asked when the losing score is <b>20 or below</b>. If the losing team scored 15, the winner ' +
-         'could have scored 21 or 25 — the losing score alone does not settle it. ' +
-         'Each button previews the result, like <span class="doc-k">21 : 15</span>. ' +
-         'Once you pick one, it stays selected the next time.<br>' +
-         'If the losing score was 21 or higher, that can only be a deuce under the 21-point rule, so it is calculated from the settings value and this question is skipped.'],
-        ['<b>· Who won?</b>',
-         'Tap either Team A or Team B. To skip this without recording it, use <b>No Win/Loss</b> — ' +
-         'that also moves on to the next confirmation step.'],
-        ['<b>· Save it like this?</b>',
-         'The final confirmation. It shows the winning team and score, plus the team makeup if you changed ' +
-         'it, all on one screen. Tapping <b>Save</b> is what actually records it and ends the match. ' +
-         'If something is wrong, go <b>← Back</b> to fix it.']
-      ])}
-    </table>
-    <div class="doc-note">Saving happens <b>only at that final step</b>. Whatever you tap in the earlier
-      steps, nothing is recorded yet — if you tap the wrong thing, just go <b>← Back</b>.</div>
-
-    <h4>If the team makeup does not match reality — one tap</h4>
-    <p>Sometimes people swap positions on the court without moving anyone in the app. Recording the result
-       as-is would leave <b>the winners and losers swapped</b> in the record.</p>
-    <p>Tap <b>⇄ Change Team Makeup</b> on the final step. There are <b>only three ways</b> to split four
-       people into two pairs, so just keep tapping until you see the pairing that actually played
-       (it cycles through the three). Once the pairing is right, tap that team and save — done.</p>
-    <div class="doc-note">The headcount is always <b>2 vs 2</b>. Adding or removing a person is something
-      you do on the match board, not in the result prompt.<br>
-      The corrected makeup is applied when you save, and the match type (Men's Doubles, Mixed Doubles, etc.)
-      is recalculated to match. Canceling leaves everything unchanged.</div>
 
     <div class="doc-note">It is fine to fill this in later. Tapping the
       <b>Result</b> column in <b>Records tab → Match History</b> opens the same prompt so you can enter
-      or correct the Win/Loss and score. The per-person table shows <b>Wins-Losses</b> together
+      or correct the Win/Loss and score — if a score is already on record, the bars start from that
+      position. The per-person table shows <b>Wins-Losses</b> together
       (only matches with a recorded result are counted).</div>
 
     <h3>Require Match Result (can be turned on in Settings)</h3>

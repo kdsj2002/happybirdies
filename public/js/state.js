@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.20a';
+const APP_VERSION = '2026.08.20b';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -7,7 +7,6 @@ const DEFAULTS = {
   autoMode:true, autoPushToCourt:true,   // 4명이 차면 무조건 시작하므로 별도 설정은 없앴다
   matchWarnMinutes:18,
   maxMatchMinutes:30,         // 이 시간에 닿으면 경기를 자동으로 마친다 (0이면 사용 안 함)
-  winPoint:21,                // 한 게임의 점수. 결과 입력에서 이긴 팀 점수를 계산하는 기준
   requireResult:false,        // 결과를 적을 때까지 그 네 명을 묶어 둔다 (아래 '결과 기록 강제')
   genderPolicy:'FREE',
   considerAge:false,
@@ -168,10 +167,10 @@ const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gende
        승패만 있는 상태가 정상이고, 아예 둘 다 없는 상태(win=null)도 정상이다.
        '21:15' 같은 한 덩어리 문자열로 저장하면 나중에 세거나 정렬할 수 없다.
 
-     · 이긴 팀 점수(sw)도 함께 적는다. 화면에서는 진 팀 점수만 받고 21점제
-       규칙으로 이긴 쪽을 계산하지만, 그 계산의 기준(설정의 winPoint)은
-       나중에 바뀔 수 있다. 계산해서 지워 두면 설정을 15점제로 바꾸는 순간
-       옛 기록의 점수까지 따라 바뀐다. 기록은 그날 있었던 그대로여야 한다.
+     · 이긴 팀 점수(sw)도 함께 적는다. 화면에서는 진 팀 점수만 받고
+       아래 winnerScore() 규칙으로 이긴 쪽을 계산해 그 값도 그대로
+       저장해 둔다 — 계산 규칙이 나중에 바뀌어도 이미 적힌 기록의
+       점수가 따라 바뀌면 안 되기 때문이다. 기록은 그날 있었던 그대로여야 한다.
 
      · 사람별 승/패 수는 저장하지 않는다. matches에서 세면 되고, 따로 두면
        둘이 어긋날 자리가 생긴다(경기 도중 사람을 바꾸면 특히 그렇다).
@@ -180,16 +179,22 @@ const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gende
    따로 옮겨 적을 것은 없다.
    ───────────────────────────────────────────────────────────── */
 
-/* 진 팀 점수에서 이긴 팀 점수를 얻는다.
-   21점제 기준 — 19점 이하로 졌으면 21점, 20점부터는 듀스라 2점 차,
-   그리고 30점이 상한이다(21+9). winPoint를 다른 값으로 두면 상한도
-   같은 폭(+9)으로 따라간다. */
-function winnerScore(lose, target){
+/* 진 팀 점수에서 이긴 팀 점수를 얻는다 — 물어보지 않고 규칙으로 정한다.
+     19점 이하로 졌으면              21점(21점제 경기)
+     20~24점으로 졌으면(듀스)         25점
+     25점 이상으로 졌으면(연장 듀스)   진 팀 점수 + 1
+   결과 입력 창(interact.js resultDialog)이 진 팀 점수 하나만 받고 바로
+   이 규칙으로 이긴 팀 점수를 채운다 — "몇 점 경기였나" 를 따로 묻지 않는다.
+   클럽마다 다르게 정할 수 있던 옛 '한 게임 점수' 설정은 이 규칙이
+   생기면서 없앴다(늘 21/25점제만 가정해도 어긋나는 경우가 실제로는
+   거의 없었다). */
+function winnerScore(lose){
   if(lose==null || lose==='') return null;
-  const t = target || S.settings.winPoint || 21, cap = t + 9;
-  const l = Math.max(0, Math.min(cap-1, Math.round(+lose)));
+  const l = Math.max(0, Math.round(+lose));
   if(!isFinite(l)) return null;
-  return l < t-1 ? t : Math.min(l+2, cap);
+  if(l < 20) return 21;
+  if(l < 25) return 25;
+  return l + 1;
 }
 /* 결과를 기록에 적는다. r.win이 없으면 "승패 없음"으로 지운다. */
 function applyResult(m, r){

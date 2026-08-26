@@ -106,12 +106,16 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 모든 경로 앞에 `heldBlock(id)`가 걸린다. 새 이동 경로를 추가하면
 `heldBlock`을 빠뜨리지 않아야 한다.
 
-**경기 결과 입력**(`interact.js` `resultDialog`)은 단계형 창이다 —
-점수(10~24 버튼) → (20점 이하면) 경기 점수 21/25 확인 → 이긴 팀 고르기 →
-마지막 확인 화면에서 저장. 팀 구성이 실제와 다르면 3단계의
-`⇄ 팀 구성 바꾸기`로 셋 중 하나를 고른다(넷을 둘씩 나누는 방법은 세
-가지뿐). `opts.onSave(result, roster)`로 콜백하며, 코트 종료·리매치·
-기록 화면 수정이 전부 이 함수를 공유한다.
+**경기 결과 입력**(`interact.js` `resultDialog`)은 두 단계뿐이다 —
+① 팀 구성 확인(탭마다 셋 중 하나로 순환, `PAIRS`) → ② 세로 슬라이더에서
+진 팀 이름을 위로 끌어 점수(10~29, 10 이하는 뭉쳐서 10)를 정하면
+`pointerup`에서 **바로 커밋**된다(확인 버튼 없음). 이긴 팀 점수는 묻지
+않고 `state.js` `winnerScore(lose)`가 고정 규칙(19이하→21, 20~24→25,
+25이상→+1)으로 계산해 반대쪽 막대에 실시간으로 보여준다. 두 손가락
+동시 커밋 방지용 `done` 플래그가 있다. `opts.onSave(result, roster)`로
+콜백하며, 코트 종료·리매치·기록 화면 수정이 전부 이 함수를 공유한다.
+클럽마다 다르게 정하던 '한 게임 점수'(`winPoint`) 설정은 이 고정 규칙이
+생기면서 없앴다.
 
 **새 동호회 신청**(`gate.js` `screenApply` → `screenApplyVerify` →
 `screenApplyPassword`)은 인증 없이 대표 주소에서 시작한다. 3단계 모두
@@ -169,7 +173,8 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 대기열로의 이동만 리매치/취소를 물어봄 | `actions.js` `askCourtToQueue` |
 | 최대 경기 시간 도달 시 자동 종료(결과는 비움) | `actions.js` `checkMatchTimeouts` |
 | 배정 직후 10초 코트 테두리 깜박임 | `ui.js` `justAssigned` |
-| 결과는 진 팀 점수만 받고 이긴 팀은 계산 | `state.js` `winnerScore` |
+| 결과는 진 팀 점수만 받고 이긴 팀은 고정 규칙으로 계산(클럽별 설정 없앰) | `state.js` `winnerScore` |
+| 결과 입력은 세로 슬라이더, 손을 떼는 순간(pointerup) 확인 없이 즉시 커밋 | `interact.js` `resultDialog` `wireSliders` |
 | 결과 기록 강제는 물어보지 않고 막는 방식 | `actions.js` `heldBlock`/`heldSet` |
 | 끝난 경기는 세션과 별개로 날짜별 원장에 영구 보관 | `records.js` 머리말 |
 | 중복 회피에 지난 날짜 이력 참고(기본 꺼짐) | `algo.js` `pastPairPenalty` |

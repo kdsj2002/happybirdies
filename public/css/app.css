@@ -416,44 +416,51 @@ tr:hover td{background:var(--surface)}
    스크롤이 생기면 "다 채웠나"를 위아래로 훑어야 한다. 그 확인이 귀찮아서
    결과를 안 적게 된다. 그래서 단계마다 창이 작게 유지되도록 짠다. */
 
-/* 진 팀 점수 — 10~24를 버튼으로. 아이패드에서 숫자 키보드가 화면을 덮지
-   않는 것이 이 화면에서 가장 큰 차이다. */
-.sgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.sgrid .btn{width:100%;padding:0}
 .btn.on{border-color:var(--court);background:var(--court-soft);color:var(--court)}
 
-/* 고르는 큰 버튼들 — 경기 점수(21/25)는 둘씩 나란히, 이긴 팀은 한 줄씩.
+/* 1단계 — 팀 구성 확인. 탭할 수 있는 큰 버튼 한 줄씩(A팀 위, B팀 아래).
    ── 무엇을 크게 둘 것인가 ─────────────────────────
    이 창에서 눈이 실제로 읽는 것은 <b>이름</b>이다. 'A팀'·'B팀'은 어느
    줄인지 가리키는 이름표일 뿐이라 작아도 된다. 체육관 조명 아래에서
    노안으로 보는 화면이므로 이름에 쓸 수 있는 크기를 다 준다.
    이름이 길면 자르지 않고 줄을 바꾼다 — 잘린 이름은 못 읽는 이름이다. */
-.wpick{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .wteam{display:grid;grid-template-columns:1fr;gap:9px}
 .wbtn{height:auto;min-height:62px;padding:12px 14px;display:flex;flex-direction:column;
       align-items:flex-start;justify-content:center;gap:3px;position:relative;text-align:left}
 .wbtn.big{min-height:78px}
 .wbtn.on{border-color:var(--court);background:var(--court-soft)}
 .wbtn:active{transform:scale(.99)}
-.wbtn b{font-size:22px;letter-spacing:-.01em}
 /* 팀 이름표 — 작고 조용하게 */
 .wtag{font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted)}
-.wbtn.on .wtag,.wrow.win .wtag{color:var(--court)}
+.wbtn.on .wtag{color:var(--court)}
 /* 사람 이름 — 이 창의 주인공 */
 .wnm{font-size:27px;font-weight:800;line-height:1.2;color:var(--text);
      letter-spacing:-.02em;overflow-wrap:anywhere;max-width:100%}
-.wsub{font-size:13px;font-weight:700;color:var(--muted)}
-/* 마지막 확인 — 누를 수 없는 줄이다. 이긴 쪽만 초록으로 선다. */
-.wrow{position:relative;display:flex;flex-direction:column;justify-content:center;gap:3px;
-      min-height:78px;padding:12px 14px;padding-right:64px;
-      border:1px solid var(--line);border-radius:var(--r);background:var(--surface2)}
-.wrow.win{border-color:var(--court);background:var(--court-soft)}
-.wrow.win .wnm{color:var(--court)}
-.wrow .wsc{position:absolute;right:14px;top:50%;transform:translateY(-50%);
-           font-size:28px;font-weight:800;color:var(--muted2)}
-.wrow.win .wsc{color:var(--court)}
 td.res-cell.edit{cursor:pointer}
 td.res-cell.edit:hover{background:var(--court-soft)}
+
+/* 2단계 — 진 팀 점수. A팀·B팀 각자의 세로 막대에서 그 팀 이름을 위로
+   끌어 올리면 그 자리가 점수(10~29)다. 손을 떼는 순간 저장되므로
+   여기에는 '확인' 버튼이 없다 — 버튼을 하나 더 두면 그 버튼을 누르는
+   것 자체가 다시 한 단계가 된다. 반대쪽 막대는 손대지 않아도
+   winnerScore() 규칙으로 계산된 값을 따라 움직인다. */
+.rs-sliders{display:flex;gap:14px;justify-content:center;margin:4px 0 6px}
+.rs-track{position:relative;width:132px;height:240px;border-radius:14px;
+  background:var(--surface2);border:1px solid var(--line);
+  touch-action:none;cursor:grab}
+.rs-track:active{cursor:grabbing}
+.rs-scaleTop,.rs-scaleBottom{position:absolute;left:0;right:0;text-align:center;
+  font-size:11px;color:var(--muted2);pointer-events:none}
+.rs-scaleTop{top:6px}
+.rs-scaleBottom{bottom:6px}
+/* bottom:0(뒤 JS가 %로 채운다) + translateY(50%)로 핸들 중심을 그
+   위치에 맞춘다 — pointer-events:none이라 드래그는 항상 .rs-track이 받는다. */
+.rs-handle{position:absolute;left:6px;right:6px;bottom:0;transform:translateY(50%);
+  background:var(--surface);border:2px solid var(--court);border-radius:10px;
+  padding:8px 6px;text-align:center;box-shadow:0 4px 10px rgba(22,33,29,.18);
+  display:flex;flex-direction:column;gap:2px;pointer-events:none}
+.rs-score{font-size:22px;font-weight:800;color:var(--court);min-height:26px}
+.rs-nm{font-size:13px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
 
 /* 드래그 고스트 */
 #ghost{position:fixed;z-index:99;pointer-events:none;width:170px;

@@ -540,7 +540,6 @@ function renderSet(){
         <div class="k">${t('screens.set.genderPolicy')}</div><div>${esc(t(pol[1]))}</div>
         <div class="k">${t('screens.set.matchWarnMinutes')}</div><div>${t('screens.hist.durationMin',{n:s.matchWarnMinutes})}</div>
         <div class="k">${t('screens.set.maxMatchMinutes')}</div><div>${s.maxMatchMinutes?t('screens.set.maxMatchMinutesValue',{n:s.maxMatchMinutes}):t('screens.stats.historyOff')}</div>
-        <div class="k">${t('screens.set.winPoint')}</div><div>${t('screens.set.winPointValue',{n:s.winPoint||21})}</div>
         <div class="k">${t('screens.set.requireResult')}</div><div>${s.requireResult?t('screens.set.requireResultOn'):t('screens.shared.off')}</div>
         <div class="k">${t('screens.set.autoClose')}</div><div>${t('screens.set.autoCloseValue',{h:autoCloseHours()})}</div>
         <div class="h">${t('screens.set.myAccount')}</div>
@@ -571,8 +570,6 @@ function renderSet(){
         <label class="row"><input type="checkbox" id="s_reqres" ${s.requireResult?'checked':''} style="width:20px;height:20px">
           ${t('screens.set.requireResultCheckboxLabel')}</label>
         <div class="hint" style="margin-top:6px">${t('screens.set.requireResultHint')}</div></div>
-      <div class="k">${t('screens.set.winPoint')}</div><div><input type="number" id="s_wp" value="${s.winPoint||21}" min="5" max="31" style="width:90px">
-        <span class="hint">${t('screens.set.winPointHint',{wp:s.winPoint||21,cap:(s.winPoint||21)+9})}</span></div>
 
       <div class="h">${t('screens.set.sectionAutomation')}</div>
       <div class="k">${t('screens.set.autoAssign')}</div><div><label class="row"><input type="checkbox" id="s_auto" ${s.autoMode?'checked':''} style="width:20px;height:20px"> ${t('screens.set.autoAssignCheckboxLabel')}</label></div>
@@ -802,7 +799,6 @@ function renderSet(){
 
     Object.assign(s,{clubName:$('#s_club').value.trim()||t('screens.set.defaultClubName'),courtCount:nc,queueSlotCount:ns,
       matchWarnMinutes:+$('#s_warn').value||18, autoMode:$('#s_auto').checked,
-      winPoint:Math.max(5,Math.min(31,+$('#s_wp').value||21)),
       requireResult:$('#s_reqres').checked,
       maxMatchMinutes:Math.max(0,Math.min(120,+$('#s_maxmin').value||0)),
       autoPushToCourt:$('#s_push').checked,
