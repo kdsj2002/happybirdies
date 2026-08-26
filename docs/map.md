@@ -107,18 +107,18 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 모든 경로 앞에 `heldBlock(id)`가 걸린다. 새 이동 경로를 추가하면
 `heldBlock`을 빠뜨리지 않아야 한다.
 
-**경기 결과 입력**(`interact.js` `resultDialog`)은 두 단계뿐이다 —
-① 팀 구성 확인(탭마다 셋 중 하나로 순환, `PAIRS`) → ② 세로 슬라이더에서
-진 팀 이름을 위로 끌어 점수(10~29, 10 이하는 뭉쳐서 10)를 정한다.
-드래그를 끝내는 것과 저장은 다른 동작이다 — **확인(`#rsSave`) 버튼을
-눌러야** `finish()`가 불린다. 이긴 팀 점수는 `state.js`
-`winnerScore(lose, target)`가 계산해 반대쪽 막대에 실시간으로 보여준다
-(21~24→25, 25이상→+1). 단, 진 팀 점수가 20 이하면 21점제인지 25점제인지
-점수만으로 못 가리므로 `isAmbiguousScore(lose)`가 참이 되어 21/25 선택
-(`#rsTarget`, `lastTarget`으로 이 기기에서 마지막 선택 기억)이 함께 뜬다.
-`opts.onSave(result, roster)`로 콜백하며, 코트 종료·리매치·기록 화면
-수정이 전부 이 함수를 공유한다. 클럽마다 다르게 정하던 '한 게임 점수'
-(`winPoint`) 설정은 이 규칙이 생기면서 없앴다.
+**경기 결과 입력**(`interact.js` `resultDialog`)은 한 화면이다. 팀 구성
+(이름 칩, `data-rschip`)을 다른 팀 쪽으로 끌면 그 자리 칩과 맞바뀌고
+(`swapChip`), 팀 칸의 빈 자리(`data-rsteam`)를 누르면 그 팀이 이긴 걸로
+선택된다(`winSide`). 이긴 팀을 고르면 점수 칸이 뜬다 — 이긴 팀 점수는
+21점/25점/26점 이상 세 버튼(`winMode`) 중 하나이고 26점 이상만 가로
+슬라이더(26~30)로 정확한 값을 고르며, 진 팀 점수는 늘 가로 슬라이더
+(10~30, `#rsHlose`)로 고른다. 두 점수 다 규칙으로 계산하지 않고 사람이
+직접 고른 값을 그대로 저장한다 — 예전에는 진 팀 점수만 받아
+`winnerScore()`로 이긴 쪽을 계산했지만, 20점 이하로 졌을 때는 21점제인지
+25점제인지 점수만으로 못 갈라 결국 다시 물어야 했다(이 계산 함수와
+`isAmbiguousScore`는 이번에 없앴다). `opts.onSave(result, roster)`로
+콜백하며, 코트 종료·리매치·기록 화면 수정이 전부 이 함수를 공유한다.
 
 **새 동호회 신청**(`gate.js` `screenApply` → `screenApplyVerify` →
 `screenApplyPassword`)은 인증 없이 대표 주소에서 시작한다. 3단계 모두
@@ -184,15 +184,14 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 대기열로의 이동만 리매치/취소를 물어봄 | `actions.js` `askCourtToQueue` |
 | 최대 경기 시간 도달 시 자동 종료(결과는 비움) | `actions.js` `checkMatchTimeouts` |
 | 배정 직후 10초 코트 테두리 깜박임 | `ui.js` `justAssigned` |
-| 결과는 진 팀 점수만 받고 이긴 팀은 고정 규칙으로 계산(클럽별 설정 없앰) | `state.js` `winnerScore` |
-| 결과 입력은 세로 슬라이더 + 확인 버튼(드래그 종료만으로는 저장 안 함) | `interact.js` `resultDialog` `wireSliders`/`#rsSave` |
-| 진 팀 20점 이하는 21/25점제를 물어야 함(점수만으론 안 갈림) | `state.js` `isAmbiguousScore` |
+| 결과는 이긴 팀·진 팀 점수를 계산 없이 둘 다 직접 고름(20점 이하 자동판별 불가했던 전례) | `interact.js` `resultDialog` |
+| 결과 입력은 한 화면(팀 구성·승팀·점수) + 저장 버튼(칩 드래그·버튼 선택만으론 저장 안 함) | `interact.js` `resultDialog` `#rsSave` |
 | 결과 기록 강제는 물어보지 않고 막는 방식 | `actions.js` `heldBlock`/`heldSet` |
 | 끝난 경기는 세션과 별개로 날짜별 원장에 영구 보관 | `records.js` 머리말 |
 | 중복 회피에 지난 날짜 이력 참고(기본 꺼짐) | `algo.js` `pastPairPenalty` |
 | 코트 수 변경은 대진판을 초기화하지 않고 앞/뒤만 조정 | `state.js` `resizeBoard` |
 | 끌기/스크롤 구분은 시간 대기 없이 움직임 방향으로 판정 | `interact.js` 파일 머리말 |
-| 결과 창 팀 구성 수정은 드래그 대신 3분할 순환 버튼 | `interact.js` `resultDialog` `PAIRS` |
+| 결과 창 팀 구성 수정은 이름 칩 드래그(다른 팀에 놓으면 자리 맞바꿈) | `interact.js` `resultDialog` `swapChip` |
 | 경기 시간은 서버 시계 기준(기기 시계 오차 보정) | `store.js` `noteServerTime` |
 | 동기화는 시간창이 아니라 내용 비교로 메아리 판정 | `main.js` 세션 구독 주석 |
 | 소유자 비밀번호 없음 — 소유자는 실계정으로만 | `firestore.rules` 머리말 |

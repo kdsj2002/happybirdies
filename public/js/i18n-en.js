@@ -648,20 +648,18 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'interact.pin.lockedRetry': '{locked} — try again in {time}',
 'interact.pin.errGeneric': "Couldn't verify",
 
-/* result (resultDialog — each step of entering a match result) */
+/* result (resultDialog — entering a match result) */
 'interact.result.defaultTitle': 'Match Result',
 'interact.result.cancel': 'Cancel',
-'interact.result.back': '← Back',
+'interact.result.unknown': 'Unknown',
+'interact.result.save': 'Save',
 'interact.result.teamTag': 'Team {team}',
-'interact.result.team.hint': 'Check that this matches who actually played',
-'interact.result.team.tapHint': 'If the pairing is wrong, tap a team to change it — there are only three ways to split four people',
-'interact.result.team.next': 'Next',
-'interact.result.slider.hint': 'Drag the losing team\'s name up to set their score. The winning team\'s score is calculated automatically.',
-'interact.result.target21': 'Played to 21',
-'interact.result.target25': 'Played to 25',
-'interact.result.slider.placeholder': 'Move a bar above to set the score',
-'interact.result.slider.summary': '{winTeam} wins · {winValue} : {loseValue}',
-'interact.result.slider.confirm': 'Confirm',
+'interact.result.hint': 'Tap a team to mark it the winner · drag a chip to the other team to swap',
+'interact.result.winScoreLabel': "Winning team's score",
+'interact.result.win21': '21 pts',
+'interact.result.win25': '25 pts',
+'interact.result.win26plus': '26+ pts',
+'interact.result.loseScoreLabel': "Losing team's score",
 
 /* type (typeDialog — match type assignment modal) */
 'interact.type.slotTitle': 'Set Queue Slot Type',
@@ -749,8 +747,6 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'actions.result.courtTitle': 'Court {no} Match Result',
 'actions.result.minsSuffix': ' · {mins} min',
 'actions.result.pickWinnerHint': ' — pick the winning team. You can end without picking one',
-'actions.result.saveAndEnd': 'Save Result & End',
-'actions.result.noneEnd': 'End Without Win/Loss',
 
 'actions.timeout.autoFinished': 'Court {courts} — auto-finished after {max} minutes',
 
@@ -762,8 +758,6 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'actions.askQueue.cancelDesc': 'No games-played or record is added. Use this if a match was assigned by mistake or the court needs to be cleared.',
 'actions.askQueue.giveUp': 'Cancel',
 'actions.askQueue.rematchSub': ' — after ending, sends the same team to Q{qIndex}',
-'actions.askQueue.saveAndRematch': 'Save Result & Rematch',
-'actions.askQueue.noneRematch': 'Rematch Without Win/Loss',
 
 'actions.move.stateChanged': "The match state changed in the meantime, so the move failed",
 'actions.move.queueFilled': 'Q{qIndex} filled up in the meantime',
@@ -783,9 +777,6 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'actions.result.startedAtSuffix': ' · started {time}',
 'actions.result.needResultHint': ' — enter this result before these 4 can play again',
 'actions.result.editLaterHint': ' — you can edit this again later',
-'actions.common.save': 'Save',
-'actions.result.unknownRelease': 'Unknown — Release Without Recording',
-'actions.result.clearResult': 'Clear Result',
 'actions.result.releasedNoResult': 'Released without a result',
 'actions.result.clearedResult': 'Result cleared',
 'actions.result.alsoFixedRoster': ' · team lineup also corrected',

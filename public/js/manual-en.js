@@ -262,51 +262,47 @@ window.MANUAL_CONTENT.en = (() => {
     <h3>Match Result (Win/Loss &amp; Score)</h3>
     <p>Whenever a match ends — <b>double-tap</b>, <b>dragging to the Waiting Pool</b>, and the
        <b>Rematch</b> above — a result prompt appears. Tapping the <b>Result</b> column in the Records
-       tab later opens the same prompt. It's just two steps.</p>
+       tab later opens the same prompt. Team makeup, winner, and score are all set on one screen.</p>
 
-    <h4>Step 1 — Confirm the team makeup</h4>
-    <p>Shows the pairing currently on record (Team A / Team B). Sometimes people swap positions on the
-       court without moving anyone in the app — recording the result as-is would leave <b>the winners
-       and losers swapped</b> in the record. If the pairing is wrong, <b>tap a team to change it</b> —
-       there are only <b>three ways</b> to split four people into two pairs, so each tap cycles through
-       those three. Once you see the pairing that actually played, tap <b>Next</b>.</p>
+    <h4>Confirm the team makeup · pick the winner</h4>
+    <p>The pairing currently on record (Team A / Team B) shows as name chips. Sometimes people swap
+       positions on the court without moving anyone in the app — recording the result as-is would leave
+       <b>the winners and losers swapped</b> in the record. If the pairing is wrong, <b>drag a chip onto
+       the other team</b> — it swaps places with whichever chip is there. Once the pairing looks right,
+       <b>tap the empty part of the winning team's box (not a chip)</b> — that team lights up green. Tap
+       it again to deselect.</p>
     <div class="doc-note">The headcount is always <b>2 vs 2</b>. Adding or removing a person is something
       you do on the match board, not in the result prompt. The corrected makeup is applied when you save,
       and the match type (Men's Doubles, Mixed Doubles, etc.) is recalculated to match.</div>
 
-    <h4>Step 2 — The losing team's score</h4>
-    <p>Two <b>vertical bars</b> appear side by side, one for each team. <b>Drag the losing team's name
-       up</b> until it lines up with their score. The other bar follows automatically to show the winning
-       score — you don't need to touch it. Once the position is right, tap <b>Confirm</b> to save — letting
-       go of a drag by itself does not save anything.</p>
+    <h4>Pick the score</h4>
+    <p>Once you pick a winner, the score section appears below it.</p>
     <table class="doc-t">
       ${rows([
-        ['<b>What does the winning team score?</b>',
-         "Usually you're not asked. Once you set the losing score, the other bar shows an <b>automatically " +
-         'calculated score</b> right away — <span class="doc-k">20–24 (deuce) → 25</span>, ' +
-         '<span class="doc-k">25 or more → losing score + 1</span>.'],
-        ['<b>If the losing score is 20 or fewer</b>',
-         'The score alone <b>can\'t tell whether it was a 21-point or 25-point game</b> — a losing score of ' +
-         '15, for example, could mean the winner scored 21 or 25. Only in this range, a small ' +
-         '<b>Played to 21 / Played to 25</b> choice appears below the bars. Once you pick one, it stays ' +
-         'selected next time (remembered on this device only).'],
-        ['<b>If it was a lopsided loss (10 or fewer)</b>',
-         'To keep the bar from getting too long, <b>anything 10 or under is lumped together as 10</b>. ' +
-         'A 21-3 and a 21-7 both land at the very bottom (10) on the bar — there is no way yet to enter ' +
-         'the exact score (a manual number-entry option is planned for later).'],
-        ['<b>No Win/Loss</b>',
+        ["<b>Winning team's score</b>",
+         'Pick one of three buttons: <span class="doc-k">21 pts / 25 pts / 26+ pts</span>. Choosing ' +
+         '<b>26+</b> reveals a horizontal slider below to set the exact score (26–30).'],
+        ["<b>Losing team's score</b>",
+         'A horizontal slider lets you pick any value from <b>10 to 30</b>. It starts with a default value ' +
+         "so you can save right after picking the winner and their score, but double-check it matches what actually happened."],
+        ['<b>Why isn\'t this calculated automatically?</b>',
+         'Earlier versions only asked for the losing score and calculated the winning score from a rule — ' +
+         'but when the losing score was 20 or under, <b>the score alone couldn\'t tell whether it was a ' +
+         '21-point or 25-point game</b>, so you had to be asked anyway. Now you pick both directly — this ' +
+         'records the actual score from that day rather than computing one.'],
+        ['<b>Unknown</b>',
          'Ends the match without recording a score or a winner. Game count and match time are still ' +
          "recorded normally. Use this when you don't know the result — it's better than entering a made-up value."],
-        ['<b>Tapped the wrong thing?</b>',
-         "If you haven't confirmed yet, just drag again. Tap <b>← Back</b> to return to Step 1 (team makeup). " +
-         'If it already saved, use the <b>↩ Undo</b> button at the top, or reopen it from the Records tab to fix it.']
+        ['<b>Picked the wrong thing?</b>',
+         "If you haven't saved yet, just pick again — nothing is final until Save. If it already saved, " +
+         'use the <b>↩ Undo</b> button at the top, or reopen it from the Records tab to fix it.']
       ])}
     </table>
 
     <div class="doc-note">It is fine to fill this in later. Tapping the
       <b>Result</b> column in <b>Records tab → Match History</b> opens the same prompt so you can enter
-      or correct the Win/Loss and score — if a score is already on record, the bars start from that
-      position. The per-person table shows <b>Wins-Losses</b> together
+      or correct the Win/Loss and score — if a result is already on record, the screen starts from those
+      values. The per-person table shows <b>Wins-Losses</b> together
       (only matches with a recorded result are counted).</div>
 
     <h3>Require Match Result (can be turned off in Settings)</h3>

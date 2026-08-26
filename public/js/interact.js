@@ -347,32 +347,26 @@ function askPin(title, desc, onOk, opts={}){
 }
 $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal(); });
 
-/* 이 기기에서 마지막으로 고른 경기 점수(21/25) — 진 팀이 20점 이하로
-   져서 몇 점제였는지 알 수 없을 때만 쓴다(아래 resultDialog). 한 클럽은
-   대개 한 가지로 치므로, 다음 창에서 그 쪽을 미리 켜 두면 매번 새로
-   고를 필요가 없다. 저장하지 않는다 — 이 기기의 이번 실행에만 남는 습관이다. */
-let lastTarget = 21;
-
 /* ── 경기 결과 입력 ──────────────────────────────────────────────
    경기를 마칠 때도, 묶인 사람을 풀 때도, 기록을 나중에 고칠 때도 이 창
    하나를 쓴다. m은 {A,B,An,Bn,win,sw,sl} 모양이면 무엇이든 된다.
 
-   두 단계뿐이다.
-     1) 팀 구성 확인 — 지금 기록된 짝을 보여주고, 틀렸으면 탭해서 넘긴다
-        (넷을 둘씩 나누는 방법은 딱 세 가지뿐이라 탭마다 그 세 가지를
-        돈다). 맞으면 '다음'.
-     2) 진 팀 점수 — A팀·B팀 각자의 세로 막대에서 진 쪽 이름을 위로
-        끌어 올리면 그 위치가 점수(10~29)다. 이긴 팀 점수는 state.js의
-        winnerScore() 규칙으로 자동 계산해 반대쪽 막대에 바로 보여준다.
-        다만 진 팀이 20점 이하면 21점제였는지 25점제였는지 점수만으로는
-        알 수 없으므로(예: 15점으로 졌으면 이긴 쪽이 21점일 수도 25점일
-        수도 있다), 그 구간에서만 작은 21/25 선택이 함께 뜬다. 자리를
-        정했으면 <b>확인</b>을 눌러야 저장된다 — 드래그 도중 손을 떼는
-        것만으로는 저장되지 않는다.
+   한 화면에 다 있다.
+     · 팀 구성 — 이름 칩을 다른 팀 쪽으로 끌어다 놓으면 그 사람과
+       상대편 칩(놓은 자리의 칩, 없으면 그 팀의 첫 칩)이 자리를 맞바꾼다.
+     · 이긴 팀 — 팀 칸 자체(칩이 아닌 빈 자리)를 누르면 그 팀이 이긴
+       걸로 선택된다. 다시 누르면 선택이 풀린다.
+     · 이긴 팀 점수 — 이긴 팀을 고르면 그 아래 21점 / 25점 / 26점 이상
+       세 선택지가 뜬다. 26점 이상을 고르면 정확한 점수(26~30)를
+       가로 막대로 고른다.
+     · 진 팀 점수 — 이긴 팀을 고르면 늘 함께 뜬다. 가로 막대로
+       10~30점 아무 값이나 고른다. 손대지 않아도 기본값(15)이 있으므로
+       이긴 팀과 점수만 고르면 바로 저장할 수 있다.
 
-   10점 이하는 전부 '10'으로 뭉친다(막대가 30칸까지 길어지면 손가락으로
-   짚기 어렵다). 큰 점수차 경기의 정확한 점수를 적을 방법은 지금 없다 —
-   나중에 손으로 직접 입력하는 길을 보강해야 한다.
+   예전에는 진 팀 점수만 받아 이긴 팀 점수를 규칙으로 계산했지만, 20점
+   이하로 졌을 때는 21점제였는지 25점제였는지 점수만으로 가릴 수 없어
+   결국 사람에게 다시 물어야 했다. 그래서 지금은 둘 다 직접 고른다 —
+   계산이 아니라 그날 실제로 있었던 점수를 그대로 적는 창이다.
 
    opts.onSave(result, roster) — result.win이 null이면 승패 없이.
      roster는 팀 구성을 고쳤을 때만 온다({A:[{id,name}], B:[…]}), 아니면 null.
@@ -382,37 +376,44 @@ function resultDialog(m, opts={}){
   const origA = (m.A||[]).map((id,i)=>({id, name:nameAt(m.A, m.An, i)}));
   const origB = (m.B||[]).map((id,i)=>({id, name:nameAt(m.B, m.Bn, i)}));
   const people = [...origA, ...origB];
-  const canPair = people.length===4;
-  // 넷을 둘씩 나누는 세 가지 방법. 첫 번째가 지금 기록된 구성이다.
-  const PAIRS = [[[0,1],[2,3]], [[0,2],[1,3]], [[0,3],[1,2]]];
+  const byId = {}; people.forEach(p=>{ byId[p.id]=p.name; });
+  const canPair = people.length===4;   // 넷이 아니면 칩을 끌 수 없다 — 그냥 보여만 준다
 
-  let pairIdx = 0;
-  let step = 'team';   // 'team' | 'slider'
-  let done = false;    // 저장이 두 번 일어나는 것을 막는다
+  let curA = origA.map(p=>p.id);
+  let curB = origB.map(p=>p.id);
+  let done = false;   // 저장이 두 번 일어나는 것을 막는다
 
-  // 2단계 상태 — 아직 아무것도 안 만졌으면 loseSide가 null이라 확인 버튼이 꺼져 있다.
-  let loseSide = null, loseValue = null, target = lastTarget;
+  // 이미 적힌 결과가 있으면(기록 화면에서 다시 여는 경우) 그 값으로 시작한다.
+  let winSide = (m.win==='A'||m.win==='B') ? m.win : null;
+  let winMode = null, winScore = null;   // winMode: '21' | '25' | '26+'
+  if(winSide && m.sw!=null){
+    const sw = Math.round(+m.sw);
+    if(sw===21) { winMode='21'; winScore=21; }
+    else if(sw===25) { winMode='25'; winScore=25; }
+    else { winMode='26+'; winScore=Math.max(26,Math.min(30,sw)); }
+  }
+  let loseScore = (winSide && m.sl!=null) ? Math.max(10,Math.min(30,Math.round(+m.sl))) : 15;
 
-  // 이미 적힌 결과가 있으면(기록 화면에서 다시 여는 경우) 막대 초기 위치로 쓴다.
-  const initWin  = (m.win==='A'||m.win==='B') ? m.win : null;
-  const initLose = (initWin && m.sl!=null) ? Math.max(10,Math.min(29,Math.round(+m.sl))) : null;
-  const initTarget = (initWin && m.sw!=null && +m.sw<=21) ? 21 : (initWin && m.sw!=null && +m.sw>=25 ? 25 : target);
-
-  const rosterNow = () => canPair
-      ? { A: PAIRS[pairIdx][0].map(k=>people[k]), B: PAIRS[pairIdx][1].map(k=>people[k]) }
-      : { A: origA.slice(), B: origB.slice() };
-  const rosterOut = () => pairIdx ? rosterNow() : null;
-  const nameLine = arr => arr.map(p=>esc(p.name)).join(' · ') || '—';
-  const valueToPct = v => Math.max(0, Math.min(1, (v-10)/19));   // 10→0%, 29→100% (30은 살짝 넘침, 표시만 클램프)
+  const sameSet = (a,b) => a.length===b.length && a.every(x=>b.includes(x));
+  const rosterOut = () => {
+    if(!canPair || sameSet(curA, origA.map(p=>p.id))) return null;
+    return { A: curA.map(id=>({id,name:byId[id]})), B: curB.map(id=>({id,name:byId[id]})) };
+  };
+  const sideOf = id => curA.includes(id) ? 'A' : (curB.includes(id) ? 'B' : null);
+  const swapChip = (id1,id2) => {
+    const s1=sideOf(id1), s2=sideOf(id2);
+    if(!s1 || !s2 || s1===s2 || id1===id2) return;
+    const arr1 = s1==='A'?curA:curB, arr2 = s2==='A'?curA:curB;
+    arr1[arr1.indexOf(id1)] = id2; arr2[arr2.indexOf(id2)] = id1;
+  };
 
   const head = sub => `<h3>${esc(opts.title||t('interact.result.defaultTitle'))}</h3>
                        <div class="sub">${sub}</div>`;
 
-  function finish(win, sl){
+  function finish(win, sw, sl){
     if(done) return; done = true;
     closeModal();
-    const sw = win ? winnerScore(sl, target) : null;
-    /* skipOnNone — '승패 없이'가 단순한 빈칸이 아니라 "안 적기로 했다"는
+    /* skipOnNone — '모름'이 단순한 빈칸이 아니라 "안 적기로 했다"는
        선택이 되는 경우. 결과 기록 강제에서 묶인 사람을 푸는 유일한
        구멍이라 그 표시(skip)를 함께 넘긴다. */
     opts.onSave && opts.onSave(
@@ -421,139 +422,158 @@ function resultDialog(m, opts={}){
       rosterOut());
   }
 
+  function hTrack(id, value, min, max){
+    const pct = Math.max(0, Math.min(1, (value-min)/(max-min))) * 100;
+    return `<div class="rs-hrow">
+      <span class="rs-hend">${min}</span>
+      <div class="rs-htrack" id="rsH${id}" data-min="${min}" data-max="${max}">
+        <div class="rs-hfill" style="width:${pct}%"></div>
+        <div class="rs-hhandle" style="left:${pct}%">${value}</div>
+      </div>
+      <span class="rs-hend">${max}</span>
+    </div>`;
+  }
+
   function draw(){
     const box = $('#modal');
-    if(step==='team'){
-      const r = rosterNow();
-      box.innerHTML = head(t('interact.result.team.hint')) + `
-        <div class="wteam" id="rsRoster">
-          ${['A','B'].map(s=>`<div class="wbtn big" data-side="${s}">
-              <span class="wtag">${t('interact.result.teamTag',{team:s})}</span>
-              <span class="wnm">${nameLine(r[s])}</span></div>`).join('')}
-        </div>
-        ${canPair?`<div class="hint" style="margin-top:2px">${t('interact.result.team.tapHint')}</div>`:''}
-        <div class="row end">
-          <button class="btn" id="rsCancel">${t('interact.result.cancel')}</button>
-          ${opts.noneLabel?`<button class="btn" id="rsNone">${esc(opts.noneLabel)}</button>`:''}
-          <button class="btn primary" id="rsNext">${t('interact.result.team.next')}</button>
-        </div>`;
-    } else {
-      const r = rosterNow();
-      box.innerHTML = head(t('interact.result.slider.hint')) + `
-        <div class="rs-sliders">
-          ${['A','B'].map(s=>`
-            <div class="rs-track" data-side="${s}">
-              <div class="rs-scaleTop">29</div>
-              <div class="rs-handle" id="rsHandle${s}">
-                <span class="rs-score" id="rsScore${s}"></span>
-                <span class="rs-nm">${nameLine(r[s])}</span>
-              </div>
-              <div class="rs-scaleBottom">≤10</div>
-            </div>`).join('')}
-        </div>
-        <div class="seg rs-target" id="rsTarget" style="display:none;justify-content:center;margin:2px 0">
-          <button data-tgt="21">${t('interact.result.target21')}</button>
-          <button data-tgt="25">${t('interact.result.target25')}</button>
-        </div>
-        <div class="hint" id="rsSummary" style="text-align:center;min-height:20px">${t('interact.result.slider.placeholder')}</div>
-        <div class="row end">
-          <button class="btn" id="rsBack">${t('interact.result.back')}</button>
-          ${opts.noneLabel?`<button class="btn" id="rsNone">${esc(opts.noneLabel)}</button>`:''}
-          <button class="btn primary" id="rsSave" disabled>${t('interact.result.slider.confirm')}</button>
-        </div>`;
-      wireSliders();
-      wireTarget();
-      // 기존 기록이 있으면 그 위치를 미리 보여준다 — 확인을 눌러야 그대로 저장된다.
-      if(initWin && initLose!=null) applyPending(initWin==='A'?'B':'A', initLose, initTarget);
-    }
+    const rows = { A: canPair ? curA : origA.map(p=>p.id), B: canPair ? curB : origB.map(p=>p.id) };
+    box.innerHTML = head(opts.sub||'') + `
+      <div class="wteam" id="rsRoster">
+        ${['A','B'].map(s=>`
+          <div class="wbtn big rswin ${winSide===s?'on':''}" data-rsteam="${s}">
+            <span class="wtag">${t('interact.result.teamTag',{team:s})}${winSide===s?' ✓':''}</span>
+            <div class="rs-chiprow">
+              ${rows[s].map(id=>`<span class="rs-chip" data-rschip="${id}">${esc(byId[id]||'?')}</span>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="hint" style="margin-top:2px">${t('interact.result.hint')}</div>
+      ${winSide ? `
+        <div class="rs-scoreSec">
+          <div class="rs-scoreRow"><span class="rs-lbl">${t('interact.result.winScoreLabel')}</span></div>
+          <div class="seg rs-winbtns" id="rsWinBtns">
+            <button data-wm="21" class="${winMode==='21'?'on':''}">${t('interact.result.win21')}</button>
+            <button data-wm="25" class="${winMode==='25'?'on':''}">${t('interact.result.win25')}</button>
+            <button data-wm="26+" class="${winMode==='26+'?'on':''}">${t('interact.result.win26plus')}</button>
+          </div>
+          ${winMode==='26+' ? hTrack('win', winScore||26, 26, 30) : ''}
+          <div class="rs-scoreRow"><span class="rs-lbl">${t('interact.result.loseScoreLabel')}</span></div>
+          ${hTrack('lose', loseScore, 10, 30)}
+        </div>` : ''}
+      <div class="row end">
+        <button class="btn" id="rsCancel">${t('interact.result.cancel')}</button>
+        <button class="btn" id="rsUnknown">${t('interact.result.unknown')}</button>
+        <button class="btn primary" id="rsSave" ${(winSide&&winMode)?'':'disabled'}>${t('interact.result.save')}</button>
+      </div>`;
+    wireChips();
+    wireTeamSelect();
+    wireWinButtons();
+    if(winMode==='26+') wireHTrack('win', 26, 30, v=>{ winScore=v; syncSave(); });
+    if(winSide) wireHTrack('lose', 10, 30, v=>{ loseScore=v; syncSave(); });
     bind();
   }
 
-  function setSide(side, value){
-    const el=$('#rsHandle'+side), sc=$('#rsScore'+side);
-    if(!el) return;
-    el.style.bottom = (valueToPct(value)*100)+'%';
-    sc.textContent = value;
+  function syncSave(){
+    const save=$('#rsSave'); if(save) save.disabled = !(winSide && winMode);
   }
 
-  /* 진 팀 자리·점수·경기 점수(21/25)가 정해질 때마다 화면 세 곳(막대·
-     21/25 토글·요약줄·확인 버튼)을 함께 맞춘다. 드래그 중에도, 21/25를
-     눌렀을 때도 이 한 곳만 부르면 된다. */
-  function applyPending(side, value, tgt){
-    loseSide = side; loseValue = value; target = tgt;
-    const otherSide = side==='A'?'B':'A';
-    const ambiguous = isAmbiguousScore(value);
-    setSide(side, value); setSide(otherSide, winnerScore(value, target));
-
-    const tbox = $('#rsTarget');
-    if(tbox){
-      tbox.style.display = ambiguous ? 'flex' : 'none';
-      tbox.querySelectorAll('[data-tgt]').forEach(b=>b.classList.toggle('on', +b.dataset.tgt===target));
-    }
-    const sum = $('#rsSummary');
-    if(sum) sum.textContent = t('interact.result.slider.summary',
-      {loseTeam:t('interact.result.teamTag',{team:side}), loseValue:value,
-       winTeam:t('interact.result.teamTag',{team:otherSide}), winValue:winnerScore(value, target)});
-    const save = $('#rsSave'); if(save) save.disabled = false;
-  }
-
-  /* 손가락 위치 → 점수. 위쪽이 높은 점수, track 전체가 10~29 스물 칸이다. */
-  function valueFromEvent(track, e){
-    const rect = track.getBoundingClientRect();
-    const relY = Math.min(rect.height, Math.max(0, e.clientY - rect.top));
-    return Math.round(10 + (1 - relY/rect.height)*19);
-  }
-
-  function wireSliders(){
-    $$('#modal .rs-track').forEach(track=>{
-      const side = track.dataset.side;
-      let dragging = false;
-      track.addEventListener('pointerdown', e=>{
+  /* 칩 하나를 다른 팀으로 끌어다 놓으면 그 자리의 칩(또는 그 팀의 첫
+     칩)과 맞바꾼다. 넷을 둘씩 나누는 조합이라 "빈 자리로 옮기기"가
+     아니라 "자리 맞바꾸기"만 있으면 늘 2대2가 유지된다. */
+  function wireChips(){
+    if(!canPair) return;
+    $$('#modal [data-rschip]').forEach(chip=>{
+      let dragging=false, moved=false, sx=0, sy=0;
+      chip.addEventListener('pointerdown', e=>{
         e.preventDefault();
-        track.setPointerCapture(e.pointerId);
-        dragging = true;
-        Sound.play('move');
-        applyPending(side, valueFromEvent(track, e), lastTarget);
+        chip.setPointerCapture(e.pointerId);
+        dragging=true; moved=false; sx=e.clientX; sy=e.clientY;
       });
-      track.addEventListener('pointermove', e=>{
+      chip.addEventListener('pointermove', e=>{
         if(!dragging) return;
-        applyPending(side, valueFromEvent(track, e), target);
+        const dx=e.clientX-sx, dy=e.clientY-sy;
+        if(!moved && Math.hypot(dx,dy)>6){ moved=true; chip.classList.add('dragging'); }
+        if(moved) chip.style.transform=`translate(${dx}px,${dy}px)`;
       });
-      track.addEventListener('pointerup', e=>{
+      chip.addEventListener('pointerup', e=>{
         if(!dragging) return;
-        dragging = false;
-        applyPending(side, valueFromEvent(track, e), target);
-        // 손을 뗀 자리를 이번 판의 기준으로 남긴다 — 저장은 '확인'을 눌러야 일어난다.
+        dragging=false;
+        chip.classList.remove('dragging'); chip.style.transform='';
+        const id1 = chip.dataset.rschip;
+        if(moved){
+          const under = document.elementFromPoint(e.clientX, e.clientY);
+          const dropChip = under && under.closest('[data-rschip]');
+          const dropTeam = under && under.closest('[data-rsteam]');
+          if(dropChip && dropChip.dataset.rschip!==id1){
+            Sound.play('move'); swapChip(id1, dropChip.dataset.rschip); draw();
+          } else if(dropTeam){
+            const targetSide = dropTeam.dataset.rsteam, mySide = sideOf(id1);
+            if(targetSide && targetSide!==mySide){
+              const other = (targetSide==='A'?curA:curB)[0];
+              if(other){ Sound.play('move'); swapChip(id1, other); draw(); }
+            }
+          }
+        }
+        moved=false;
       });
     });
   }
 
-  function wireTarget(){
-    const tbox = $('#rsTarget'); if(!tbox) return;
-    tbox.querySelectorAll('[data-tgt]').forEach(b=>b.onclick=()=>{
-      if(loseSide==null) return;   // 아직 진 팀 자리를 안 정했으면 누를 게 없다
-      Sound.play('tap');
-      lastTarget = +b.dataset.tgt;
-      applyPending(loseSide, loseValue, lastTarget);
+  function wireTeamSelect(){
+    $$('#modal [data-rsteam]').forEach(box=>{
+      box.addEventListener('click', e=>{
+        if(e.target.closest('[data-rschip]')) return;
+        const s = box.dataset.rsteam;
+        Sound.play('tap');
+        winSide = (winSide===s) ? null : s;
+        if(!winSide){ winMode=null; winScore=null; }
+        draw();
+      });
     });
+  }
+
+  function wireWinButtons(){
+    const wb=$('#rsWinBtns'); if(!wb) return;
+    wb.querySelectorAll('[data-wm]').forEach(b=>b.onclick=()=>{
+      Sound.play('tap');
+      winMode = b.dataset.wm;
+      winScore = winMode==='21' ? 21 : winMode==='25' ? 25 : (winScore>=26 ? winScore : 26);
+      draw();
+    });
+  }
+
+  /* 가로 막대 하나(진 팀 점수 · 26점 이상일 때의 이긴 팀 점수)를 손가락
+     위치 → 값으로 잇는다. 두 막대가 서로 다른 값과 범위를 쓰므로
+     id('win'|'lose')로 구별한다. */
+  function wireHTrack(id, min, max, onChange){
+    const track = $('#rsH'+id); if(!track) return;
+    let dragging=false;
+    const apply=e=>{
+      const rect=track.getBoundingClientRect();
+      const relX=Math.min(rect.width, Math.max(0, e.clientX-rect.left));
+      const v=Math.round(min + (relX/rect.width)*(max-min));
+      const pct=(v-min)/(max-min)*100;
+      track.querySelector('.rs-hfill').style.width=pct+'%';
+      const handle=track.querySelector('.rs-hhandle');
+      handle.style.left=pct+'%'; handle.textContent=v;
+      onChange(v);
+    };
+    track.addEventListener('pointerdown', e=>{
+      e.preventDefault(); track.setPointerCapture(e.pointerId);
+      dragging=true; Sound.play('move'); apply(e);
+    });
+    track.addEventListener('pointermove', e=>{ if(dragging) apply(e); });
+    track.addEventListener('pointerup', e=>{ if(!dragging) return; dragging=false; apply(e); });
   }
 
   function bind(){
-    const cancel = $('#rsCancel'); if(cancel) cancel.onclick = closeModal;
-    const none = $('#rsNone'); if(none) none.onclick = ()=>finish(null, null);
-    if(step==='team'){
-      if(canPair) $('#rsRoster').querySelectorAll('[data-side]').forEach(el=>el.onclick=()=>{
-        pairIdx=(pairIdx+1)%3; Sound.play('move'); draw();
-      });
-      $('#rsNext').onclick = ()=>{ step='slider'; Sound.play('tap'); draw(); };
-    } else {
-      const back=$('#rsBack'); if(back) back.onclick = ()=>{ step='team'; draw(); };
-      const save=$('#rsSave'); if(save) save.onclick = ()=>{
-        if(loseSide==null) return;
-        Sound.play('confirm');
-        finish(loseSide==='A'?'B':'A', loseValue);
-      };
-    }
+    $('#rsCancel').onclick = closeModal;
+    $('#rsUnknown').onclick = ()=>finish(null, null, null);
+    $('#rsSave').onclick = ()=>{
+      if(!(winSide && winMode)) return;
+      Sound.play('confirm');
+      finish(winSide, winScore, loseScore);
+    };
   }
 
   openModal('');

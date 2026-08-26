@@ -648,20 +648,18 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'interact.pin.lockedRetry': '{locked} — {time}后可重试',
 'interact.pin.errGeneric': '确认未能成功',
 
-/* result (resultDialog — 比赛结果输入的各个步骤) */
+/* result (resultDialog — 比赛结果输入) */
 'interact.result.defaultTitle': '比赛结果',
 'interact.result.cancel': '取消',
-'interact.result.back': '← 返回',
+'interact.result.unknown': '不清楚',
+'interact.result.save': '保存',
 'interact.result.teamTag': '{team}队',
-'interact.result.team.hint': '请确认这与实际上场的组合一致',
-'interact.result.team.tapHint': '如果配对不对，点一下队伍即可更换 —— 四人分组只有三种方式',
-'interact.result.team.next': '下一步',
-'interact.result.slider.hint': '把负方队伍的名字向上拖到对应比分。胜方比分会自动计算。',
-'interact.result.target21': '21分制',
-'interact.result.target25': '25分制',
-'interact.result.slider.placeholder': '移动上面的滑条来定比分',
-'interact.result.slider.summary': '{winTeam}胜 · {winValue} : {loseValue}',
-'interact.result.slider.confirm': '确认',
+'interact.result.hint': '点一下队伍即可选为获胜方 · 把名牌拖到另一队可互换',
+'interact.result.winScoreLabel': '获胜队伍比分',
+'interact.result.win21': '21分',
+'interact.result.win25': '25分',
+'interact.result.win26plus': '26分以上',
+'interact.result.loseScoreLabel': '落败队伍比分',
 
 /* type (typeDialog — 比赛类型指定弹窗) */
 'interact.type.slotTitle': '指定排队位类型',
@@ -749,8 +747,6 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'actions.result.courtTitle': '{no}号场地比赛结果',
 'actions.result.minsSuffix': ' · {mins}分钟',
 'actions.result.pickWinnerHint': ' — 请选择获胜队伍。不选也可以结束比赛',
-'actions.result.saveAndEnd': '保存结果并结束',
-'actions.result.noneEnd': '不记录胜负结束',
 
 'actions.timeout.autoFinished': '{courts}号场地 — 超过 {max} 分钟，已自动结束',
 
@@ -762,8 +758,6 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'actions.askQueue.cancelDesc': '场次数和记录都不会保留。放错场地或需要清空场地时使用。',
 'actions.askQueue.giveUp': '放弃',
 'actions.askQueue.rematchSub': ' — 结束后以同队放入 Q{qIndex}',
-'actions.askQueue.saveAndRematch': '保存结果并重赛',
-'actions.askQueue.noneRematch': '不记录胜负并重赛',
 
 'actions.move.stateChanged': '期间对局已变化，未能移动',
 'actions.move.queueFilled': 'Q{qIndex} 期间已被填满',
@@ -783,9 +777,6 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'actions.result.startedAtSuffix': ' · {time} 开始',
 'actions.result.needResultHint': ' — 需填写此结果后这四人才能再次出场',
 'actions.result.editLaterHint': ' — 之后仍可修改',
-'actions.common.save': '保存',
-'actions.result.unknownRelease': '不清楚 — 不记录直接放行',
-'actions.result.clearResult': '清除结果',
 'actions.result.releasedNoResult': '已不记录结果直接放行',
 'actions.result.clearedResult': '已清除结果',
 'actions.result.alsoFixedRoster': ' · 分组也已修改',

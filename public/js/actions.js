@@ -482,7 +482,6 @@ function askMatchResult(c){
     { title: t('actions.result.courtTitle',{no:c.no}),
       sub:   `${MT_LBL[c.matchType||'UNKNOWN']}${mins!=null?t('actions.result.minsSuffix',{mins}):''}`
              + t('actions.result.pickWinnerHint'),
-      okLabel:t('actions.result.saveAndEnd'), noneLabel:t('actions.result.noneEnd'),
       onSave(r, roster){ finishCourt(c.no, r, roster); } });
 }
 
@@ -559,8 +558,7 @@ function askCourtToQueue(c, q){
       { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
       { title:t('actions.result.courtTitle',{no:c.no}),
         sub: `${MT_LBL[c.matchType||'UNKNOWN']}${t('actions.result.minsSuffix',{mins})}${t('actions.askQueue.rematchSub',{qIndex:q.index})}`,
-        okLabel:t('actions.askQueue.saveAndRematch'), noneLabel:t('actions.askQueue.noneRematch'),
-        /* 결과 기록 강제가 켜져 있으면 '승패 없이'도 "안 적기로 했다"는
+        /* 결과 기록 강제가 켜져 있으면 '모름'도 "안 적기로 했다"는
            표시를 남겨야 한다. 안 그러면 리매치 팀이 대기열에서 묶여
            코트에 올라가지 못한다. */
         skipOnNone: !!S.settings.requireResult,
@@ -739,9 +737,7 @@ function openResultFor(m, opts={}){
     title: t('actions.result.courtTitle',{no:m.court}),
     sub: `${MT_LBL[m.type||'UNKNOWN']}${t('actions.result.startedAtSuffix',{time:new Date(m.startedAt).toTimeString().slice(0,5)})}`
          + (held ? t('actions.result.needResultHint') : t('actions.result.editLaterHint')),
-    okLabel: t('actions.common.save'),
     // 강제가 켜져 있을 때만 "안 적기로 했다"는 표시를 남긴다. 그래야 풀린다.
-    noneLabel: held ? t('actions.result.unknownRelease') : t('actions.result.clearResult'),
     skipOnNone: held,
     onSave(r, roster){
       let fixed = false;

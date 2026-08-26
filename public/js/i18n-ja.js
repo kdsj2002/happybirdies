@@ -646,20 +646,18 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'interact.pin.lockedRetry': '{locked} — {time}後に再度お試しください',
 'interact.pin.errGeneric': '確認できませんでした',
 
-/* result (resultDialog — 試合結果入力の各ステップ) */
+/* result (resultDialog — 試合結果入力) */
 'interact.result.defaultTitle': '試合結果',
 'interact.result.cancel': 'キャンセル',
-'interact.result.back': '← 戻る',
+'interact.result.unknown': '不明',
+'interact.result.save': '保存',
 'interact.result.teamTag': '{team}チーム',
-'interact.result.team.hint': '実際に対戦した組み合わせと合っているか確認してください',
-'interact.result.team.tapHint': '組み合わせが違う場合はチームをタップして変更してください — 4人を2人ずつ分ける方法は3通りしかありません',
-'interact.result.team.next': '次へ',
-'interact.result.slider.hint': '負けたチームの名前を上にドラッグしてスコアを合わせてください。勝ったチームのスコアは自動で計算されます。',
-'interact.result.target21': '21点制',
-'interact.result.target25': '25点制',
-'interact.result.slider.placeholder': '上のバーを動かしてスコアを決めてください',
-'interact.result.slider.summary': '{winTeam}の勝ち · {winValue} : {loseValue}',
-'interact.result.slider.confirm': '確認',
+'interact.result.hint': 'チームをタップすると勝ちチームに選べます · 名前を別チームへドラッグすると入れ替わります',
+'interact.result.winScoreLabel': '勝ちチームの点数',
+'interact.result.win21': '21点',
+'interact.result.win25': '25点',
+'interact.result.win26plus': '26点以上',
+'interact.result.loseScoreLabel': '負けチームの点数',
 
 /* type (typeDialog — 試合種別指定モーダル) */
 'interact.type.slotTitle': '待機スロットの種別指定',
@@ -747,8 +745,6 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'actions.result.courtTitle': '{no}コート 試合結果',
 'actions.result.minsSuffix': ' · {mins}分',
 'actions.result.pickWinnerHint': ' — 勝ったチームを選んでください。選ばなくても終了できます',
-'actions.result.saveAndEnd': '結果を記録して終了',
-'actions.result.noneEnd': '勝敗なしで終了',
 
 'actions.timeout.autoFinished': '{courts}コート — {max}分経過したため自動的に終了しました',
 
@@ -760,8 +756,6 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'actions.askQueue.cancelDesc': '試合数も記録も残りません。誤って上げてしまった場合や、コートを空ける必要があるときに使ってください。',
 'actions.askQueue.giveUp': 'やめる',
 'actions.askQueue.rematchSub': ' — 終了後、Q{qIndex}に同じチームで上げます',
-'actions.askQueue.saveAndRematch': '結果を記録してリマッチ',
-'actions.askQueue.noneRematch': '勝敗なしでリマッチ',
 
 'actions.move.stateChanged': 'その間に状態が変わったため移動できませんでした',
 'actions.move.queueFilled': 'Q{qIndex}はその間に埋まりました',
@@ -781,9 +775,6 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'actions.result.startedAtSuffix': ' · {time}開始',
 'actions.result.needResultHint': ' — この結果を記録しないと4人が再び出られません',
 'actions.result.editLaterHint': ' — 後で修正できます',
-'actions.common.save': '保存',
-'actions.result.unknownRelease': '不明 — 記録せずに解放',
-'actions.result.clearResult': '結果を削除',
 'actions.result.releasedNoResult': '結果なしで解放しました',
 'actions.result.clearedResult': '結果を削除しました',
 'actions.result.alsoFixedRoster': ' · チーム編成も修正しました',

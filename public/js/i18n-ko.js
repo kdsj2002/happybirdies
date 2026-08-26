@@ -649,20 +649,18 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'interact.pin.lockedRetry': '{locked} — {time} 뒤에 다시 시도하세요',
 'interact.pin.errGeneric': '확인하지 못했습니다',
 
-/* result (resultDialog — 경기 결과 입력의 각 단계) */
+/* result (resultDialog — 경기 결과 입력) */
 'interact.result.defaultTitle': '경기 결과',
 'interact.result.cancel': '취소',
-'interact.result.back': '← 뒤로',
+'interact.result.unknown': '모름',
+'interact.result.save': '저장',
 'interact.result.teamTag': '{team}팀',
-'interact.result.team.hint': '팀 구성이 실제와 같은지 확인하세요',
-'interact.result.team.tapHint': '짝이 다르면 팀을 눌러 바꾸세요 — 나눌 수 있는 방법은 세 가지뿐입니다',
-'interact.result.team.next': '다음',
-'interact.result.slider.hint': '진 팀 이름을 위로 끌어 올려 점수를 맞추세요. 이긴 팀 점수는 자동으로 계산됩니다.',
-'interact.result.target21': '21점 게임',
-'interact.result.target25': '25점 게임',
-'interact.result.slider.placeholder': '위 막대를 움직여 점수를 정하세요',
-'interact.result.slider.summary': '{winTeam} 승 · {winValue} : {loseValue}',
-'interact.result.slider.confirm': '확인',
+'interact.result.hint': '이긴 팀을 누르세요 · 칩을 다른 팀으로 끌면 팀이 바뀝니다',
+'interact.result.winScoreLabel': '이긴 팀 점수',
+'interact.result.win21': '21점',
+'interact.result.win25': '25점',
+'interact.result.win26plus': '26점 이상',
+'interact.result.loseScoreLabel': '진 팀 점수',
 
 /* type (typeDialog — 경기 유형 지정 모달) */
 'interact.type.slotTitle': '대기 슬롯 유형 지정',
@@ -750,8 +748,6 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'actions.result.courtTitle': '{no}코트 경기 결과',
 'actions.result.minsSuffix': ' · {mins}분',
 'actions.result.pickWinnerHint': ' — 이긴 팀을 고르세요. 안 골라도 종료할 수 있습니다',
-'actions.result.saveAndEnd': '결과 남기고 종료',
-'actions.result.noneEnd': '승패 없이 종료',
 
 'actions.timeout.autoFinished': '{courts}코트 — {max}분이 지나 자동으로 마쳤습니다',
 
@@ -763,8 +759,6 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'actions.askQueue.cancelDesc': '게임 수도 기록도 남지 않습니다. 잘못 올렸거나 코트를 비워야 할 때 쓰세요.',
 'actions.askQueue.giveUp': '그만두기',
 'actions.askQueue.rematchSub': ' — 마친 뒤 Q{qIndex}에 같은 팀으로 올립니다',
-'actions.askQueue.saveAndRematch': '결과 남기고 리매치',
-'actions.askQueue.noneRematch': '승패 없이 리매치',
 
 'actions.move.stateChanged': '그 사이 판이 바뀌어 옮기지 못했습니다',
 'actions.move.queueFilled': 'Q{qIndex}가 그 사이 채워졌습니다',
@@ -784,9 +778,6 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'actions.result.startedAtSuffix': ' · {time} 시작',
 'actions.result.needResultHint': ' — 이 결과를 적어야 네 사람이 다시 뜁니다',
 'actions.result.editLaterHint': ' — 나중에 다시 고칠 수 있습니다',
-'actions.common.save': '저장',
-'actions.result.unknownRelease': '모름 — 기록 없이 풀기',
-'actions.result.clearResult': '결과 지우기',
 'actions.result.releasedNoResult': '결과 없이 풀었습니다',
 'actions.result.clearedResult': '결과를 지웠습니다',
 'actions.result.alsoFixedRoster': ' · 팀 구성도 고쳤습니다',

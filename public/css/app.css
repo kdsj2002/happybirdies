@@ -418,53 +418,55 @@ tr:hover td{background:var(--surface)}
 
 .btn.on{border-color:var(--court);background:var(--court-soft);color:var(--court)}
 
-/* 1단계 — 팀 구성 확인. 탭할 수 있는 큰 버튼 한 줄씩(A팀 위, B팀 아래).
-   ── 무엇을 크게 둘 것인가 ─────────────────────────
-   이 창에서 눈이 실제로 읽는 것은 <b>이름</b>이다. 'A팀'·'B팀'은 어느
-   줄인지 가리키는 이름표일 뿐이라 작아도 된다. 체육관 조명 아래에서
-   노안으로 보는 화면이므로 이름에 쓸 수 있는 크기를 다 준다.
-   이름이 길면 자르지 않고 줄을 바꾼다 — 잘린 이름은 못 읽는 이름이다. */
+/* 결과 창 — 한 화면. 위쪽 A팀·B팀 칸을 누르면 그 팀이 이긴 걸로
+   선택된다(칩이 아닌 빈자리를 눌러야 한다 — 칩 위는 드래그 자리다).
+   칩(이름)을 다른 팀 칸으로 끌어다 놓으면 그 자리의 칩과 맞바뀐다. */
 .wteam{display:grid;grid-template-columns:1fr;gap:9px}
 .wbtn{height:auto;min-height:62px;padding:12px 14px;display:flex;flex-direction:column;
       align-items:flex-start;justify-content:center;gap:3px;position:relative;text-align:left}
 .wbtn.big{min-height:78px}
 .wbtn.on{border-color:var(--court);background:var(--court-soft)}
-.wbtn:active{transform:scale(.99)}
-/* 팀 이름표 — 작고 조용하게 */
+.wbtn.rswin{cursor:pointer}
+/* 팀 이름표 — 작고 조용하게. 이겼으면 court green으로 켠다 */
 .wtag{font-size:12px;font-weight:800;letter-spacing:.09em;color:var(--muted)}
 .wbtn.on .wtag{color:var(--court)}
-/* 사람 이름 — 이 창의 주인공 */
-.wnm{font-size:27px;font-weight:800;line-height:1.2;color:var(--text);
-     letter-spacing:-.02em;overflow-wrap:anywhere;max-width:100%}
 td.res-cell.edit{cursor:pointer}
 td.res-cell.edit:hover{background:var(--court-soft)}
 
-/* 2단계 — 진 팀 점수. A팀·B팀 각자의 세로 막대에서 그 팀 이름을 위로
-   끌어 올리면 그 자리가 점수(10~29)다. 반대쪽 막대는 손대지 않아도
-   winnerScore() 규칙으로 계산된 값을 따라 움직인다. 20점 이하 구간은
-   21점제인지 25점제인지 점수만으로 못 가리므로(.rs-target) 작은 선택이
-   함께 뜬다. 자리를 정한 뒤 '확인'을 눌러야 실제로 저장된다 — 드래그
-   도중 손을 떼는 것과 저장은 다른 동작이다. */
-.rs-sliders{display:flex;gap:14px;justify-content:center;margin:4px 0 6px}
-.rs-track{position:relative;width:132px;height:240px;border-radius:14px;
-  background:var(--surface2);border:1px solid var(--line);
-  touch-action:none;cursor:grab}
-.rs-track:active{cursor:grabbing}
-.rs-scaleTop,.rs-scaleBottom{position:absolute;left:0;right:0;text-align:center;
-  font-size:11px;color:var(--muted2);pointer-events:none}
-.rs-scaleTop{top:6px}
-.rs-scaleBottom{bottom:6px}
-/* bottom:0(뒤 JS가 %로 채운다) + translateY(50%)로 핸들 중심을 그
-   위치에 맞춘다 — pointer-events:none이라 드래그는 항상 .rs-track이 받는다. */
-.rs-handle{position:absolute;left:6px;right:6px;bottom:0;transform:translateY(50%);
-  background:var(--surface);border:2px solid var(--court);border-radius:10px;
-  padding:8px 6px;text-align:center;box-shadow:0 4px 10px rgba(22,33,29,.18);
-  display:flex;flex-direction:column;gap:2px;pointer-events:none}
-.rs-score{font-size:22px;font-weight:800;color:var(--court);min-height:26px}
-.rs-nm{font-size:13px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
-/* 21점제/25점제 선택 — .seg(가로 묶음)를 그대로 쓰되, 실제 기록에
-   반영되는 선택이라 다른 .seg보다 눈에 띄게 court green으로 강조한다. */
-.rs-target button.on{background:var(--court);color:#fff}
+/* 팀 구성 칩 — 체육관 조명 아래 노안으로도 읽히도록 이름을 크게 둔다.
+   touch-action:none이라야 드래그 중 화면이 같이 스크롤되지 않는다. */
+.rs-chiprow{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.rs-chip{display:inline-flex;align-items:center;padding:9px 14px;border-radius:20px;
+  background:var(--surface);border:1px solid var(--line);color:var(--text);
+  font-size:17px;font-weight:800;letter-spacing:-.01em;cursor:grab;touch-action:none;
+  user-select:none}
+.rs-chip.dragging{cursor:grabbing;z-index:5;position:relative;border-color:var(--court);
+  box-shadow:0 8px 18px rgba(22,33,29,.22)}
+
+/* 점수 — 이긴 팀을 고르면 뜬다. 이긴 팀 점수는 21 / 25 / 26점 이상 중
+   버튼으로 고르고(26점 이상만 가로 막대로 정확한 값을 정한다), 진 팀
+   점수는 늘 가로 막대(10~30점)로 고른다. 둘 다 규칙으로 계산하지 않고
+   사람이 직접 고른 값을 그대로 저장한다. */
+.rs-scoreSec{margin-top:6px}
+.rs-scoreRow{margin:10px 0 6px}
+.rs-lbl{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--muted)}
+.rs-winbtns{display:flex;width:100%}
+.rs-winbtns button{flex:1}
+.rs-winbtns button.on{background:var(--court);color:#fff}
+.rs-hrow{display:flex;align-items:center;gap:8px}
+.rs-hend{flex:0 0 auto;width:22px;text-align:center;font-size:12px;color:var(--muted2)}
+.rs-htrack{position:relative;flex:1;height:52px;border-radius:14px;
+  background:var(--surface2);border:1px solid var(--line);touch-action:none;cursor:grab}
+.rs-htrack:active{cursor:grabbing}
+.rs-hfill{position:absolute;left:0;top:0;bottom:0;border-radius:14px 0 0 14px;
+  background:var(--court-soft);pointer-events:none}
+/* left:X%(뒤 JS가 채운다) + translate(-50%,-50%)로 핸들 중심을 그 위치에
+   맞춘다 — pointer-events:none이라 드래그는 항상 .rs-htrack이 받는다. */
+.rs-hhandle{position:absolute;top:50%;transform:translate(-50%,-50%);min-width:50px;
+  height:42px;padding:0 8px;border-radius:12px;background:var(--surface);
+  border:2px solid var(--court);display:flex;align-items:center;justify-content:center;
+  font-size:19px;font-weight:800;color:var(--court);pointer-events:none;
+  box-shadow:0 4px 10px rgba(22,33,29,.18)}
 
 /* 드래그 고스트 */
 #ghost{position:fixed;z-index:99;pointer-events:none;width:170px;
@@ -723,11 +725,9 @@ body.docpage .doc-print{margin-top:40px;padding-top:16px;border-top:1px solid va
 
   .modal{padding:16px; max-width:94vw; max-height:80vh}
   .row.end{flex-wrap:wrap}
-  /* 결과 창의 이름 — 폰에서도 최대한 크게. 줄이 바뀌는 것은 괜찮지만
+  /* 결과 창의 이름 칩 — 폰에서도 최대한 크게. 줄이 바뀌는 것은 괜찮지만
      작아지는 것은 안 된다(읽으라고 띄운 화면이다). */
-  .wnm{font-size:24px}
-  .wrow{padding-right:58px}
-  .wrow .wsc{font-size:25px;right:12px}
+  .rs-chip{font-size:15px;padding:8px 12px}
   #toast{bottom:calc(var(--navpad) + 14px)}
 
   .mobile-only{display:block}

@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.20c';
+const APP_VERSION = '2026.08.20d';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -172,10 +172,12 @@ const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gende
        승패만 있는 상태가 정상이고, 아예 둘 다 없는 상태(win=null)도 정상이다.
        '21:15' 같은 한 덩어리 문자열로 저장하면 나중에 세거나 정렬할 수 없다.
 
-     · 이긴 팀 점수(sw)도 함께 적는다. 화면에서는 진 팀 점수만 받고
-       아래 winnerScore() 규칙으로 이긴 쪽을 계산해 그 값도 그대로
-       저장해 둔다 — 계산 규칙이 나중에 바뀌어도 이미 적힌 기록의
-       점수가 따라 바뀌면 안 되기 때문이다. 기록은 그날 있었던 그대로여야 한다.
+     · 이긴 팀 점수(sw)와 진 팀 점수(sl)는 둘 다 결과 입력 창(interact.js
+       resultDialog)에서 사람이 직접 고른 값을 그대로 받는다 — 규칙으로
+       계산하지 않는다. 처음에는 진 팀 점수만 받고 이긴 팀 점수를
+       규칙(21/25/+1)으로 계산해 봤지만, 20점 이하로 졌을 때는 21점제였는지
+       25점제였는지 점수만으로 가릴 수 없어 결국 사람에게 물어야 했다.
+       그럴 바엔 두 점수 다 직접 고르게 하는 편이 더 단순하고 정직하다.
 
      · 사람별 승/패 수는 저장하지 않는다. matches에서 세면 되고, 따로 두면
        둘이 어긋날 자리가 생긴다(경기 도중 사람을 바꾸면 특히 그렇다).
@@ -184,35 +186,6 @@ const powerOf = a => gw(a.grade) * ageFactor(a.birthYear) * genderFactor(a.gende
    따로 옮겨 적을 것은 없다.
    ───────────────────────────────────────────────────────────── */
 
-/* 진 팀 점수에서 이긴 팀 점수를 얻는다 — 대부분은 물어보지 않고 규칙으로
-   정하지만, 20점 이하는 규칙만으로 못 정한다.
-
-     20점 이하로 졌으면    21점제였는지 25점제였는지 알 수 없다 — 예를 들어
-                          진 팀이 15점이면 이긴 팀은 21점(21점제)일 수도
-                          25점(25점제)일 수도 있다. 그래서 이 구간만
-                          target(21|25)을 받아 그대로 쓴다 — 결과 입력
-                          창(interact.js resultDialog)이 진 팀 점수와 함께
-                          21/25 선택을 받아 넘긴다.
-     21~24점으로 졌으면    21점제라면 이미 듀스로 21을 넘겼을 것이므로
-     (듀스)               25점제로 보고 25점.
-     25점 이상으로 졌으면   몇 점제였든 이미 듀스 상한 근처이므로
-     (연장 듀스)           진 팀 점수 + 1.
-
-   isAmbiguousScore(lose)로 20점 이하인지(=target을 물어야 하는 구간인지)
-   미리 확인할 수 있다. */
-function isAmbiguousScore(lose){
-  if(lose==null || lose==='') return false;
-  const l = Math.round(+lose);
-  return isFinite(l) && l <= 20;
-}
-function winnerScore(lose, target){
-  if(lose==null || lose==='') return null;
-  const l = Math.max(0, Math.round(+lose));
-  if(!isFinite(l)) return null;
-  if(l <= 20) return target===25 ? 25 : 21;
-  if(l < 25) return 25;
-  return l + 1;
-}
 /* 결과를 기록에 적는다. r.win이 없으면 "승패 없음"으로 지운다. */
 function applyResult(m, r){
   if(!m) return;
