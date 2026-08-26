@@ -217,6 +217,7 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 화면 언어는 4개(한/영/중/일) — 앱 본체는 클럽 설정값, manual.html만 기기별 | `state.js` `DEFAULTS.lang`, `lang.js` `detect()` |
 | 결과 기록 강제는 새 동호회부터 기본 켬(기존 동호회는 저장된 값 유지) | `state.js` `DEFAULTS.requireResult` |
 | UI 문자열은 키 기반(`t()`), 도움말은 언어별 파일 통째 번역 — 방식이 다른 이유는 전자가 잦은 수정에, 후자가 산문 번역 품질에 최적 | `lang.js` 머리말, `manual.js` 머리말 |
+| 설정 저장/기록 퇴장 버튼은 화면 하단 것과 별개로 위에도 플로팅으로 하나 더 둔다(`.floatbtn`) — 아래 버튼을 `.click()`으로 위임해 로직은 하나만 유지 | `screens.js` `renderSet`/`renderHist` `s_saveFloat`/`btnCloseFloat`, `app.css` `.floatbtn` |
 
 이 표는 "무엇을, 어디서"만 담는다. 왜 그렇게 했는지는 표에 적힌 위치의
 주석을 읽을 것 — 중복해서 옮겨 적지 않는다(옮겨 적으면 코드가 바뀔 때

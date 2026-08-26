@@ -100,8 +100,14 @@ button,input,select{font-family:inherit;font-size:inherit;color:inherit}
 .toggle.on{border-color:var(--court);color:var(--court)}
 .toggle.on .dot{background:var(--court);box-shadow:0 0 10px var(--court)}
 
-.screen{flex:1;min-height:0;display:none}
+.screen{flex:1;min-height:0;display:none;position:relative}
 .screen.on{display:flex;flex-direction:column}
+
+/* 설정/기록 탭은 내용이 길어 저장·퇴장 버튼이 화면 아래에 있으면 스크롤을
+   내려야 닿는다. .pad(스크롤 컨테이너)가 screen 안에서만 움직이므로, 같은
+   버튼을 위쪽에도 하나 더 띄워 스크롤과 무관하게 항상 눌리게 한다. */
+.floatbtn{position:absolute;top:14px;right:18px;z-index:15;
+  box-shadow:0 6px 18px rgba(0,0,0,.35)}
 
 /* ── 대진판 ───────────────────────────────
    위에 코트를 가로로 늘어놓고, 아래를 왼쪽(대기열) / 오른쪽(대기 인원)으로
