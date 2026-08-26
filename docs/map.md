@@ -116,12 +116,14 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 붙는다.
 
 점수는 팀 이름 옆 가로 슬라이더로 고르되 둘이 다르다. 진 팀 막대는
-10~30 아무 값이나 자유롭게 고르고(`#rsH{A|B}`, 승팀이 아닌 쪽), 이긴
-팀 막대는 `SNAP_WIN=[21,25]` 두 자리에만 멈춘다(`wireHTrack`의
-`snapPair`). 다만 진 팀 점수가 `AUTO_FROM=25` 이상이면 이긴 팀 막대는
-`.locked`(pointer-events:none)로 잠기고 **진 팀 점수+1**을 그대로
-보여준다(`syncWinnerRow`) — 그 구간은 몇 점제였든 이미 듀스 상한
-근처라 고를 값이 없기 때문이다. 진 팀 막대를 드래그하는 동안에는
+10~30 아무 값이나 자유롭게 고른다(`#rsH{A|B}`, 승팀이 아닌 쪽). 이긴
+팀 막대는 `autoWinScore(loseScore)`가 진 팀 점수 구간별로 셋 중 하나로
+정한다 — 21점 미만이면 `SNAP_WIN=[21,25]` 두 자리에만 멈춰 직접
+고르고(`wireHTrack`의 `snapPair`), `WIN25_FROM=21` 이상 `AUTO_FROM=25`
+미만이면 25로, `AUTO_FROM=25` 이상이면 **진 팀 점수+1**로 자동
+채운다. 두 자동 구간에서는 이긴 팀 막대가 `.locked`
+(pointer-events:none)로 잠기고 손댈 수 없다(`syncWinnerRow`) — 이미
+정해진 값이라 고를 게 없기 때문이다. 진 팀 막대를 드래그하는 동안에는
 전체를 다시 그리지 않고(다시 그리면 드래그 중인 막대의 포인터 캡처가
 끊긴다) `syncWinnerRow()`만 불러 이긴 팀 줄을 실시간으로 맞춘다. 값은
 슬라이더 손잡이가 아니라 팀 이름 옆의 큰 숫자(`#rsNumA`/`#rsNumB`)로만
@@ -193,8 +195,7 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 대기열로의 이동만 리매치/취소를 물어봄 | `actions.js` `askCourtToQueue` |
 | 최대 경기 시간 도달 시 자동 종료(결과는 비움) | `actions.js` `checkMatchTimeouts` |
 | 배정 직후 10초 코트 테두리 깜박임 | `ui.js` `justAssigned` |
-| 진 팀 점수는 자유 슬라이더, 이긴 팀은 21/25 두 자리로만 멈추는 슬라이더 | `interact.js` `resultDialog` `SNAP_WIN` |
-| 진 팀이 25점 이상이면 이긴 팀 막대를 잠그고 진 팀+1을 자동으로 보여줌 | `interact.js` `resultDialog` `AUTO_FROM`/`syncWinnerRow` |
+| 진 팀 점수는 자유 슬라이더, 이긴 팀은 진 팀 점수 구간별 3단계(21점 미만: 21/25 직접 고름 · 21~24: 25 자동 · 25 이상: 진 팀+1 자동) | `interact.js` `resultDialog` `autoWinScore` |
 | 결과 입력은 한 화면(팀 구성·승팀·점수) + 저장 버튼 | `interact.js` `resultDialog` `#rsSave` |
 | 결과 창 이름 칩은 대진판 칩과 같은 스타일 + 확인 유도용 붉은 깜박임 재활용 | `interact.js` `resultDialog`, `app.css` `.rs-check`/`heldBlink` |
 | 슬라이더 손잡이엔 숫자를 안 넣고 팀 이름 옆 큰 숫자로만 보여줌(드래그 중 손가락에 가림) | `interact.js` `resultDialog` `wireHTrack` |

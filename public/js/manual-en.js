@@ -283,10 +283,11 @@ window.MANUAL_CONTENT.en = (() => {
     <table class="doc-t">
       ${rows([
         ["<b>What does the winning team score?</b>",
-         'The winning team\'s slider only stops at <span class="doc-k">21 or 25</span>. But if the losing ' +
-         "score is <b>25 or higher</b>, the game was already near the deuce cap either way, so the winner's " +
-         'slider locks (grays out) and fills in automatically with <b>the losing score + 1</b> — there is no ' +
-         'value left to pick by hand in that range.'],
+         "It depends on the losing score. Under <b>21</b>, the winner's slider only stops at " +
+         '<span class="doc-k">21 or 25</span> and you pick by hand. At <b>21–24</b>, the game was already ' +
+         "past 21 and continuing, so the slider locks (grays out) and fills in <b>25</b> automatically. At " +
+         '<b>25 or higher</b>, that\'s past 25 too — extended deuce — so it fills in <b>the losing score + ' +
+         "1</b> automatically. Both auto ranges have no value left to pick by hand."],
         ['<b>Unknown</b>',
          'Ends the match without recording a score or a winner. Game count and match time are still ' +
          "recorded normally. Use this when you don't know the result — it's better than entering a made-up value."],

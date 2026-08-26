@@ -360,11 +360,13 @@ $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal();
      · 진 팀 점수 — 가로 막대(10~30)로 자유롭게 고른다. 팀 이름 오른쪽에
        막대가 있고, 그 옆에 지금 값이 굵고 크게 보인다 — 막대의 손잡이
        자체에는 숫자를 넣지 않는다(손가락에 가려 어차피 안 보인다).
-     · 이긴 팀 점수 — 같은 막대지만 <b>21점 · 25점 두 자리에만 멈춘다</b>
-       (`SNAP_WIN`). 다만 진 팀 점수가 <b>25점 이상</b>이면 몇 점제였든
-       이미 듀스 상한 근처이므로 막대를 잠그고 <b>진 팀 점수+1점</b>을
-       그대로 보여준다(`syncWinnerRow`) — 이 구간은 골라 넣을 값이
-       없기 때문이다.
+     · 이긴 팀 점수 — 진 팀 점수 구간에 따라 셋으로 나뉜다(`autoWinScore`).
+       21점 미만이면 막대가 <b>21점 · 25점 두 자리에만</b> 멈춘다
+       (`SNAP_WIN`, 직접 고른다). 21점 이상 25점 미만이면 몇 점제였든
+       이미 21점을 넘겨 이어가는 판이므로 막대를 잠그고 <b>25점</b>으로
+       자동 채운다. 25점 이상이면 그마저 넘긴 연장 듀스이므로 <b>진 팀
+       점수+1점</b>으로 자동 채운다(`syncWinnerRow`) — 두 자동 구간 다
+       골라 넣을 값이 없기 때문이다.
      · 이긴 팀 — 팀 이름(칩이 아니라 이름표·트로피·숫자 쪽)을 누르면
        그 팀이 이긴 걸로 선택되고 트로피(🏆)가 이름 옆에 붙는다.
        다시 누르면 선택이 풀린다.
@@ -373,8 +375,16 @@ $('#mask').addEventListener('click',e=>{ if(e.target===$('#mask')) closeModal();
      roster는 팀 구성을 고쳤을 때만 온다({A:[{id,name}], B:[…]}), 아니면 null.
    ───────────────────────────────────────────────────────────── */
 function resultDialog(m, opts={}){
-  const SNAP_WIN = [21,25];   // 이긴 팀 막대가 멈추는 두 자리
-  const AUTO_FROM = 25;       // 진 팀이 이 점수 이상이면 이긴 팀은 진 팀+1로 잠긴다
+  const SNAP_WIN = [21,25];   // 진 팀이 WIN25_FROM 미만일 때 이긴 팀 막대가 멈추는 두 자리
+  const WIN25_FROM = 21;      // 진 팀이 이 점수 이상이면 이긴 팀은 25로 잠긴다
+  const AUTO_FROM = 25;       // 진 팀이 이 점수 이상이면(WIN25_FROM보다 우선) 이긴 팀은 진 팀+1로 잠긴다
+  /* 진 팀 점수 하나로 이긴 팀 점수가 자동으로 정해지는 구간인지, 정해진다면
+     얼마인지. null이면 손으로 골라야 하는 구간(SNAP_WIN)이다. */
+  function autoWinScore(loseScore){
+    if(loseScore>=AUTO_FROM) return loseScore+1;
+    if(loseScore>=WIN25_FROM) return 25;
+    return null;
+  }
   const nameAt = (arr,names,i) => (names&&names[i]) || (A(arr[i])&&A(arr[i]).name) || '?';
   const origA = (m.A||[]).map((id,i)=>({id, name:nameAt(m.A, m.An, i)}));
   const origB = (m.B||[]).map((id,i)=>({id, name:nameAt(m.B, m.Bn, i)}));
@@ -397,14 +407,14 @@ function resultDialog(m, opts={}){
   }
   snapWinnerScore();
 
-  /* 이긴 팀 쪽 저장값을 SNAP_WIN 중 가까운 쪽으로 맞춘다. 진 팀이
-     AUTO_FROM 이상이면 어차피 화면은 자동값(진 팀+1)을 보여주므로
-     손대지 않는다 — 자동이 풀렸을 때(진 팀 점수를 다시 낮췄을 때)
+  /* 이긴 팀 쪽 저장값을 SNAP_WIN 중 가까운 쪽으로 맞춘다. 진 팀 점수가
+     자동 구간(WIN25_FROM 이상)이면 어차피 화면은 autoWinScore()가 보여
+     주므로 손대지 않는다 — 자동이 풀렸을 때(진 팀 점수를 다시 낮췄을 때)
      돌아갈 값이 필요해서 여기서도 SNAP_WIN 중 하나로 유지해 둔다. */
   function snapWinnerScore(){
     if(!winSide) return;
     const otherScore = winSide==='A' ? scoreB : scoreA;
-    if(otherScore>=AUTO_FROM) return;
+    if(autoWinScore(otherScore)!=null) return;
     const cur = winSide==='A' ? scoreA : scoreB;
     const snapped = Math.abs(cur-SNAP_WIN[0])<=Math.abs(cur-SNAP_WIN[1]) ? SNAP_WIN[0] : SNAP_WIN[1];
     if(winSide==='A') scoreA=snapped; else scoreB=snapped;
@@ -441,8 +451,8 @@ function resultDialog(m, opts={}){
   function scoreRow(s){
     const isWinner = winSide===s;
     const otherScore = s==='A' ? scoreB : scoreA;
-    const auto = isWinner && otherScore>=AUTO_FROM;
-    const shown = auto ? otherScore+1 : (s==='A'?scoreA:scoreB);
+    const auto = isWinner ? autoWinScore(otherScore) : null;
+    const shown = auto!=null ? auto : (s==='A'?scoreA:scoreB);
     const pct = Math.max(0, Math.min(1, (shown-10)/20)) * 100;
     return `<div class="rs-scoreRow ${isWinner?'on':''}">
       <span class="rs-pick" data-rspick="${s}">
@@ -451,7 +461,7 @@ function resultDialog(m, opts={}){
         <span class="rs-bignum" id="rsNum${s}">${shown}</span>
       </span>
       <span class="rs-hend">10</span>
-      <div class="rs-htrack ${auto?'locked':''}" id="rsH${s}">
+      <div class="rs-htrack ${auto!=null?'locked':''}" id="rsH${s}">
         <div class="rs-hfill" style="width:${pct}%"></div>
         <div class="rs-hhandle" style="left:${pct}%"></div>
       </div>
@@ -577,16 +587,16 @@ function resultDialog(m, opts={}){
   function syncWinnerRow(){
     if(!winSide) return;
     const otherScore = winSide==='A' ? scoreB : scoreA;
-    const auto = otherScore>=AUTO_FROM;
-    if(!auto) snapWinnerScore();   // 자동에서 풀렸으면 저장값도 SNAP_WIN 중 하나로 맞춘다
-    const shown = auto ? otherScore+1 : (winSide==='A' ? scoreA : scoreB);
+    const auto = autoWinScore(otherScore);
+    if(auto==null) snapWinnerScore();   // 자동에서 풀렸으면 저장값도 SNAP_WIN 중 하나로 맞춘다
+    const shown = auto!=null ? auto : (winSide==='A' ? scoreA : scoreB);
     const num = $('#rsNum'+winSide); if(num) num.textContent = shown;
     const track = $('#rsH'+winSide);
     if(track){
       const pct = Math.max(0, Math.min(1, (shown-10)/20)) * 100;
       track.querySelector('.rs-hfill').style.width = pct+'%';
       track.querySelector('.rs-hhandle').style.left = pct+'%';
-      track.classList.toggle('locked', auto);
+      track.classList.toggle('locked', auto!=null);
     }
   }
 
@@ -597,7 +607,8 @@ function resultDialog(m, opts={}){
       if(!winSide) return;
       Sound.play('confirm');
       const sl = winSide==='A' ? scoreB : scoreA;
-      const sw = sl>=AUTO_FROM ? sl+1 : (winSide==='A' ? scoreA : scoreB);
+      const auto = autoWinScore(sl);
+      const sw = auto!=null ? auto : (winSide==='A' ? scoreA : scoreB);
       finish(winSide, sw, sl);
     };
   }
