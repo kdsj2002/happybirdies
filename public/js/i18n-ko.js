@@ -466,7 +466,7 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'screens.set.matchWarnSuffix': ' 분 초과 시 코트가 붉게 표시',
 'screens.set.maxMatchHint': '이 시간에 닿으면 <b>경기를 자동으로 마칩니다</b> — 네 명 모두 게임 수가 1 오르고 기록에 남으며 대기 인원으로 내려갑니다. 승패는 비워 둡니다(나중에 기록 화면에서 넣을 수 있습니다). <b>0이면 사용하지 않습니다.</b>',
 'screens.set.requireResultCheckboxLabel': '결과를 적을 때까지 그 네 명을 묶어 둡니다',
-'screens.set.requireResultHint': '켜면 경기가 끝날 때 <b>결과 창이 뜨지 않습니다.</b> 대신 그 네 명의 칩이 <b style="color:var(--cork)">붉게 깜박이며 아무 데로도 움직이지 않습니다</b> — 자동 배치에서도 빠집니다. 다음 판에 넣으려면 결과부터 적어야 합니다.<br> 창을 띄워 봐야 \'나중에\'를 누르게 되고, 그 \'나중에\'가 결국 결과가 안 남는 이유였습니다. 정말 아무도 모르는 판은 결과 창의 <b>모름 — 기록 없이 풀기</b>로 넘길 수 있습니다.',
+'screens.set.requireResultHint': '켜면 결과를 안 적은 그 네 명의 칩이 <b style="color:var(--cork)">붉게 깜박이며 아무 데로도 움직이지 않습니다</b> — 자동 배치에서도 빠집니다. 다음 판에 넣으려면 결과부터 적어야 합니다.<br> 그냥 나중에 적으라고만 해서는 결국 안 적히므로, 이렇게 묶어서 강제합니다. 정말 아무도 모르는 판은 결과 창의 <b>모름 — 기록 없이 풀기</b>로 넘길 수 있습니다.',
 'screens.set.sectionAutomation': '자동화',
 'screens.set.autoAssignCheckboxLabel': '켜기',
 'screens.set.autoPush': '코트 자동 투입',
@@ -741,19 +741,16 @@ window.I18N.ko = Object.assign(window.I18N.ko || {}, {
 'actions.finish.done': '{no}코트 경기를 마쳤습니다',
 
 'actions.result.courtTitle': '{no}코트 경기 결과',
-'actions.result.minsSuffix': ' · {mins}분',
-'actions.result.pickWinnerHint': ' — 이긴 팀을 고르세요. 안 골라도 종료할 수 있습니다',
 
 'actions.timeout.autoFinished': '{courts}코트 — {max}분이 지나 자동으로 마쳤습니다',
 
 'actions.askQueue.title': '{no}코트 → Q{qIndex}',
 'actions.askQueue.sub': '{names} — {mins}분째 경기 중입니다. 이 경기를 어떻게 할까요?',
 'actions.askQueue.rematchTitle': '리매치 — 경기를 마치고 같은 팀으로 대기',
-'actions.askQueue.rematchDesc': '한 판 친 것으로 칩니다. 네 명 모두 게임 수가 1 오르고 기록에 남습니다. 이어서 결과(승패·점수)를 물어봅니다.',
+'actions.askQueue.rematchDesc': '한 판 친 것으로 칩니다. 네 명 모두 게임 수가 1 오르고 기록에 남습니다. 점수는 기본적으로 묻지 않습니다 — 나중에 기록 화면에서 채워 넣거나, 설정의 결과 기록 강제를 켜면 다음에 이 네 명을 쓰려 할 때 받습니다.',
 'actions.askQueue.cancelTitle': '경기 취소 — 없던 일로 하고 대기',
 'actions.askQueue.cancelDesc': '게임 수도 기록도 남지 않습니다. 잘못 올렸거나 코트를 비워야 할 때 쓰세요.',
 'actions.askQueue.giveUp': '그만두기',
-'actions.askQueue.rematchSub': ' — 마친 뒤 Q{qIndex}에 같은 팀으로 올립니다',
 
 'actions.move.stateChanged': '그 사이 판이 바뀌어 옮기지 못했습니다',
 'actions.move.queueFilled': 'Q{qIndex}가 그 사이 채워졌습니다',

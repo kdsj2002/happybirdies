@@ -465,7 +465,7 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'screens.set.matchWarnSuffix': ' min — court turns red past this',
 'screens.set.maxMatchHint': 'When this time is reached, <b>the match ends automatically</b> — all 4 players\' games-played count goes up by 1, it\'s recorded, and they move to the Waiting Pool. Win/loss is left blank (you can fill it in later on the Records screen). <b>Set to 0 to disable.</b>',
 'screens.set.requireResultCheckboxLabel': 'Keep those 4 players held together until a result is entered',
-'screens.set.requireResultHint': 'When on, <b>no result dialog pops up</b> when a match ends. Instead, those 4 players\' chips <b style="color:var(--cork)">blink red and stay put</b> — they\'re also skipped by auto-assign. You have to enter a result before they can go into the next match.<br> Popping up a dialog just gets a "later" tap, and that "later" was the reason results never got recorded. If nobody really remembers the result, you can dismiss it from the result dialog\'s <b>Unknown — Release without Recording</b> option.',
+'screens.set.requireResultHint': 'When on, the chips of the 4 players whose result wasn\'t entered <b style="color:var(--cork)">blink red and stay put</b> — they\'re also skipped by auto-assign. You have to enter a result before they can go into the next match.<br> Just leaving it for "later" is the reason results never got recorded, so this locks it in instead. If nobody really remembers the result, you can dismiss it from the result dialog\'s <b>Unknown — Release without Recording</b> option.',
 'screens.set.sectionAutomation': 'Automation',
 'screens.set.autoAssignCheckboxLabel': 'Turn on',
 'screens.set.autoPush': 'Auto Court Fill',
@@ -740,19 +740,16 @@ window.I18N.en = Object.assign(window.I18N.en || {}, {
 'actions.finish.done': 'Court {no} match finished',
 
 'actions.result.courtTitle': 'Court {no} Match Result',
-'actions.result.minsSuffix': ' · {mins} min',
-'actions.result.pickWinnerHint': ' — pick the winning team. You can end without picking one',
 
 'actions.timeout.autoFinished': 'Court {courts} — auto-finished after {max} minutes',
 
 'actions.askQueue.title': 'Court {no} → Q{qIndex}',
 'actions.askQueue.sub': '{names} — playing for {mins} minutes. What should happen to this match?',
 'actions.askQueue.rematchTitle': 'Rematch — end the match and wait as the same team',
-'actions.askQueue.rematchDesc': "Counts as a completed match. All 4 players' games-played goes up by 1 and it's recorded. You'll then be asked for the result (win/loss, score).",
+'actions.askQueue.rematchDesc': "Counts as a completed match. All 4 players' games-played goes up by 1 and it's recorded. The score isn't asked for by default — add it later from the Records tab, or turn on Require Match Result in Settings to be asked next time these 4 are used.",
 'actions.askQueue.cancelTitle': 'Cancel Match — treat it as if it never happened, and wait',
 'actions.askQueue.cancelDesc': 'No games-played or record is added. Use this if a match was assigned by mistake or the court needs to be cleared.',
 'actions.askQueue.giveUp': 'Cancel',
-'actions.askQueue.rematchSub': ' — after ending, sends the same team to Q{qIndex}',
 
 'actions.move.stateChanged': "The match state changed in the meantime, so the move failed",
 'actions.move.queueFilled': 'Q{qIndex} filled up in the meantime',

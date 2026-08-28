@@ -100,12 +100,17 @@ Firestore 경로는 전부 `clubs/{CLUB}/kv/{docId}`이고 값은
 (`Store.onCalibrated` 콜백, `main.js` 등록부)에 그 코트와 대응하는
 `S.matches[]` 기록의 시작 시각을 한 번만 소급 보정한다.
 
-**결과 기록 강제**(`S.settings.requireResult`, 새 동호회는 기본 켬 —
-기존 동호회는 저장된 값을 그대로 유지)가 켜지면
-결과가 없는 경기의 참가자는 `isHeld(attId)`가 참이 되고, `poolIds()`
-(자동 배치용)에서 빠지며, `moveTo`/`swap`/`moveTeamTo` 등 손으로 옮기는
-모든 경로 앞에 `heldBlock(id)`가 걸린다. 새 이동 경로를 추가하면
-`heldBlock`을 빠뜨리지 않아야 한다.
+**경기를 마칠 때 결과는 기본적으로 묻지 않는다**(`advanceCourtTeam`
+`finishCourt`, `askCourtToQueue`의 리매치 분기 — 둘 다 결과를 물어보는
+창 없이 그냥 끝낸다). 점수는 기록 화면(`openResultFor`)에서 언제든
+나중에 채워 넣을 수 있다.
+
+**결과 기록 강제**(`S.settings.requireResult`, 기본 꺼짐)가 켜지면 그
+"나중에"를 강제로 만든다 — 결과가 없는 경기의 참가자는 `isHeld(attId)`가
+참이 되고, `poolIds()`(자동 배치용)에서 빠지며, `moveTo`/`swap`/
+`moveTeamTo` 등 손으로 옮기는 모든 경로 앞에 `heldBlock(id)`가 걸려
+그 자리에서 결과 입력창을 띄운다. 새 이동 경로를 추가하면 `heldBlock`을
+빠뜨리지 않아야 한다.
 
 **경기 결과 입력**(`interact.js` `resultDialog`)은 한 화면이다. 팀 구성은
 대진판과 같은 `.chip`/`.chip-nm`(이름 칩, `data-rschip`)으로 보여 주고,
@@ -215,7 +220,7 @@ data)`로만 접근하고, 실제 검증(이메일 규격·정원·계정당 상
 | 소유자 자리는 신청서 이메일이 아니라 그 이메일의 구글 인증으로만 확정 | `functions/index.js` `claimOwnership` |
 | `#gate` 카드는 화면보다 길어질 수 있어 자신이 스크롤 컨테이너 | `app.css` `#gate` 규칙 |
 | 화면 언어는 4개(한/영/중/일) — 앱 본체는 클럽 설정값, manual.html만 기기별 | `state.js` `DEFAULTS.lang`, `lang.js` `detect()` |
-| 결과 기록 강제는 새 동호회부터 기본 켬(기존 동호회는 저장된 값 유지) | `state.js` `DEFAULTS.requireResult` |
+| 경기를 마칠 때 결과는 기본적으로 안 물어봄(지금도 나중도) — requireResult 기본 꺼짐 | `state.js` `DEFAULTS.requireResult`, `actions.js` `advanceCourtTeam` |
 | UI 문자열은 키 기반(`t()`), 도움말은 언어별 파일 통째 번역 — 방식이 다른 이유는 전자가 잦은 수정에, 후자가 산문 번역 품질에 최적 | `lang.js` 머리말, `manual.js` 머리말 |
 | 설정 저장/기록 퇴장 버튼은 화면 하단 것과 별개로 위에도 플로팅으로 하나 더 둔다(`.floatbtn`) — 아래 버튼을 `.click()`으로 위임해 로직은 하나만 유지 | `screens.js` `renderSet`/`renderHist` `s_saveFloat`/`btnCloseFloat`, `app.css` `.floatbtn` |
 

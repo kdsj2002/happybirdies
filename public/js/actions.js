@@ -423,66 +423,29 @@ function fillEmptyQueue(q){
 function advanceCourtTeam(c){
   if(!c || !c.members.length) return false;
   if(c.status==='PLAYING'){
-    /* 여기가 경기가 끝나는 유일한 지점이다. 그래서 결과를 여기서 묻는다 —
-       방금 끝난 판을 가장 잘 아는 사람은 지금 코트 앞에 서 있는 운영자다.
-       나중에 기록 화면에서 채워 넣거나 고칠 수도 있지만, 그때는 이미
-       어느 코트가 몇 대 몇이었는지 기억에 의존해야 한다.
-
-       묻기만 하고 여기서 끝내지는 않는다. 실제 종료는 확인을 받은 뒤
-       finishCourt()가 한다 — 취소하면 경기는 그대로 이어진다.
-
-       단, '결과 기록 강제'가 켜져 있으면 여기서는 묻지 않는다. 그때는
-       창을 띄우는 대신 네 사람을 묶어 두고, 다음에 그들을 쓰려 할 때
-       그 자리에서 받는다(heldBlock). 창을 띄워 봐야 '나중에'를 누르게
-       되고, 그 '나중에'가 결국 안 적히는 이유였다. */
-    if(S.settings.requireResult){ finishCourt(c.no, null); return true; }
-    askMatchResult(c);
+    /* 결과는 묻지 않고 그냥 끝낸다 — 창을 띄워 봐야 '나중에'를 누르게
+       되고, 그 '나중에'가 결국 안 적히는 이유였다. 점수는 기본적으로
+       아예 안 남기는 쪽이 기본값이고, 나중에 기록 화면에서 채워 넣을 수
+       있다. '결과 기록 강제'가 켜져 있을 때만 이 네 사람이 묶여서,
+       다음에 그들을 쓰려 할 때 그 자리에서 결과를 받는다(heldBlock). */
+    finishCourt(c.no);
     return true;
   }
   return returnCourtToPool(c);
 }
 
-/* 결과 창에서 확인을 받은 뒤 실제로 경기를 마친다.
-   창이 떠 있는 동안에도 다른 기기가 판을 바꿀 수 있으므로, 코트를 번호로
-   다시 찾고 아직 경기 중인지 확인한 다음에 손을 댄다. */
-function finishCourt(no, result, roster){
+/* 코트를 대기 인원으로 보내며 경기를 마친다 — 결과는 늘 비워 둔다
+   (advanceCourtTeam이 항상 null로 부른다). 다른 기기가 그 사이 판을
+   바꿨을 수 있으므로, 코트를 번호로 다시 찾고 아직 경기 중인지 확인한
+   다음에 손을 댄다. */
+function finishCourt(no){
   const c = S.courts.find(x=>x.no===no);
   if(!c || c.status!=='PLAYING'){ toast(t('actions.finish.matchChanged')); return false; }
   c.members.slice().forEach(flash);
-  tx(()=>{ fixCourtRoster(c, roster); endCourt(c,'POOL',result); },{auto:false});
+  tx(()=>{ endCourt(c,'POOL',null); },{auto:false});
   Sound.play('end');
-  toast(result && result.win ? t('actions.finish.withResult',{no, label:resultLabel(result)})
-      : S.settings.requireResult ? t('actions.finish.doneNeedResult',{no})
-      : t('actions.finish.done',{no}));
+  toast(S.settings.requireResult ? t('actions.finish.doneNeedResult',{no}) : t('actions.finish.done',{no}));
   return true;
-}
-
-/* 결과 창에서 팀 구성을 바로잡았으면 코트와 진행 중인 기록에 함께 반영한다.
-   코트를 안 고치고 기록만 고치면, 곧 이어지는 endCourt가 코트의 옛 유형을
-   기록에 다시 덮어쓴다. 두 곳이 같은 값을 들고 있어야 한다. */
-function fixCourtRoster(c, roster){
-  if(!c || !roster) return false;
-  const ids = [...roster.A.map(p=>p.id), ...roster.B.map(p=>p.id)];
-  // 이 창은 맞교체만 하므로 사람이 늘거나 줄 수 없다. 그래도 한 번 확인한다.
-  if(ids.length!==c.members.length || !ids.every(i=>c.members.includes(i))) return false;
-  c.teams = { A: roster.A.map(p=>p.id), B: roster.B.map(p=>p.id) };
-  c.matchType = mtypeOf(c.members, c.teams);
-  c.typeSource = 'MANUAL';
-  const m = S.matches.find(x=>x.id===c.matchId && !x.endedAt);
-  if(m) applyRoster(m, roster);
-  return true;
-}
-
-/* 종료 직전에 뜨는 결과 입력 창. 창 자체는 interact.js의 resultDialog가
-   그린다(기록 화면에서 나중에 고칠 때도 같은 창을 쓴다). */
-function askMatchResult(c){
-  const mins = c.startedAt ? Math.max(0, Math.round((now()-c.startedAt)/60000)) : null;
-  resultDialog(
-    { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
-    { title: t('actions.result.courtTitle',{no:c.no}),
-      sub:   `${MT_LBL[c.matchType||'UNKNOWN']}${mins!=null?t('actions.result.minsSuffix',{mins}):''}`
-             + t('actions.result.pickWinnerHint'),
-      onSave(r, roster){ finishCourt(c.no, r, roster); } });
 }
 
 /* =====================================================================
@@ -551,25 +514,17 @@ function askCourtToQueue(c, q){
     const a=e.dataset.a;
     closeModal(); Sound.play('tap');
     if(a==='cancel') return void moveCourtTeamToQueue(c.no, q.index, null);
-    /* 리매치는 종료 처리를 그대로 태운다 — 대기 인원으로 보낼 때와 같은
-       결과 창, 같은 endCourt다. 다른 것은 네 명이 흩어지지 않고 그 슬롯에
+    /* 리매치는 결과를 묻지 않고 그대로 마친다 — 대기 인원으로 보낼 때와
+       같다(finishCourt 참고). 다른 것은 네 명이 흩어지지 않고 그 슬롯에
        팀째로 남는다는 것뿐이다. */
-    resultDialog(
-      { A:[...c.teams.A], B:[...c.teams.B], win:null, sw:null, sl:null },
-      { title:t('actions.result.courtTitle',{no:c.no}),
-        sub: `${MT_LBL[c.matchType||'UNKNOWN']}${t('actions.result.minsSuffix',{mins})}${t('actions.askQueue.rematchSub',{qIndex:q.index})}`,
-        /* 결과 기록 강제가 켜져 있으면 '모름'도 "안 적기로 했다"는
-           표시를 남겨야 한다. 안 그러면 리매치 팀이 대기열에서 묶여
-           코트에 올라가지 못한다. */
-        skipOnNone: !!S.settings.requireResult,
-        onSave(r, roster){ moveCourtTeamToQueue(c.no, q.index, r, roster); } });
+    moveCourtTeamToQueue(c.no, q.index, {win:null, sw:null, sl:null});
   });
 }
 
 /* 코트 팀을 대기 슬롯으로 옮긴다.
    result가 있으면(리매치) 경기를 마치고 옮기고, null이면 무효로 하고 옮긴다.
    창이 떠 있는 사이 판이 바뀌었을 수 있으므로 번호로 다시 찾아 확인한다. */
-function moveCourtTeamToQueue(no, qIndex, result, roster){
+function moveCourtTeamToQueue(no, qIndex, result){
   const c = S.courts.find(x=>x.no===no);
   const q = S.queues.find(x=>x.index===qIndex);
   if(!c || !q || !c.members.length){ toast(t('actions.move.stateChanged')); return false; }
@@ -582,12 +537,9 @@ function moveCourtTeamToQueue(no, qIndex, result, roster){
   ids.forEach(flash);
   if(result){
     if(c.status!=='PLAYING'){ toast(t('actions.move.matchEndedNoRematch')); return false; }
-    // 팀 구성을 고쳤으면 여기서 반영한다 — 리매치는 그 팀 그대로 다음 판을
-    // 치는 것이라, 고친 구성이 대기 슬롯에도 그대로 올라가야 한다.
-    tx(()=>{ fixCourtRoster(c, roster); endCourt(c,'REMATCH',result,q); },{auto:false});
+    tx(()=>{ endCourt(c,'REMATCH',result,q); },{auto:false});
     Sound.play('end');
-    toast(t('actions.move.rematchDone',{no, q:landed()})
-      + (result.win ? ` · ${resultLabel(result)}` : ''));
+    toast(t('actions.move.rematchDone',{no, q:landed()}));
   }else{
     tx(()=>{
       abortMatch(c);
