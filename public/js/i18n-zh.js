@@ -465,7 +465,7 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'screens.set.matchWarnSuffix': ' 分钟以上时场地会显示为红色',
 'screens.set.maxMatchHint': '达到这个时长时会<b>自动结束比赛</b> — 四人的场次数各加 1 并计入记录，随后降入候补池。胜负留空（可稍后在记录页面填写）。<b>设为 0 表示不启用。</b>',
 'screens.set.requireResultCheckboxLabel': '在填写结果之前，让这四人保持原组',
-'screens.set.requireResultHint': '开启后，比赛结束时<b>不会弹出结果窗口。</b>取而代之的是这四人的名牌<b style="color:var(--cork)">红色闪烁、不会移动到任何位置</b> — 自动分配也会跳过他们。要进入下一轮，必须先填写结果。<br> 弹窗只会让人点“稍后”，而这个“稍后”正是结果最终没有留下的原因。真的没人记得比分的场次，可以在结果窗口里选<b>不清楚 — 不记录直接放行</b>。',
+'screens.set.requireResultHint': '开启后，还没填写结果的这四人的名牌会<b style="color:var(--cork)">红色闪烁、不会移动到任何位置</b> — 自动分配也会跳过他们。要进入下一轮，必须先填写结果。<br> 只留到"稍后"填往往最终没人填，所以用锁住来强制。真的没人记得比分的场次，可以在结果窗口里选<b>不清楚 — 不记录直接放行</b>。',
 'screens.set.sectionAutomation': '自动化',
 'screens.set.autoAssignCheckboxLabel': '开启',
 'screens.set.autoPush': '场地自动补位',
@@ -740,19 +740,16 @@ window.I18N.zh = Object.assign(window.I18N.zh || {}, {
 'actions.finish.done': '{no}号场地比赛已结束',
 
 'actions.result.courtTitle': '{no}号场地比赛结果',
-'actions.result.minsSuffix': ' · {mins}分钟',
-'actions.result.pickWinnerHint': ' — 请选择获胜队伍。不选也可以结束比赛',
 
 'actions.timeout.autoFinished': '{courts}号场地 — 超过 {max} 分钟，已自动结束',
 
 'actions.askQueue.title': '{no}号场地 → Q{qIndex}',
 'actions.askQueue.sub': '{names} — 已比赛 {mins} 分钟。要如何处理这场比赛？',
 'actions.askQueue.rematchTitle': '重赛 — 结束比赛并以同队等待',
-'actions.askQueue.rematchDesc': '按打完一场处理。四人的场次数各加 1 并计入记录。接下来会询问结果（胜负 · 比分）。',
+'actions.askQueue.rematchDesc': '按打完一场处理。四人的场次数各加 1 并计入记录。默认不会询问比分 —— 之后可在记录标签页补填，或在设置中开启强制记录比赛结果，下次要用这四人时会被要求填写。',
 'actions.askQueue.cancelTitle': '取消比赛 — 当作没发生并等待',
 'actions.askQueue.cancelDesc': '场次数和记录都不会保留。放错场地或需要清空场地时使用。',
 'actions.askQueue.giveUp': '放弃',
-'actions.askQueue.rematchSub': ' — 结束后以同队放入 Q{qIndex}',
 
 'actions.move.stateChanged': '期间对局已变化，未能移动',
 'actions.move.queueFilled': 'Q{qIndex} 期间已被填满',

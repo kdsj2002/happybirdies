@@ -463,7 +463,7 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'screens.set.matchWarnSuffix': ' 分を超えるとコートが赤く表示されます',
 'screens.set.maxMatchHint': 'この時間に達すると<b>試合を自動的に終了します</b> — 4人全員の試合数が1増えて記録に残り、待機プールへ下がります。勝敗は空欄のままにします(後で記録画面から入力できます)。<b>0にすると使用しません。</b>',
 'screens.set.requireResultCheckboxLabel': '結果を記録するまでその4人を固定します',
-'screens.set.requireResultHint': 'オンにすると、試合が終わっても<b>結果ウィンドウは表示されません。</b>代わりにその4人のチップが<b style="color:var(--cork)">赤く点滅し、どこにも動かせなくなります</b> — 自動割り当ての対象からも外れます。次の試合に入れるには、まず結果を記録する必要があります。<br> ウィンドウを表示しても結局「後で」を押されてしまい、その「後で」が結果が残らない原因でした。本当に誰もわからない試合は、結果ウィンドウの<b>不明 — 記録せずに解放</b>で先に進められます。',
+'screens.set.requireResultHint': 'オンにすると、結果を記入していない4人のチップが<b style="color:var(--cork)">赤く点滅し、どこにも動かせなくなります</b> — 自動割り当ての対象からも外れます。次の試合に入れるには、まず結果を記録する必要があります。<br> 「後で」に任せると結局記入されないままになるので、代わりに固定して強制します。本当に誰もわからない試合は、結果ウィンドウの<b>不明 — 記録せずに解放</b>で先に進められます。',
 'screens.set.sectionAutomation': '自動化',
 'screens.set.autoAssignCheckboxLabel': 'オンにする',
 'screens.set.autoPush': 'コート自動投入',
@@ -738,19 +738,16 @@ window.I18N.ja = Object.assign(window.I18N.ja || {}, {
 'actions.finish.done': '{no}コートの試合を終了しました',
 
 'actions.result.courtTitle': '{no}コート 試合結果',
-'actions.result.minsSuffix': ' · {mins}分',
-'actions.result.pickWinnerHint': ' — 勝ったチームを選んでください。選ばなくても終了できます',
 
 'actions.timeout.autoFinished': '{courts}コート — {max}分経過したため自動的に終了しました',
 
 'actions.askQueue.title': '{no}コート → Q{qIndex}',
 'actions.askQueue.sub': '{names} — {mins}分間試合中です。この試合をどうしますか?',
 'actions.askQueue.rematchTitle': 'リマッチ — 試合を終えて同じチームで待機',
-'actions.askQueue.rematchDesc': '1試合したものとして扱います。4人全員の試合数が1増え、記録に残ります。続けて結果(勝敗・点数)を確認します。',
+'actions.askQueue.rematchDesc': '1試合したものとして扱います。4人全員の試合数が1増え、記録に残ります。点数は基本的に聞きません — 後で記録タブから記入するか、設定で結果記録の強制をオンにすると次にこの4人を使おうとしたときに記入を求められます。',
 'actions.askQueue.cancelTitle': '試合キャンセル — なかったことにして待機',
 'actions.askQueue.cancelDesc': '試合数も記録も残りません。誤って上げてしまった場合や、コートを空ける必要があるときに使ってください。',
 'actions.askQueue.giveUp': 'やめる',
-'actions.askQueue.rematchSub': ' — 終了後、Q{qIndex}に同じチームで上げます',
 
 'actions.move.stateChanged': 'その間に状態が変わったため移動できませんでした',
 'actions.move.queueFilled': 'Q{qIndex}はその間に埋まりました',

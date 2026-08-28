@@ -260,9 +260,12 @@ window.MANUAL_CONTENT.en = (() => {
       <b>A rematch team is also not broken up by auto-reorder (the Reorder button).</b></div>
 
     <h3>Match Result (Win/Loss &amp; Score)</h3>
-    <p>Whenever a match ends — <b>double-tap</b>, <b>dragging to the Waiting Pool</b>, and the
-       <b>Rematch</b> above — a result prompt appears. Tapping the <b>Result</b> column in the Records
-       tab later opens the same prompt. Team makeup, winner, and score are all set on one screen.</p>
+    <p>Whenever a match ends — <b>double-tap</b>, <b>dragging to the Waiting Pool</b>, or the
+       <b>Rematch</b> above — the score is <b>not asked for by default.</b> It just ends quietly and the
+       players go down to the Waiting Pool. To fill it in later, tap the <b>Result</b> column in the Records
+       tab — that prompt sets team makeup, winner, and score all on one screen. Turning on <b>Require Match
+       Result</b> below can make that prompt appear right when you try to reuse the four players who
+       haven't gotten a result yet.</p>
 
     <h4>Confirm the team makeup</h4>
     <p>The pairing currently on record (Team A / Team B) shows as name chips — the same chips you see on
@@ -303,14 +306,15 @@ window.MANUAL_CONTENT.en = (() => {
       values. The per-person table shows <b>Wins-Losses</b> together
       (only matches with a recorded result are counted).</div>
 
-    <h3>Require Match Result (can be turned off in Settings)</h3>
-    <p>Recording results is a chore, so just popping up a prompt does not get it filled in reliably. So
-       there is a way to <b>block instead of ask</b>. While Settings → <b>Require Match Result</b> is on:</p>
+    <h3>Require Match Result (can be turned on in Settings)</h3>
+    <p>Recording results is a chore, so just leaving it for "later" does not get it filled in reliably. So
+       there is also a way to <b>block instead of just asking later</b>. While Settings → <b>Require Match
+       Result</b> is on:</p>
     <ul>
-      <li>The <b>result prompt no longer appears</b> when a match ends. It just ends.</li>
-      <li>Instead, those four people's chips <b style="color:var(--cork)">blink red and cannot be moved
-          anywhere.</b> They are excluded from auto-assign too, and even if placed in the Queue they will
-          not move up to a court.</li>
+      <li>When a match ends, the <b>result prompt still does not appear.</b> It just ends.</li>
+      <li>Instead, the four people whose result wasn't entered have chips that
+          <b style="color:var(--cork)">blink red and cannot be moved anywhere.</b> They are excluded from
+          auto-assign too, and even if placed in the Queue they will not move up to a court.</li>
       <li>To put them into the next match, you must <b>enter the result first</b>. Trying to move a locked
           chip opens the result prompt right there — what you were trying to do becomes the same motion as
           what you need to do.</li>
@@ -319,9 +323,10 @@ window.MANUAL_CONTENT.en = (() => {
     <div class="doc-note">For a match where truly no one remembers the score, use
       <b>Unknown — Release Without Recording</b> in the result prompt. Without any escape hatch, those four
       people would stay locked forever. But since it is a deliberate tap, it does not get forgotten by accident.<br>
-      <b>New clubs have this on by default.</b> (Clubs that already existed keep whatever they had chosen.)
-      Turning it on does not lock matches that had already ended — it means results are required from that
-      point forward, not a retroactive interrogation of past matches.</div>
+      <b>This is off by default.</b> If locking people until a result is entered doesn't fit how your club
+      runs, just leave it off — you can still fill in results any time from the Records tab. Turning it on
+      does not lock matches that had already ended — it means results are required from that point forward,
+      not a retroactive interrogation of past matches.</div>
 
     <h3>Records are kept permanently by date</h3>
     <p>A finished match is logged to a permanent ledger by date, <b>separate from that day's match board</b>.

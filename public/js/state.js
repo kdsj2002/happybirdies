@@ -1,5 +1,5 @@
 /* ── 기본 설정 ──────────────────────────────────────────────────── */
-const APP_VERSION = '2026.08.26';
+const APP_VERSION = '2026.08.26a';
 
 const DEFAULTS = {
   clubName:'대진판',
@@ -7,7 +7,7 @@ const DEFAULTS = {
   autoMode:true, autoPushToCourt:true,   // 4명이 차면 무조건 시작하므로 별도 설정은 없앴다
   matchWarnMinutes:18,
   maxMatchMinutes:30,         // 이 시간에 닿으면 경기를 자동으로 마친다 (0이면 사용 안 함)
-  requireResult:true,         // 결과를 적을 때까지 그 네 명을 묶어 둔다 (아래 '결과 기록 강제') — 기본 켬
+  requireResult:false,        // 결과를 적을 때까지 그 네 명을 묶어 둔다 (아래 '결과 기록 강제') — 기본 꺼짐: 점수는 지금도 나중도 안 묻는 쪽이 기본이다
   /* 화면 언어. 기기별 취향이 아니라 클럽 공통값이다 — 같은 클럽의 여러
      태블릿이 서로 다른 언어를 보여주면 안 되므로, main.js가 부팅 때와
      설정 구독으로 받을 때마다 Lang.set(S.settings.lang)을 부른다.
